@@ -1,5 +1,5 @@
 import type { FeatureCollection, Feature, Polygon } from "geojson";
-import parcelsData from "@/data/parcels.geojson";
+import parcelsData from "@/data/parcels.json";
 
 export interface ParcelProperties {
   id: string;
