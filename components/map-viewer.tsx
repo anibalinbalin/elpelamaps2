@@ -3,6 +3,8 @@
 import { useRef } from "react";
 import { Canvas } from "@react-three/fiber";
 import { GoogleTilesLayer } from "./google-tiles-layer";
+import { ParcelLayer } from "./parcel-layer";
+import { GlobeClickHandler } from "./globe-click-handler";
 import { INITIAL_CAMERA_POSITION } from "@/lib/constants";
 
 export function MapViewer() {
@@ -28,7 +30,10 @@ export function MapViewer() {
         <ambientLight intensity={1} />
 
         <GoogleTilesLayer ref={tilesRef} apiToken={apiToken}>
+          <ParcelLayer />
         </GoogleTilesLayer>
+
+        <GlobeClickHandler tilesRef={tilesRef} />
       </Canvas>
     </div>
   );
