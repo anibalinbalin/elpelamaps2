@@ -1,34 +1,37 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
 import { Canvas } from "@react-three/fiber";
 import { GoogleTilesLayer } from "./google-tiles-layer";
-import { ParcelLayer } from "./parcel-layer";
 import { GlobeClickHandler } from "./globe-click-handler";
 import { ScreenProjector } from "./screen-projector";
-import { ParcelPillsOverlay, type PillPosition } from "./parcel-pills";
+import { ParcelPillsOverlay } from "./parcel-pills";
 import { ParcelCard } from "./parcel-card";
 import { TopBar } from "./top-bar";
 import { getParcels } from "@/lib/parcels";
+import { usePillPositions } from "@/lib/use-pill-positions";
 import { CloudLayer } from "./cloud-layer";
-import { CameraFlyIn } from "./camera-fly-in";
-import { INITIAL_CAMERA_POSITION, JOSE_IGNACIO_CENTER } from "@/lib/constants";
+import { INITIAL_CAMERA_POSITION } from "@/lib/constants";
+
+function Overlays({ parcelCount }: { parcelCount: number }) {
+  const positions = usePillPositions((s) => s.positions);
+  const selectedPos = usePillPositions((s) => s.selectedPos);
+
+  return (
+    <>
+      <TopBar parcelCount={parcelCount} />
+      <ParcelPillsOverlay positions={positions} />
+      {selectedPos && (
+        <ParcelCard screenX={selectedPos.x} screenY={selectedPos.y} />
+      )}
+    </>
+  );
+}
 
 export function MapViewer() {
   const apiToken = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const tilesRef = useRef<any>(null);
   const parcels = useMemo(() => getParcels(), []);
-
-  const [pillPositions, setPillPositions] = useState<PillPosition[]>([]);
-  const [selectedScreenPos, setSelectedScreenPos] = useState<{ x: number; y: number } | null>(null);
-
-  const handleProjectionUpdate = useCallback(
-    (pills: PillPosition[], selPos: { x: number; y: number } | null) => {
-      setPillPositions(pills);
-      setSelectedScreenPos(selPos);
-    },
-    []
-  );
 
   if (!apiToken || apiToken === "YOUR_API_KEY_HERE") {
     return (
@@ -40,21 +43,17 @@ export function MapViewer() {
 
   return (
     <div className="relative h-screen w-screen">
-      <Canvas camera={{ position: INITIAL_CAMERA_POSITION }} flat frameloop="demand">
-        <color attach="background" args={[0x111111]} />
-        <ambientLight intensity={1} />
-        <GoogleTilesLayer ref={tilesRef} apiToken={apiToken}>
-          <ParcelLayer />
-          <CloudLayer />
-        </GoogleTilesLayer>
+      <Canvas camera={{ position: INITIAL_CAMERA_POSITION, near: 1, far: 4e7 }}>
+        <color attach="background" args={["#111111"]} />
+        <ambientLight intensity={1.5} />
+        <directionalLight position={[1, 1, 1]} intensity={2} />
+        <GoogleTilesLayer ref={tilesRef} apiToken={apiToken} />
         <GlobeClickHandler tilesRef={tilesRef} />
-        <ScreenProjector tilesRef={tilesRef} onUpdate={handleProjectionUpdate} />
-        <CameraFlyIn tilesRef={tilesRef} targetLat={JOSE_IGNACIO_CENTER.lat} targetLon={JOSE_IGNACIO_CENTER.lon} />
+        <ScreenProjector tilesRef={tilesRef} />
+        <CloudLayer />
       </Canvas>
 
-      <TopBar parcelCount={parcels.features.length} />
-      <ParcelPillsOverlay positions={pillPositions} />
-      {selectedScreenPos && <ParcelCard screenX={selectedScreenPos.x} screenY={selectedScreenPos.y} />}
+      <Overlays parcelCount={parcels.features.length} />
     </div>
   );
 }

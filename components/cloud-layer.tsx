@@ -11,7 +11,7 @@ export function CloudLayer() {
   const uniforms = useMemo(
     () => ({
       uTime: { value: 0 },
-      uOpacity: { value: 0.35 },
+      uOpacity: { value: 0.4 },
     }),
     []
   );
@@ -22,15 +22,11 @@ export function CloudLayer() {
     }
   });
 
-  // In ECEF, Earth's radius is ~6,371,000m. Clouds at ~10km above surface.
-  // This component should be placed INSIDE GoogleTilesLayer to inherit the Z-up to Y-up rotation.
-  const EARTH_RADIUS = 6_371_000;
-  const CLOUD_ALTITUDE = 10_000;
-  const cloudRadius = EARTH_RADIUS + CLOUD_ALTITUDE;
-
+  // With ReorientationPlugin, José Ignacio is at origin.
+  // Place cloud plane at ~2km altitude, covering ~20km area
   return (
-    <mesh>
-      <sphereGeometry args={[cloudRadius, 64, 32]} />
+    <mesh position={[0, 1500, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[30000, 30000, 1, 1]} />
       <shaderMaterial
         ref={materialRef}
         vertexShader={cloudVertexShader}

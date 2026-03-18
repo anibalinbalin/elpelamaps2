@@ -15,29 +15,32 @@ function raycastToLatLon(
   event: PointerEvent,
   camera: Camera,
   gl: WebGLRenderer,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   tiles: any,
 ): { lonDeg: number; latDeg: number } | null {
-  if (!tiles) return null;
+  try {
+    if (!tiles?.group || !tiles?.ellipsoid?.getPositionToCartographic) return null;
 
-  const raycaster = new Raycaster();
-  const mouse = new Vector2();
-  const rect = gl.domElement.getBoundingClientRect();
-  mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-  mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-  raycaster.setFromCamera(mouse, camera);
+    const raycaster = new Raycaster();
+    const mouse = new Vector2();
+    const rect = gl.domElement.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
 
-  const intersects = raycaster.intersectObject(tiles.group, true);
-  if (intersects.length === 0) return null;
+    const intersects = raycaster.intersectObject(tiles.group, true);
+    if (intersects.length === 0) return null;
 
-  const hit = intersects[0];
-  const latLon: { lat: number; lon: number } = { lat: 0, lon: 0 };
-  tiles.ellipsoid.getPositionToCartographic(hit.point, latLon);
+    const hit = intersects[0];
+    const latLon: { lat: number; lon: number } = { lat: 0, lon: 0 };
+    tiles.ellipsoid.getPositionToCartographic(hit.point, latLon);
 
-  return {
-    lonDeg: (latLon.lon * 180) / Math.PI,
-    latDeg: (latLon.lat * 180) / Math.PI,
-  };
+    return {
+      lonDeg: (latLon.lon * 180) / Math.PI,
+      latDeg: (latLon.lat * 180) / Math.PI,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function GlobeClickHandler({ tilesRef }: GlobeClickHandlerProps) {
