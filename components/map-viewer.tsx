@@ -10,7 +10,9 @@ import { ParcelPillsOverlay, type PillPosition } from "./parcel-pills";
 import { ParcelCard } from "./parcel-card";
 import { TopBar } from "./top-bar";
 import { getParcels } from "@/lib/parcels";
-import { INITIAL_CAMERA_POSITION } from "@/lib/constants";
+import { CloudLayer } from "./cloud-layer";
+import { CameraFlyIn } from "./camera-fly-in";
+import { INITIAL_CAMERA_POSITION, JOSE_IGNACIO_CENTER } from "@/lib/constants";
 
 export function MapViewer() {
   const apiToken = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -43,9 +45,11 @@ export function MapViewer() {
         <ambientLight intensity={1} />
         <GoogleTilesLayer ref={tilesRef} apiToken={apiToken}>
           <ParcelLayer />
+          <CloudLayer />
         </GoogleTilesLayer>
         <GlobeClickHandler tilesRef={tilesRef} />
         <ScreenProjector tilesRef={tilesRef} onUpdate={handleProjectionUpdate} />
+        <CameraFlyIn tilesRef={tilesRef} targetLat={JOSE_IGNACIO_CENTER.lat} targetLon={JOSE_IGNACIO_CENTER.lon} />
       </Canvas>
 
       <TopBar parcelCount={parcels.features.length} />
