@@ -7,6 +7,7 @@ export interface ParcelProperties {
   areaSqMeters: number;
   priceUSD: number;
   zoning: string;
+  status: "for-sale" | "sold" | "reserved";
   description?: string;
   contactUrl: string;
   color?: string;

@@ -9,6 +9,7 @@
         "areaSqMeters": 2500,
         "priceUSD": 450000,
         "zoning": "Residential",
+        "status": "for-sale",
         "description": "Premium lot with ocean views near the iconic lighthouse.",
         "contactUrl": "https://wa.me/598XXXXXXXX?text=Interested%20in%20Marina%20Vista"
       },
@@ -33,6 +34,7 @@
         "areaSqMeters": 1800,
         "priceUSD": 320000,
         "zoning": "Residential",
+        "status": "for-sale",
         "description": "Steps from the surf break, ideal for beach lovers.",
         "contactUrl": "https://wa.me/598XXXXXXXX?text=Interested%20in%20Playa%20Brava"
       },
@@ -57,6 +59,7 @@
         "areaSqMeters": 3200,
         "priceUSD": 580000,
         "zoning": "Mixed Use",
+        "status": "for-sale",
         "description": "Expansive parcel overlooking the lagoon, zoned for hospitality.",
         "contactUrl": "https://wa.me/598XXXXXXXX?text=Interested%20in%20Laguna%20Norte"
       },
@@ -81,6 +84,7 @@
         "areaSqMeters": 2100,
         "priceUSD": 390000,
         "zoning": "Residential",
+        "status": "for-sale",
         "description": "Quiet eastern lot with lighthouse views and morning sun.",
         "contactUrl": "https://wa.me/598XXXXXXXX?text=Interested%20in%20Faro%20Este"
       },
@@ -105,6 +109,7 @@
         "areaSqMeters": 4500,
         "priceUSD": 420000,
         "zoning": "Rural Residential",
+        "status": "for-sale",
         "description": "Wooded retreat set back from the coast with complete privacy.",
         "contactUrl": "https://wa.me/598XXXXXXXX?text=Interested%20in%20El%20Bosque"
       },
