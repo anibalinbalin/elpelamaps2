@@ -25,7 +25,7 @@ export function CloudLayer() {
 
   return (
     <mesh
-      position={[0, 1200, 0]}
+      position={[0, 500, 0]}
       rotation={[-Math.PI / 2, 0, 0]}
       raycast={noRaycast}
     >

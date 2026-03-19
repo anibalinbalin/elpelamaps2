@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useRef } from "react";
-import { Canvas } from "@react-three/fiber";
+import { useMemo, useRef, useState } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { GoogleTilesLayer } from "./google-tiles-layer";
 import { GlobeClickHandler } from "./globe-click-handler";
 import { ScreenProjector } from "./screen-projector";
@@ -16,8 +16,21 @@ import { CloudLayer } from "./cloud-layer";
 import { CesiumTerrainLayer } from "./cesium-terrain-layer";
 import { MapboxTerrainLayer } from "./mapbox-terrain-layer";
 import { DrawToolbar } from "./draw-toolbar";
-import { DrawOverlay } from "./draw-overlay";
+import { DrawOverlay, DrawOverlayDOM } from "./draw-overlay";
 import { INITIAL_CAMERA_POSITION } from "@/lib/constants";
+
+function CameraDebug({ onUpdate }: { onUpdate: (pos: string) => void }) {
+  const { camera } = useThree();
+  const lastUpdate = useRef(0);
+  useFrame((state) => {
+    const now = state.clock.elapsedTime;
+    if (now - lastUpdate.current < 0.5) return;
+    lastUpdate.current = now;
+    const p = camera.position;
+    onUpdate(`[${Math.round(p.x)}, ${Math.round(p.y)}, ${Math.round(p.z)}]`);
+  });
+  return null;
+}
 
 interface MapViewerProps {
   drawMode?: boolean;
@@ -39,6 +52,7 @@ export function MapViewer({ drawMode = false }: MapViewerProps) {
   const apiToken = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const tilesRef = useRef<any>(null);
   const parcels = useMemo(() => getParcels(), []);
+  const [camPos, setCamPos] = useState("");
 
   if (!apiToken || apiToken === "YOUR_API_KEY_HERE") {
     return (
@@ -51,6 +65,7 @@ export function MapViewer({ drawMode = false }: MapViewerProps) {
   return (
     <div className="relative h-screen w-screen">
       <Canvas camera={{ position: INITIAL_CAMERA_POSITION, near: 1, far: 4e7 }}>
+        <CameraDebug onUpdate={setCamPos} />
         <AtmosphereLayer>
           <GoogleTilesLayer ref={tilesRef} apiToken={apiToken}>
             <ParcelLayer />
@@ -63,7 +78,13 @@ export function MapViewer({ drawMode = false }: MapViewerProps) {
         </AtmosphereLayer>
       </Canvas>
 
+      {process.env.NODE_ENV === "development" && camPos && (
+        <div className="fixed bottom-2 right-2 z-50 rounded bg-black/80 px-3 py-1.5 font-mono text-xs text-white/80 select-all backdrop-blur">
+          camera: {camPos}
+        </div>
+      )}
       <Overlays parcelCount={parcels.features.length} />
+      {drawMode && <DrawOverlayDOM />}
       {drawMode && <DrawToolbar />}
     </div>
   );

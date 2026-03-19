@@ -5,11 +5,11 @@ export interface ParcelProperties {
   id: string;
   name: string;
   areaSqMeters: number;
-  priceUSD: number;
-  zoning: string;
-  status: "for-sale" | "sold" | "reserved";
+  priceUSD?: number;
+  zoning?: string;
+  status?: "for-sale" | "sold" | "reserved";
   description?: string;
-  contactUrl: string;
+  contactUrl?: string;
   color?: string;
 }
 

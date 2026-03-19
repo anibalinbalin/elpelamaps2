@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { useThree } from "@react-three/fiber";
-import { Camera, Raycaster, Vector2, WebGLRenderer } from "three";
+import { Camera, Matrix4, Raycaster, Vector2, WebGLRenderer } from "three";
 import { useParcelData } from "@/lib/use-parcel-data";
 import { useDrawTool } from "@/lib/use-draw-tool";
 import { useParcelSelection } from "@/lib/use-parcel-selection";
@@ -32,8 +32,12 @@ function raycastToLatLon(
     if (intersects.length === 0) return null;
 
     const hit = intersects[0];
+    // hit.point is in world space; getPositionToCartographic expects ECEF local space
+    const localPoint = hit.point.clone();
+    const inverseMatrix = new Matrix4().copy(tiles.group.matrixWorld).invert();
+    localPoint.applyMatrix4(inverseMatrix);
     const latLon: { lat: number; lon: number } = { lat: 0, lon: 0 };
-    tiles.ellipsoid.getPositionToCartographic(hit.point, latLon);
+    tiles.ellipsoid.getPositionToCartographic(localPoint, latLon);
 
     return {
       lonDeg: (latLon.lon * 180) / Math.PI,

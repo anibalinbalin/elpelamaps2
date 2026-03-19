@@ -6,7 +6,6 @@ import { TilesRenderer, TilesPlugin, GlobeControls, TilesAttributionOverlay, Com
 import { GoogleCloudAuthPlugin, CesiumIonAuthPlugin, TilesFadePlugin, UpdateOnChangePlugin, TileCompressionPlugin, ReorientationPlugin } from "3d-tiles-renderer/plugins";
 import { MathUtils } from "three";
 import { JOSE_IGNACIO_CENTER } from "@/lib/constants";
-import { CloudShadowPlugin } from "@/lib/cloud-shadow-plugin";
 
 interface TilesLayerProps {
   apiToken: string;
@@ -42,11 +41,6 @@ export const GoogleTilesLayer = forwardRef<any, TilesLayerProps>(
         <TilesPlugin plugin={TilesFadePlugin} args={[{ fadeDuration: 300 }]} />
         <TilesPlugin plugin={UpdateOnChangePlugin} />
         <TilesPlugin plugin={TileCompressionPlugin} />
-        <TilesPlugin
-          plugin={CloudShadowPlugin}
-          args={[{ intensity: 0.3, cloudSize: 50000 }]}
-        />
-
         <GlobeControls enableDamping />
         <TilesAttributionOverlay />
         <CompassGizmo />

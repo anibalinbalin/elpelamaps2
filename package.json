@@ -16,6 +16,7 @@
     "@react-three/postprocessing": "^3.0.4",
     "@tailwindcss/postcss": "^4.2.1",
     "@takram/three-atmosphere": "^0.17.0",
+    "@takram/three-clouds": "^0.7.1",
     "@takram/three-geospatial": "^0.7.0",
     "@takram/three-geospatial-effects": "^0.6.0",
     "@types/node": "^25.5.0",

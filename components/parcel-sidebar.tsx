@@ -33,7 +33,7 @@ export function ParcelSidebar() {
     return () => window.removeEventListener("keydown", handleKey);
   }, [isOpen, select]);
 
-  const status = selectedParcel
+  const status = selectedParcel?.status
     ? STATUS_CONFIG[selectedParcel.status]
     : null;
 
@@ -43,7 +43,7 @@ export function ParcelSidebar() {
         isOpen ? "translate-x-0 max-sm:translate-x-0 max-sm:translate-y-0" : "translate-x-full max-sm:translate-x-0 max-sm:translate-y-full"
       }`}
     >
-      {selectedParcel && status && (
+      {selectedParcel && (
         <div className="flex h-full flex-col overflow-y-auto p-6">
           {/* Close button */}
           <button
@@ -73,24 +73,28 @@ export function ParcelSidebar() {
           </h2>
 
           {/* Status badge */}
-          <div className="mt-3">
-            <span
-              className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${status.classes}`}
-            >
-              {status.label}
-            </span>
-          </div>
+          {status && (
+            <div className="mt-3">
+              <span
+                className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${status.classes}`}
+              >
+                {status.label}
+              </span>
+            </div>
+          )}
 
           {/* Key metrics */}
           <div className="mt-6 space-y-4">
-            <div>
-              <div className="text-[10px] font-medium uppercase tracking-[1.5px] text-white/40">
-                Price
+            {selectedParcel.priceUSD != null && selectedParcel.priceUSD > 0 && (
+              <div>
+                <div className="text-[10px] font-medium uppercase tracking-[1.5px] text-white/40">
+                  Price
+                </div>
+                <div className="mt-1 text-lg font-bold text-white">
+                  {formatPrice(selectedParcel.priceUSD)}
+                </div>
               </div>
-              <div className="mt-1 text-lg font-bold text-white">
-                {formatPrice(selectedParcel.priceUSD)}
-              </div>
-            </div>
+            )}
             <div>
               <div className="text-[10px] font-medium uppercase tracking-[1.5px] text-white/40">
                 Area
@@ -99,14 +103,16 @@ export function ParcelSidebar() {
                 {formatArea(selectedParcel.areaSqMeters)}
               </div>
             </div>
-            <div>
-              <div className="text-[10px] font-medium uppercase tracking-[1.5px] text-white/40">
-                Zoning
+            {selectedParcel.zoning && (
+              <div>
+                <div className="text-[10px] font-medium uppercase tracking-[1.5px] text-white/40">
+                  Zoning
+                </div>
+                <div className="mt-1 text-sm font-semibold text-white/90">
+                  {selectedParcel.zoning}
+                </div>
               </div>
-              <div className="mt-1 text-sm font-semibold text-white/90">
-                {selectedParcel.zoning}
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Description */}
@@ -117,16 +123,18 @@ export function ParcelSidebar() {
           )}
 
           {/* CTA button */}
-          <div className="mt-auto pt-6">
-            <a
-              href={selectedParcel.contactUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block w-full rounded-lg bg-cyan-600 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-cyan-500"
-            >
-              Contact via WhatsApp
-            </a>
-          </div>
+          {selectedParcel.contactUrl && (
+            <div className="mt-auto pt-6">
+              <a
+                href={selectedParcel.contactUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full rounded-lg bg-cyan-600 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-cyan-500"
+              >
+                Contact via WhatsApp
+              </a>
+            </div>
+          )}
         </div>
       )}
     </div>

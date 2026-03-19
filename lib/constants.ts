@@ -1,6 +1,6 @@
-export const JOSE_IGNACIO_CENTER = { lat: -34.7925, lon: -54.6335 } as const;
-/** Camera ~1km altitude at a low angle to show terrain relief */
-export const INITIAL_CAMERA_POSITION: [number, number, number] = [3000, 500, 3000];
+export const JOSE_IGNACIO_CENTER = { lat: -34.8295, lon: -54.633 } as const;
+/** Camera positioned to frame Lote1/Lote2 parcels */
+export const INITIAL_CAMERA_POSITION: [number, number, number] = [-567, 1056, -916];
 /** Early afternoon in José Ignacio (Jan 15, ~2:00pm local = 17:00 UTC) */
 export const GOLDEN_HOUR_DATE = new Date("2026-01-15T17:00:00Z");
 export const PARCEL_COLORS: {

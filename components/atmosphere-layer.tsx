@@ -13,19 +13,9 @@ import { Ellipsoid, Geodetic, radians } from "@takram/three-geospatial";
 import { Dithering } from "@takram/three-geospatial-effects/r3f";
 import { JOSE_IGNACIO_CENTER, GOLDEN_HOUR_DATE } from "@/lib/constants";
 
-/**
- * Physically-based atmosphere rendering for the 3D viewer.
- *
- * Provides:
- * - Sky with Rayleigh/Mie scattering (replaces canvas gradient SkyDome)
- * - Aerial perspective (distant terrain fades into blue haze)
- * - Post-process sun + sky illumination (replaces directionalLight + ambientLight)
- * - Tone mapping and anti-aliasing
- */
 export function AtmosphereLayer({ children }: { children: React.ReactNode }) {
   const atmosphereRef = useRef<AtmosphereApi>(null);
 
-  // Set world-to-ECEF matrix to match ReorientationPlugin's recentered origin
   useEffect(() => {
     const atm = atmosphereRef.current;
     if (!atm) return;
@@ -39,7 +29,6 @@ export function AtmosphereLayer({ children }: { children: React.ReactNode }) {
     Ellipsoid.WGS84.getNorthUpEastFrame(ecef, atm.worldToECEFMatrix);
   }, []);
 
-  // Update sun position each frame from golden hour date
   useFrame(() => {
     atmosphereRef.current?.updateByDate(GOLDEN_HOUR_DATE);
   });
