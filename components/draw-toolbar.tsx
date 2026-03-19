@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, type FormEvent } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useDrawTool } from "@/lib/use-draw-tool";
 
 const ZONING_OPTIONS = [
@@ -29,7 +29,6 @@ export function DrawToolbar() {
   } = useDrawTool();
 
   const [showForm, setShowForm] = useState(false);
-  const [savedVertices, setSavedVertices] = useState<[number, number][]>([]);
 
   // Form fields
   const [name, setName] = useState("");
@@ -41,7 +40,6 @@ export function DrawToolbar() {
 
   const resetForm = useCallback(() => {
     setShowForm(false);
-    setSavedVertices([]);
     setName("");
     setPriceUSD(0);
     setZoning(ZONING_OPTIONS[0]);
@@ -57,7 +55,6 @@ export function DrawToolbar() {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Enter" && vertices.length >= 3) {
         e.preventDefault();
-        setSavedVertices([...vertices]);
         setShowForm(true);
       } else if (e.key === "Escape") {
         e.preventDefault();
@@ -72,7 +69,7 @@ export function DrawToolbar() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [active, showForm, vertices, cancelDrawing, removeLastVertex]);
 
-  function handleSubmit(e: FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
 

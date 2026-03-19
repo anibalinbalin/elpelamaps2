@@ -83,7 +83,7 @@ export const cloudFragmentShader = /* glsl */ `
     noiseCoord.x += uTime * 0.01;
     float noise = fbm(noiseCoord);
     float cloud = smoothstep(0.1, 0.6, noise);
-    vec3 cloudColor = mix(vec3(0.85, 0.82, 0.78), vec3(1.0, 0.95, 0.88), cloud);
+    vec3 cloudColor = mix(vec3(0.9, 0.9, 0.92), vec3(1.0, 1.0, 1.0), cloud);
     float alpha = cloud * edgeFade * sideFade * uOpacity;
     gl_FragColor = vec4(cloudColor, alpha);
   }

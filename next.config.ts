@@ -1,7 +1,14 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["three", "3d-tiles-renderer"],
+  transpilePackages: [
+    "three",
+    "3d-tiles-renderer",
+    "@takram/three-atmosphere",
+    "@takram/three-geospatial",
+    "@takram/three-geospatial-effects",
+    "postprocessing",
+  ],
 };
 
 export default nextConfig;

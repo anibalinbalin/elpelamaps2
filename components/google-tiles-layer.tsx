@@ -6,6 +6,7 @@ import { TilesRenderer, TilesPlugin, GlobeControls, TilesAttributionOverlay, Com
 import { GoogleCloudAuthPlugin, CesiumIonAuthPlugin, TilesFadePlugin, UpdateOnChangePlugin, TileCompressionPlugin, ReorientationPlugin } from "3d-tiles-renderer/plugins";
 import { MathUtils } from "three";
 import { JOSE_IGNACIO_CENTER } from "@/lib/constants";
+import { CloudShadowPlugin } from "@/lib/cloud-shadow-plugin";
 
 interface TilesLayerProps {
   apiToken: string;
@@ -13,7 +14,9 @@ interface TilesLayerProps {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const ECEF_ROTATION: any = { rotation: new Euler(-Math.PI / 2, 0, 0) };
+const ECEF_ROTATION: any = {
+  rotation: new Euler(-Math.PI / 2, 0, 0),
+};
 const CESIUM_GOOGLE_3D_TILES = 2275207;
 
 export const GoogleTilesLayer = forwardRef<any, TilesLayerProps>(
@@ -39,6 +42,10 @@ export const GoogleTilesLayer = forwardRef<any, TilesLayerProps>(
         <TilesPlugin plugin={TilesFadePlugin} args={[{ fadeDuration: 300 }]} />
         <TilesPlugin plugin={UpdateOnChangePlugin} />
         <TilesPlugin plugin={TileCompressionPlugin} />
+        <TilesPlugin
+          plugin={CloudShadowPlugin}
+          args={[{ intensity: 0.3, cloudSize: 50000 }]}
+        />
 
         <GlobeControls enableDamping />
         <TilesAttributionOverlay />

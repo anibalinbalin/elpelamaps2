@@ -1,0 +1,31 @@
+diff --git a/node_modules/3d-tiles-renderer/build/WMSCapabilitiesLoader-DngSzqI4.js b/node_modules/3d-tiles-renderer/build/WMSCapabilitiesLoader-DngSzqI4.js
+index 6acc371..401ec04 100644
+--- a/node_modules/3d-tiles-renderer/build/WMSCapabilitiesLoader-DngSzqI4.js
++++ b/node_modules/3d-tiles-renderer/build/WMSCapabilitiesLoader-DngSzqI4.js
+@@ -1334,7 +1334,9 @@ function Di(a, e, t, s) {
+ }
+ function Tn(a) {
+   const { available: e = null, maxzoom: t = null } = a;
+-  return t === null ? e.length - 1 : t;
++  if (t !== null) return t;
++  if (e !== null) return e.length - 1;
++  return 15;
+ }
+ function Bi(a) {
+   const { metadataAvailability: e = -1 } = a;
+diff --git a/node_modules/3d-tiles-renderer/src/three/plugins/QuantizedMeshPlugin.js b/node_modules/3d-tiles-renderer/src/three/plugins/QuantizedMeshPlugin.js
+index 60071ab..097db70 100644
+--- a/node_modules/3d-tiles-renderer/src/three/plugins/QuantizedMeshPlugin.js
++++ b/node_modules/3d-tiles-renderer/src/three/plugins/QuantizedMeshPlugin.js
+@@ -42,7 +42,10 @@ function isTileAvailable( available, level, x, y ) {
+ function getMaxLevel( layer ) {
+ 
+ 	const { available = null, maxzoom = null } = layer;
+-	return maxzoom === null ? available.length - 1 : maxzoom;
++	if ( maxzoom !== null ) return maxzoom;
++	if ( available !== null ) return available.length - 1;
++	// Fallback for layer.json using metadataAvailability without static available array
++	return 15;
+ 
+ }
+ 
