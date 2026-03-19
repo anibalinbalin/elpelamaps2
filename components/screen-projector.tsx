@@ -3,7 +3,7 @@
 import { useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Vector3 } from "three";
-import { getParcels } from "@/lib/parcels";
+import { useParcelData } from "@/lib/use-parcel-data";
 import { centroid, degToRad } from "@/lib/geo-utils";
 import { useParcelSelection } from "@/lib/use-parcel-selection";
 import { usePillPositions } from "@/lib/use-pill-positions";
@@ -15,7 +15,7 @@ interface ScreenProjectorProps {
 
 export function ScreenProjector({ tilesRef }: ScreenProjectorProps) {
   const { camera, size } = useThree();
-  const parcels = useMemo(() => getParcels(), []);
+  const parcels = useParcelData();
   const selectedId = useParcelSelection((s) => s.selectedId);
   const updatePositions = usePillPositions((s) => s.update);
   const tempVec = useMemo(() => new Vector3(), []);
