@@ -12,7 +12,11 @@ import {
 } from "@takram/three-atmosphere/r3f";
 import { Ellipsoid, Geodetic, radians } from "@takram/three-geospatial";
 import { Dithering } from "@takram/three-geospatial-effects/r3f";
-import { JOSE_IGNACIO_CENTER, PRESENTATION_DATE } from "@/lib/constants";
+import {
+  JOSE_IGNACIO_CENTER,
+  VIEWER_LIGHTING_DIRECTIONS,
+  type ViewerLightingDirectionId,
+} from "@/lib/constants";
 import { Color, Matrix4, Object3D } from "three";
 import {
   DecorativeCloudLayer,
@@ -23,17 +27,25 @@ interface AtmosphereLayerProps {
   children: React.ReactNode;
   tilesRef?: React.RefObject<{ group?: Object3D | null } | null>;
   cloudMotionPreset?: CloudMotionPreset;
+  cloudSwooshTick?: number;
+  lightingDirection?: ViewerLightingDirectionId;
 }
 
 export function AtmosphereLayer({
   children,
   tilesRef,
   cloudMotionPreset = "cinematic",
+  cloudSwooshTick = 0,
+  lightingDirection = "natural-midday",
 }: AtmosphereLayerProps) {
   const atmosphereRef = useRef<AtmosphereApi>(null);
   const tilesWorldToECEF = useMemo(() => new Matrix4(), []);
   const lastTilesWorldMatrix = useMemo(() => new Matrix4(), []);
-  const groundAlbedo = useMemo(() => new Color("#d8bea0"), []);
+  const lightingPreset = VIEWER_LIGHTING_DIRECTIONS[lightingDirection];
+  const groundAlbedo = useMemo(
+    () => new Color(lightingPreset.groundAlbedo),
+    [lightingPreset.groundAlbedo],
+  );
   const hasSyncedTilesMatrix = useRef(false);
 
   useEffect(() => {
@@ -47,8 +59,14 @@ export function AtmosphereLayer({
     ).toECEF();
 
     Ellipsoid.WGS84.getNorthUpEastFrame(ecef, atm.worldToECEFMatrix);
-    atm.updateByDate(PRESENTATION_DATE);
   }, []);
+
+  useEffect(() => {
+    const atm = atmosphereRef.current;
+    if (!atm) return;
+
+    atm.updateByDate(lightingPreset.presentationDate);
+  }, [lightingPreset]);
 
   useFrame(() => {
     const atm = atmosphereRef.current;
@@ -71,21 +89,28 @@ export function AtmosphereLayer({
 
   return (
     <Atmosphere ref={atmosphereRef} correctAltitude>
-      <Sky sunAngularRadius={0.0062} groundAlbedo={groundAlbedo} />
+      <Sky
+        sun={lightingPreset.showSun}
+        sunAngularRadius={lightingPreset.sunAngularRadius}
+        groundAlbedo={groundAlbedo}
+      />
       {children}
-      <DecorativeCloudLayer motionPreset={cloudMotionPreset} />
+      <DecorativeCloudLayer
+        motionPreset={cloudMotionPreset}
+        swooshTick={cloudSwooshTick}
+      />
       <EffectComposer enableNormalPass multisampling={0}>
         <AerialPerspective
           sky
           sunLight
           skyLight
           correctGeometricError
-          albedoScale={1.1}
+          albedoScale={lightingPreset.aerialPerspective.albedoScale}
         />
         <ToneMapping
           mode={ToneMappingMode.AGX}
-          whitePoint={14}
-          middleGrey={0.82}
+          whitePoint={lightingPreset.toneMapping.whitePoint}
+          middleGrey={lightingPreset.toneMapping.middleGrey}
         />
         <SMAA />
         <Dithering />
