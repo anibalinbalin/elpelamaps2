@@ -3,7 +3,8 @@
 import { useEffect, useRef } from "react";
 import { MathUtils } from "three";
 import { TilesRenderer } from "3d-tiles-renderer";
-import { CesiumIonAuthPlugin, QuantizedMeshPlugin, ReorientationPlugin, UpdateOnChangePlugin } from "3d-tiles-renderer/plugins";
+import { QuantizedMeshPlugin, ReorientationPlugin, UpdateOnChangePlugin } from "3d-tiles-renderer/plugins";
+import { CesiumIonAuthPlugin } from "3d-tiles-renderer/core/plugins";
 import { useFrame, useThree } from "@react-three/fiber";
 import { JOSE_IGNACIO_CENTER } from "@/lib/constants";
 

@@ -5,7 +5,6 @@ const nextConfig: NextConfig = {
     "three",
     "3d-tiles-renderer",
     "@takram/three-atmosphere",
-    "@takram/three-clouds",
     "@takram/three-geospatial",
     "@takram/three-geospatial-effects",
     "postprocessing",

@@ -1,22 +1,21 @@
 export const cloudVertexShader = /* glsl */ `
   varying vec2 vUv;
-  varying vec3 vWorldPosition;
 
   void main() {
     vUv = uv;
-    vec4 worldPos = modelMatrix * vec4(position, 1.0);
-    vWorldPosition = worldPos.xyz;
-    gl_Position = projectionMatrix * viewMatrix * worldPos;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
 `;
 
 export const cloudFragmentShader = /* glsl */ `
   uniform float uTime;
   uniform float uOpacity;
+  uniform float uScale;
+  uniform float uSeed;
+  uniform vec2 uDrift;
+  uniform vec3 uTint;
   varying vec2 vUv;
-  varying vec3 vWorldPosition;
 
-  // 3D Simplex noise functions (full implementation)
   vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
   vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
   vec4 permute(vec4 x) { return mod289(((x * 34.0) + 10.0) * x); }
@@ -76,15 +75,31 @@ export const cloudFragmentShader = /* glsl */ `
     return value;
   }
 
+  float cloudField(vec2 uv, float time) {
+    vec2 drift = uDrift * time;
+    float large = fbm(vec3(uv * uScale + drift + uSeed, time * 0.01));
+    float medium = fbm(vec3(uv * (uScale * 2.4) - drift * 0.5 + 13.7 + uSeed, time * 0.018));
+    float fine = fbm(vec3(uv * (uScale * 5.2) + drift * 0.25 - 27.3 - uSeed, time * 0.03));
+    float shape = large * 0.9 + medium * 0.35 - fine * 0.18;
+    return smoothstep(0.42, 0.72, shape);
+  }
+
   void main() {
-    float edgeFade = smoothstep(0.0, 0.3, vUv.y) * smoothstep(1.0, 0.7, vUv.y);
-    float sideFade = smoothstep(0.0, 0.2, vUv.x) * smoothstep(1.0, 0.8, vUv.x);
-    vec3 noiseCoord = vec3(vUv * 3.0, uTime * 0.02);
-    noiseCoord.x += uTime * 0.01;
-    float noise = fbm(noiseCoord);
-    float cloud = smoothstep(0.1, 0.6, noise);
-    vec3 cloudColor = mix(vec3(0.9, 0.9, 0.92), vec3(1.0, 1.0, 1.0), cloud);
-    float alpha = cloud * edgeFade * sideFade * uOpacity;
+    vec2 centeredUv = vUv - 0.5;
+    float radialFade = smoothstep(0.82, 0.16, length(centeredUv));
+    float edgeFade = smoothstep(0.02, 0.18, vUv.x);
+    edgeFade *= smoothstep(0.02, 0.18, 1.0 - vUv.x);
+    edgeFade *= smoothstep(0.02, 0.14, vUv.y);
+    edgeFade *= smoothstep(0.02, 0.4, 1.0 - vUv.y);
+
+    float cloud = cloudField(vUv, uTime);
+    float wisps = cloudField(vUv + vec2(2.7, -1.9), uTime * 1.35);
+    float alpha = cloud * mix(0.72, 1.0, wisps) * radialFade * edgeFade * uOpacity;
+
+    vec3 shadowColor = uTint * 0.92;
+    vec3 highlightColor = vec3(1.0);
+    vec3 cloudColor = mix(shadowColor, highlightColor, smoothstep(0.25, 0.9, wisps));
+
     gl_FragColor = vec4(cloudColor, alpha);
   }
 `;

@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import {
   getParcels,
+  mergeParcelCollections,
   type ParcelCollection,
-  type ParcelFeature,
 } from "./parcels";
 import { useDrawTool } from "./use-draw-tool";
 
@@ -12,12 +12,9 @@ export function useParcelData(): ParcelCollection {
 
   return useMemo(() => {
     if (drawnParcels.length === 0) return staticParcels;
-    return {
-      type: "FeatureCollection" as const,
-      features: [
-        ...staticParcels.features,
-        ...drawnParcels,
-      ] as ParcelFeature[],
-    };
+    return mergeParcelCollections(staticParcels, {
+      type: "FeatureCollection",
+      features: drawnParcels,
+    });
   }, [staticParcels, drawnParcels]);
 }

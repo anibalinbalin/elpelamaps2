@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useThree } from "@react-three/fiber";
 import { TilesPlugin } from "3d-tiles-renderer/r3f";
 import { ImageOverlayPlugin, GeoJSONOverlay } from "3d-tiles-renderer/plugins";
@@ -25,21 +25,28 @@ export function ParcelLayer() {
 
   // Memoize args to prevent TilesPlugin from recreating the instance on re-render
   const pluginArgs = useMemo(() => [{ renderer: gl }], [gl]);
+  const styledGeoJSON = useMemo(
+    () => applyFeatureStyles(parcels, hoveredId, selectedId),
+    [parcels, hoveredId, selectedId],
+  );
 
   // Create overlay once plugin is available — retry via useFrame-driven check
   // TilesPlugin sets pluginRef.current via useEffect, which may fire after our first useEffect
   useEffect(() => {
-    if (initDone.current) return;
+    if (initDone.current || overlayRef.current) return;
+
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let cancelled = false;
 
     const tryInit = () => {
+      if (cancelled) return;
+
       const plugin = pluginRef.current;
       if (!plugin || !plugin.addOverlay) {
         // Plugin not ready yet, retry shortly
-        const timer = setTimeout(tryInit, 100);
-        return () => clearTimeout(timer);
+        timer = setTimeout(tryInit, 100);
+        return;
       }
-
-      const styledGeoJSON = applyFeatureStyles(parcels, null, null);
 
       const overlay = new GeoJSONOverlay({
         geojson: styledGeoJSON,
@@ -51,39 +58,32 @@ export function ParcelLayer() {
       plugin.addOverlay(overlay);
       overlayRef.current = overlay;
       initDone.current = true;
+      plugin._markNeedsUpdate?.();
     };
 
-    const cleanup = tryInit();
+    tryInit();
     return () => {
-      if (typeof cleanup === "function") cleanup();
+      cancelled = true;
+      if (timer) clearTimeout(timer);
       if (overlayRef.current && pluginRef.current) {
         pluginRef.current.deleteOverlay(overlayRef.current);
         overlayRef.current = null;
         initDone.current = false;
       }
     };
-  }, []);
+  }, [gl]);
 
-  // Update overlay when parcels data changes (e.g. drawn parcels added)
+  // Update overlay when parcel geometry or styles change.
   useEffect(() => {
     const overlay = overlayRef.current;
+    const plugin = pluginRef.current;
     if (!overlay) return;
 
-    const styledGeoJSON = applyFeatureStyles(parcels, hoveredId, selectedId);
     (overlay as any).geojson = styledGeoJSON; // eslint-disable-line @typescript-eslint/no-explicit-any
     (overlay as any).redraw(); // eslint-disable-line @typescript-eslint/no-explicit-any
-  }, [parcels.features.length]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Update styles when hover or selection changes
-  useEffect(() => {
-    const overlay = overlayRef.current;
-    if (!overlay) return;
-
-    const styledGeoJSON = applyFeatureStyles(parcels, hoveredId, selectedId);
-    // Type defs are incomplete — geojson setter and redraw() exist at runtime
-    (overlay as any).geojson = styledGeoJSON; // eslint-disable-line @typescript-eslint/no-explicit-any
-    (overlay as any).redraw(); // eslint-disable-line @typescript-eslint/no-explicit-any
-  }, [hoveredId, selectedId]);
+    plugin?._markNeedsUpdate?.();
+    plugin?.tiles?.dispatchEvent?.({ type: "needs-update" });
+  }, [styledGeoJSON]);
 
   return (
     <TilesPlugin

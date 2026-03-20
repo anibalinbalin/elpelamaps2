@@ -24,3 +24,14 @@ export function formatPrice(usd: number): string {
 export function formatArea(sqm: number): string {
   return `${sqm.toLocaleString("en-US")} m\u00B2`;
 }
+
+export function formatAreaCompact(areaSqMeters: number): string {
+  if (areaSqMeters >= 10_000) {
+    return `${(areaSqMeters / 10_000).toLocaleString("en-US", {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 2,
+    })} ha`;
+  }
+
+  return `${Math.round(areaSqMeters).toLocaleString("en-US")} sq m`;
+}

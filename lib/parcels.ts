@@ -19,3 +19,20 @@ export type ParcelCollection = FeatureCollection<Polygon, ParcelProperties>;
 export function getParcels(): ParcelCollection {
   return parcelsData as ParcelCollection;
 }
+
+export function mergeParcelCollections(
+  ...collections: ParcelCollection[]
+): ParcelCollection {
+  const byId = new Map<string, ParcelFeature>();
+
+  for (const collection of collections) {
+    for (const feature of collection.features) {
+      byId.set(feature.properties.id, feature);
+    }
+  }
+
+  return {
+    type: "FeatureCollection",
+    features: Array.from(byId.values()),
+  };
+}
