@@ -2,7 +2,15 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { EffectComposer, ToneMapping, SMAA } from "@react-three/postprocessing";
+import {
+  BrightnessContrast,
+  EffectComposer,
+  HueSaturation,
+  N8AO,
+  ToneMapping,
+  SMAA,
+  Vignette,
+} from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
 import {
   Atmosphere,
@@ -38,7 +46,7 @@ export function AtmosphereLayer({
   cloudMotionPreset = "cinematic",
   cloudSwooshTick = 0,
   cloudsCleared = false,
-  lightingDirection = "natural-midday",
+  lightingDirection = "natural-depth",
 }: AtmosphereLayerProps) {
   const atmosphereRef = useRef<AtmosphereApi>(null);
   const tilesWorldToECEF = useMemo(() => new Matrix4(), []);
@@ -103,6 +111,17 @@ export function AtmosphereLayer({
         cloudsCleared={cloudsCleared}
       />
       <EffectComposer enableNormalPass multisampling={0}>
+        <N8AO
+          aoRadius={lightingPreset.ambientOcclusion.aoRadius}
+          intensity={lightingPreset.ambientOcclusion.intensity}
+          distanceFalloff={lightingPreset.ambientOcclusion.distanceFalloff}
+          denoiseRadius={lightingPreset.ambientOcclusion.denoiseRadius}
+          aoSamples={24}
+          denoiseSamples={8}
+          screenSpaceRadius
+          depthAwareUpsampling
+          quality="ultra"
+        />
         <AerialPerspective
           sky
           sunLight
@@ -114,6 +133,15 @@ export function AtmosphereLayer({
           mode={ToneMappingMode.AGX}
           whitePoint={lightingPreset.toneMapping.whitePoint}
           middleGrey={lightingPreset.toneMapping.middleGrey}
+        />
+        <BrightnessContrast
+          brightness={lightingPreset.post.brightness}
+          contrast={lightingPreset.post.contrast}
+        />
+        <HueSaturation saturation={lightingPreset.post.saturation} />
+        <Vignette
+          offset={lightingPreset.post.vignetteOffset}
+          darkness={lightingPreset.post.vignetteDarkness}
         />
         <SMAA />
         <Dithering />

@@ -47,57 +47,53 @@ const LIGHTING_WASHES: Record<
     vignette: CSSProperties;
   }
 > = {
-  "natural-midday": {
+  "natural-depth": {
     sky: {
       background: [
-        "linear-gradient(152deg, rgba(255, 224, 169, 0.18) 0%, rgba(255, 224, 169, 0.06) 22%, rgba(255, 224, 169, 0) 42%)",
-        "radial-gradient(ellipse at 52% -24%, rgba(255, 245, 220, 0.18), rgba(255, 245, 220, 0.07) 24%, rgba(255, 245, 220, 0) 52%)",
-        "linear-gradient(180deg, rgba(69, 148, 236, 0.27) 0%, rgba(108, 184, 244, 0.14) 18%, rgba(160, 214, 245, 0.05) 38%, rgba(160, 214, 245, 0) 62%)",
-        "radial-gradient(ellipse at 54% 80%, rgba(255, 223, 172, 0.08), rgba(255, 223, 172, 0.02) 28%, rgba(255, 223, 172, 0) 56%)",
+        "radial-gradient(ellipse at 50% -18%, rgba(255, 244, 215, 0.17), rgba(255, 244, 215, 0.06) 24%, rgba(255, 244, 215, 0) 56%)",
+        "linear-gradient(180deg, rgba(88, 145, 212, 0.18) 0%, rgba(126, 182, 226, 0.12) 18%, rgba(161, 206, 234, 0.06) 34%, rgba(192, 219, 233, 0.02) 52%, rgba(192, 219, 233, 0) 66%)",
+        "linear-gradient(180deg, rgba(255, 235, 194, 0) 48%, rgba(255, 235, 194, 0.07) 70%, rgba(255, 235, 194, 0.12) 82%, rgba(255, 235, 194, 0.06) 92%, rgba(255, 235, 194, 0) 100%)",
       ].join(", "),
     },
     horizon: {
-      inset: "38% -8% 15% -8%",
+      inset: "42% -9% 12% -9%",
       background: [
-        "linear-gradient(156deg, rgba(255, 221, 160, 0) 12%, rgba(255, 221, 160, 0.18) 36%, rgba(255, 221, 160, 0.05) 58%, rgba(255, 221, 160, 0) 74%)",
-        "linear-gradient(180deg, rgba(184, 222, 255, 0) 0%, rgba(184, 222, 255, 0.16) 28%, rgba(211, 236, 255, 0.18) 48%, rgba(234, 216, 180, 0.13) 64%, rgba(234, 216, 180, 0) 100%)",
-        "radial-gradient(ellipse at 50% 56%, rgba(255, 230, 188, 0.2), rgba(255, 230, 188, 0.08) 42%, rgba(255, 230, 188, 0) 74%)",
+        "linear-gradient(180deg, rgba(174, 214, 245, 0) 0%, rgba(174, 214, 245, 0.1) 22%, rgba(201, 227, 244, 0.18) 40%, rgba(229, 214, 184, 0.18) 58%, rgba(229, 214, 184, 0.07) 72%, rgba(229, 214, 184, 0) 100%)",
+        "radial-gradient(ellipse at 50% 58%, rgba(238, 223, 191, 0.24), rgba(238, 223, 191, 0.11) 36%, rgba(238, 223, 191, 0) 72%)",
       ].join(", "),
-      filter: "blur(30px)",
-      opacity: 0.78,
-      transform: "scale(1.02)",
+      filter: "blur(38px)",
+      opacity: 0.88,
+      transform: "scale(1.04)",
     },
     vignette: {
       background: [
-        "linear-gradient(180deg, rgba(255, 252, 246, 0.065) 0%, rgba(255, 252, 246, 0.028) 16%, rgba(255, 252, 246, 0) 34%, rgba(17, 24, 31, 0.01) 100%)",
-        "radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0) 46%, rgba(17, 24, 31, 0.014) 80%, rgba(13, 18, 24, 0.038) 100%)",
+        "linear-gradient(180deg, rgba(255, 252, 246, 0.045) 0%, rgba(255, 252, 246, 0.015) 16%, rgba(255, 252, 246, 0) 34%, rgba(17, 24, 31, 0.012) 100%)",
+        "radial-gradient(circle at 50% 44%, rgba(255, 255, 255, 0) 50%, rgba(17, 24, 31, 0.02) 82%, rgba(13, 18, 24, 0.052) 100%)",
       ].join(", "),
     },
   },
-  "art-directed-midday": {
+  "cinematic-depth": {
     sky: {
       background: [
-        "radial-gradient(ellipse at 114% -20%, rgba(255, 225, 173, 0.28), rgba(255, 225, 173, 0.1) 24%, rgba(255, 225, 173, 0) 56%)",
-        "linear-gradient(150deg, rgba(255, 216, 156, 0.2) 0%, rgba(255, 216, 156, 0.08) 18%, rgba(255, 216, 156, 0) 38%)",
-        "linear-gradient(180deg, rgba(71, 149, 237, 0.29) 0%, rgba(107, 182, 244, 0.16) 18%, rgba(168, 214, 243, 0.05) 38%, rgba(168, 214, 243, 0) 62%)",
-        "radial-gradient(ellipse at 70% 82%, rgba(255, 216, 153, 0.12), rgba(255, 216, 153, 0.04) 30%, rgba(255, 216, 153, 0) 58%)",
+        "radial-gradient(ellipse at 74% -14%, rgba(255, 218, 159, 0.22), rgba(255, 218, 159, 0.08) 18%, rgba(255, 218, 159, 0) 48%)",
+        "linear-gradient(180deg, rgba(26, 56, 96, 0.26) 0%, rgba(64, 104, 150, 0.18) 18%, rgba(129, 167, 198, 0.08) 36%, rgba(129, 167, 198, 0) 54%)",
+        "linear-gradient(180deg, rgba(255, 204, 132, 0) 42%, rgba(255, 204, 132, 0.16) 62%, rgba(255, 204, 132, 0.24) 78%, rgba(255, 204, 132, 0.12) 90%, rgba(255, 204, 132, 0) 100%)",
       ].join(", "),
     },
     horizon: {
-      inset: "34% -6% 16% -6%",
+      inset: "39% -8% 10% -8%",
       background: [
-        "linear-gradient(120deg, rgba(255, 216, 153, 0) 18%, rgba(255, 216, 153, 0.22) 46%, rgba(255, 216, 153, 0.08) 68%, rgba(255, 216, 153, 0) 82%)",
-        "linear-gradient(180deg, rgba(184, 222, 255, 0) 0%, rgba(184, 222, 255, 0.18) 22%, rgba(212, 236, 255, 0.22) 46%, rgba(240, 208, 152, 0.16) 64%, rgba(240, 208, 152, 0) 100%)",
-        "radial-gradient(ellipse at 62% 54%, rgba(255, 225, 173, 0.24), rgba(255, 225, 173, 0.1) 42%, rgba(255, 225, 173, 0) 72%)",
+        "linear-gradient(180deg, rgba(151, 191, 220, 0) 0%, rgba(151, 191, 220, 0.06) 14%, rgba(199, 216, 222, 0.18) 28%, rgba(240, 189, 121, 0.3) 46%, rgba(240, 189, 121, 0.24) 60%, rgba(240, 189, 121, 0.09) 76%, rgba(240, 189, 121, 0) 100%)",
+        "radial-gradient(ellipse at 58% 58%, rgba(255, 211, 146, 0.34), rgba(255, 211, 146, 0.16) 32%, rgba(255, 211, 146, 0) 70%)",
       ].join(", "),
-      filter: "blur(36px)",
-      opacity: 0.82,
-      transform: "scale(1.06)",
+      filter: "blur(54px)",
+      opacity: 1,
+      transform: "scale(1.1)",
     },
     vignette: {
       background: [
-        "linear-gradient(180deg, rgba(255, 255, 255, 0.052) 0%, rgba(255, 255, 255, 0.022) 16%, rgba(255, 255, 255, 0) 34%, rgba(7, 18, 30, 0.012) 100%)",
-        "radial-gradient(circle at 54% 40%, rgba(255, 255, 255, 0) 46%, rgba(9, 23, 38, 0.018) 78%, rgba(6, 14, 24, 0.046) 100%)",
+        "linear-gradient(180deg, rgba(5, 18, 33, 0.14) 0%, rgba(5, 18, 33, 0.03) 18%, rgba(255, 255, 255, 0) 34%, rgba(7, 18, 30, 0.034) 100%)",
+        "radial-gradient(circle at 54% 44%, rgba(255, 255, 255, 0) 46%, rgba(8, 20, 35, 0.04) 78%, rgba(4, 12, 22, 0.1) 100%)",
       ].join(", "),
     },
   },
@@ -140,10 +136,10 @@ function LightingDirectionToggle({
       <div className="pointer-events-auto flex w-full max-w-[980px] flex-wrap items-stretch gap-2 rounded-[30px] border border-white/12 bg-[rgba(18,24,32,0.72)] p-2 text-white shadow-[0_24px_70px_rgba(4,16,28,0.28)] backdrop-blur-xl">
         <div className="flex min-w-[132px] flex-1 flex-col justify-center px-3 py-2">
           <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/42">
-            Lighting
+            Depth
           </div>
           <div className="mt-1 text-[13px] text-white/62">
-            Compare the two midday directions.
+            Compare grounded versus more art-directed terrain depth.
           </div>
         </div>
 
@@ -265,13 +261,22 @@ export function MapViewer({ drawMode = false }: MapViewerProps) {
         <AtmosphereLayer
           tilesRef={tilesRef}
           cloudMotionPreset={
-            lightingDirection === "natural-midday" ? "subtle" : "cinematic"
+            lightingDirection === "natural-depth" ? "subtle" : "cinematic"
           }
           cloudSwooshTick={cloudSwooshTick}
           cloudsCleared={cloudsCleared}
           lightingDirection={lightingDirection}
         >
-          <GoogleTilesLayer ref={tilesRef} apiToken={apiToken}>
+          <GoogleTilesLayer
+            ref={tilesRef}
+            apiToken={apiToken}
+            tileRelief={
+              VIEWER_LIGHTING_DIRECTIONS[lightingDirection].tileRelief
+            }
+            terrainDisplacementScale={
+              VIEWER_LIGHTING_DIRECTIONS[lightingDirection].terrainDisplacementScale
+            }
+          >
             <ParcelLayer />
           </GoogleTilesLayer>
           <GlobeClickHandler tilesRef={tilesRef} />

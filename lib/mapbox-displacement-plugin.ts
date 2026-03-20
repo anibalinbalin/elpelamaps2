@@ -37,6 +37,13 @@ interface WrappedMaterial extends Material {
   onBeforeCompile: (shader: any, renderer: any) => void;
 }
 
+interface UniformRef<T> {
+  value: T;
+}
+
+const UNIFORM_MARKER = "MAPBOX_DISPLACEMENT_UNIFORMS";
+const PROJECT_MARKER = "MAPBOX_DISPLACEMENT_PROJECT";
+
 /** Decode Mapbox terrain-RGB pixel to elevation in meters */
 function decodeElevation(r: number, g: number, b: number): number {
   return -10000 + (r * 256 * 256 + g * 256 + b) * 0.1;
@@ -125,13 +132,16 @@ function wrapMaterial(
   bounds: { latMin: number; latMax: number; lonMin: number; lonMax: number },
   centerLat: number,
   centerLon: number,
-  scale: number
+  scale: number,
+  scaleUniforms: Set<UniformRef<number>>,
 ) {
   if (material[WRAPPED]) return;
   material[WRAPPED] = true;
 
   const prev = material.onBeforeCompile?.bind(material);
   const meters = metersPerDegree(centerLat);
+  const elevationScaleUniform: UniformRef<number> = { value: scale };
+  scaleUniforms.add(elevationScaleUniform);
 
   // Precompute bounds in local meters (relative to center)
   const localMinX = (bounds.lonMin - centerLon) * meters.lon;
@@ -143,24 +153,27 @@ function wrapMaterial(
     if (prev) prev(shader, renderer);
 
     shader.uniforms.elevationMap = { value: texture };
-    shader.uniforms.elevationScale = { value: scale };
+    shader.uniforms.elevationScale = elevationScaleUniform;
     shader.uniforms.elevationBoundsMin = { value: [localMinX, localMinZ] };
     shader.uniforms.elevationBoundsMax = { value: [localMaxX, localMaxZ] };
 
-    // Inject uniforms before main()
-    shader.vertexShader = shader.vertexShader.replace(
-      /void main\(\)\s*\{/,
-      `uniform sampler2D elevationMap;
+    if (!shader.vertexShader.includes(UNIFORM_MARKER)) {
+      shader.vertexShader = shader.vertexShader.replace(
+        /void main\(\)\s*\{/,
+        `// ${UNIFORM_MARKER}
+uniform sampler2D elevationMap;
 uniform float elevationScale;
 uniform vec2 elevationBoundsMin;
 uniform vec2 elevationBoundsMax;
 void main() {`
-    );
+      );
+    }
 
-    // Replace the projection step to add displacement
-    shader.vertexShader = shader.vertexShader.replace(
-      /#include <project_vertex>/,
-      `// Compute world position
+    if (!shader.vertexShader.includes(PROJECT_MARKER)) {
+      shader.vertexShader = shader.vertexShader.replace(
+        /#include <project_vertex>/,
+        `// ${PROJECT_MARKER}
+// Compute world position from the current local vertex
 vec4 dispWorldPos = modelMatrix * vec4(transformed, 1.0);
 
 // Map world XZ to elevation texture UV
@@ -169,11 +182,11 @@ vec2 elevUV = (dispWorldPos.xz - elevationBoundsMin) / (elevationBoundsMax - ele
 // Sample elevation — clamp UV so tiles outside coverage get edge values
 // (no edge fade = same world position always gets same displacement = no seam morphing)
 float elevation = texture2D(elevationMap, clamp(elevUV, 0.0, 1.0)).r;
-dispWorldPos.y += elevation * elevationScale;
+transformed.y += elevation * elevationScale;
 
-vec4 mvPosition = viewMatrix * dispWorldPos;
-gl_Position = projectionMatrix * mvPosition;`
-    );
+#include <project_vertex>`
+      );
+    }
   };
 
   material.needsUpdate = true;
@@ -185,7 +198,8 @@ function traverseAndWrap(
   bounds: { latMin: number; latMax: number; lonMin: number; lonMax: number },
   centerLat: number,
   centerLon: number,
-  scale: number
+  scale: number,
+  scaleUniforms: Set<UniformRef<number>>,
 ) {
   scene.traverse((child) => {
     const mesh = child as Mesh;
@@ -193,7 +207,15 @@ function traverseAndWrap(
 
     if (Array.isArray(mesh.material)) {
       mesh.material.forEach((m) =>
-        wrapMaterial(m as WrappedMaterial, texture, bounds, centerLat, centerLon, scale)
+        wrapMaterial(
+          m as WrappedMaterial,
+          texture,
+          bounds,
+          centerLat,
+          centerLon,
+          scale,
+          scaleUniforms,
+        )
       );
     } else {
       wrapMaterial(
@@ -202,7 +224,8 @@ function traverseAndWrap(
         bounds,
         centerLat,
         centerLon,
-        scale
+        scale,
+        scaleUniforms,
       );
     }
   });
@@ -217,9 +240,23 @@ export class MapboxDisplacementPlugin {
   private _texture: DataTexture | null = null;
   private _bounds: { latMin: number; latMax: number; lonMin: number; lonMax: number } | null = null;
   private _ready = false;
+  private _scaleUniforms = new Set<UniformRef<number>>();
+  private _scale = 3;
 
   constructor(config: DisplacementConfig) {
     this._config = config;
+    this.scale = config.scale ?? 3;
+  }
+
+  get scale() {
+    return this._scale;
+  }
+
+  set scale(value: number) {
+    this._scale = value;
+    for (const uniform of this._scaleUniforms) {
+      uniform.value = value;
+    }
   }
 
   init(tiles: any) {
@@ -235,15 +272,20 @@ export class MapboxDisplacementPlugin {
       this._bounds = result.bounds;
       this._ready = true;
 
-      let minH = Infinity, maxH = -Infinity;
-      const data = result.texture.image.data as Float32Array;
-      for (let i = 0; i < data.length; i++) {
-        if (data[i] < minH) minH = data[i];
-        if (data[i] > maxH) maxH = data[i];
-      }
-      console.log(
-        `[MapboxDisplacement] Ready — elevation ${minH.toFixed(1)}m to ${maxH.toFixed(1)}m, scale ${this._config.scale ?? 3}x`
-      );
+      tiles.traverse((tile: any) => {
+        if (tile.engineData?.scene) {
+          traverseAndWrap(
+            tile.engineData.scene,
+            this._texture!,
+            this._bounds!,
+            this._config.centerLat,
+            this._config.centerLon,
+            this.scale,
+            this._scaleUniforms,
+          );
+        }
+      }, null, false);
+
     });
 
     this._onLoadModel = ({ scene }: { scene: Object3D }) => {
@@ -254,7 +296,8 @@ export class MapboxDisplacementPlugin {
           this._bounds,
           this._config.centerLat,
           this._config.centerLon,
-          this._config.scale ?? 3
+          this.scale,
+          this._scaleUniforms,
         );
       }
     };
@@ -266,6 +309,7 @@ export class MapboxDisplacementPlugin {
       this._tiles.removeEventListener("load-model", this._onLoadModel);
     }
     this._texture?.dispose();
+    this._scaleUniforms.clear();
     this._tiles = null;
     this._onLoadModel = null;
     this._texture = null;

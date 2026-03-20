@@ -2,8 +2,20 @@ export const JOSE_IGNACIO_CENTER = { lat: -34.8295, lon: -54.633 } as const;
 /** Camera positioned to frame Lote1/Lote2 parcels */
 export const INITIAL_CAMERA_POSITION: [number, number, number] = [-900, 1200, -1400];
 export type ViewerLightingDirectionId =
-  | "natural-midday"
-  | "art-directed-midday";
+  | "natural-depth"
+  | "cinematic-depth";
+
+export interface TileReliefPreset {
+  lightDirection: [number, number, number];
+  ambient: number;
+  wrap: number;
+  directionalStrength: number;
+  shadowStrength: number;
+  topLight: number;
+  curvatureStrength: number;
+  curvatureScale: number;
+  rimStrength: number;
+}
 
 interface ViewerLightingDirectionPreset {
   label: string;
@@ -19,53 +31,118 @@ interface ViewerLightingDirectionPreset {
     whitePoint: number;
     middleGrey: number;
   };
+  post: {
+    brightness: number;
+    contrast: number;
+    saturation: number;
+    vignetteOffset: number;
+    vignetteDarkness: number;
+  };
+  ambientOcclusion: {
+    intensity: number;
+    aoRadius: number;
+    distanceFalloff: number;
+    denoiseRadius: number;
+  };
+  tileRelief: TileReliefPreset;
+  terrainDisplacementScale: number;
 }
 
 /**
  * Lighting studies for the public viewer.
  *
- * `natural-midday` keeps the sun high and implicit, while
- * `art-directed-midday` rotates into a slightly more present directional read
- * without reintroducing the cheap fixed hotspot.
+ * `natural-depth` keeps the world grounded and readable, while
+ * `cinematic-depth` leans warmer and more pronounced to see if the bolder
+ * presentation sells the land better.
  */
 export const VIEWER_LIGHTING_DIRECTIONS: Record<
   ViewerLightingDirectionId,
   ViewerLightingDirectionPreset
 > = {
-  "natural-midday": {
-    label: "Natural Midday",
-    description: "Neutral overhead daylight with subdued solar presence.",
-    presentationDate: new Date("2026-01-15T16:05:00Z"),
-    groundAlbedo: "#e0cca6",
+  "natural-depth": {
+    label: "Natural Depth",
+    description: "Grounded daylight with cleaner haze and truer terrain separation.",
+    presentationDate: new Date("2026-01-15T16:45:00Z"),
+    groundAlbedo: "#dcc8a3",
     showSun: false,
-    sunAngularRadius: 0.0048,
+    sunAngularRadius: 0.00475,
     aerialPerspective: {
-      albedoScale: 1.16,
+      albedoScale: 1.52,
     },
     toneMapping: {
-      whitePoint: 14.2,
-      middleGrey: 0.79,
+      whitePoint: 11.8,
+      middleGrey: 0.72,
     },
+    post: {
+      brightness: -0.01,
+      contrast: 0.1,
+      saturation: 0.03,
+      vignetteOffset: 0.48,
+      vignetteDarkness: 0.22,
+    },
+    ambientOcclusion: {
+      intensity: 4.2,
+      aoRadius: 5,
+      distanceFalloff: 0.42,
+      denoiseRadius: 14,
+    },
+    tileRelief: {
+      lightDirection: [0.66, 0.62, -0.42],
+      ambient: 0.968,
+      wrap: 0.48,
+      directionalStrength: 0.11,
+      shadowStrength: 0.2,
+      topLight: 0.018,
+      curvatureStrength: 0.12,
+      curvatureScale: 5.2,
+      rimStrength: 0.055,
+    },
+    terrainDisplacementScale: 4.25,
   },
-  "art-directed-midday": {
-    label: "Art-Directed Midday",
-    description: "A slightly more sculpted midday angle with cleaner contrast.",
-    presentationDate: new Date("2026-01-15T17:10:00Z"),
-    groundAlbedo: "#e5cfaa",
+  "cinematic-depth": {
+    label: "Cinematic Depth",
+    description: "Warmer haze, deeper falloff, and bolder relief for presentation.",
+    presentationDate: new Date("2026-01-15T20:05:00Z"),
+    groundAlbedo: "#d4b182",
     showSun: false,
-    sunAngularRadius: 0.0046,
+    sunAngularRadius: 0.00455,
     aerialPerspective: {
-      albedoScale: 1.2,
+      albedoScale: 2.36,
     },
     toneMapping: {
-      whitePoint: 14.8,
-      middleGrey: 0.8,
+      whitePoint: 8.9,
+      middleGrey: 0.58,
     },
+    post: {
+      brightness: -0.04,
+      contrast: 0.26,
+      saturation: 0.09,
+      vignetteOffset: 0.38,
+      vignetteDarkness: 0.38,
+    },
+    ambientOcclusion: {
+      intensity: 3.4,
+      aoRadius: 6.5,
+      distanceFalloff: 0.38,
+      denoiseRadius: 16,
+    },
+    tileRelief: {
+      lightDirection: [0.36, 0.58, -0.73],
+      ambient: 0.952,
+      wrap: 0.38,
+      directionalStrength: 0.145,
+      shadowStrength: 0.26,
+      topLight: 0.026,
+      curvatureStrength: 0.15,
+      curvatureScale: 5.8,
+      rimStrength: 0.085,
+    },
+    terrainDisplacementScale: 10.5,
   },
 };
 
 export const DEFAULT_VIEWER_LIGHTING_DIRECTION: ViewerLightingDirectionId =
-  "natural-midday";
+  "natural-depth";
 /** Keep visitors near the sales area instead of letting them roam the whole globe. */
 export const VIEW_TRAVEL_LIMITS = {
   minDistance: 450,

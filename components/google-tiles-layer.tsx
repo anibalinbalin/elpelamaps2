@@ -20,12 +20,16 @@ import {
   JOSE_IGNACIO_CENTER,
   TILE_STREAMING_BUDGET,
   VIEW_TRAVEL_LIMITS,
+  type TileReliefPreset,
 } from "@/lib/constants";
 import { MapboxDisplacementPlugin } from "@/lib/mapbox-displacement-plugin";
+import { TileReliefPlugin } from "@/lib/tile-relief-plugin";
 
 interface TilesLayerProps {
   apiToken: string;
   children?: React.ReactNode;
+  terrainDisplacementScale?: number;
+  tileRelief?: TileReliefPreset;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -114,7 +118,15 @@ function TravelGuard({
 }
 
 export const GoogleTilesLayer = forwardRef<any, TilesLayerProps>(
-  function GoogleTilesLayer({ apiToken, children }, ref) {
+  function GoogleTilesLayer(
+    {
+      apiToken,
+      children,
+      terrainDisplacementScale = 3.05,
+      tileRelief,
+    },
+    ref,
+  ) {
     const cesiumToken = process.env.NEXT_PUBLIC_CESIUM_ION_TOKEN;
     const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
     const controlsRef = useRef<any>(null);
@@ -153,6 +165,19 @@ export const GoogleTilesLayer = forwardRef<any, TilesLayerProps>(
         />
         <TilesPlugin plugin={UpdateOnChangePlugin} />
         <TilesPlugin plugin={TileCompressionPlugin} />
+        <TilesPlugin
+          plugin={TileReliefPlugin}
+          args={[{}]}
+          lightDirection={tileRelief?.lightDirection}
+          ambient={tileRelief?.ambient}
+          wrap={tileRelief?.wrap}
+          directionalStrength={tileRelief?.directionalStrength}
+          shadowStrength={tileRelief?.shadowStrength}
+          topLight={tileRelief?.topLight}
+          curvatureStrength={tileRelief?.curvatureStrength}
+          curvatureScale={tileRelief?.curvatureScale}
+          rimStrength={tileRelief?.rimStrength}
+        />
         {mapboxToken && (
           <TilesPlugin
             plugin={MapboxDisplacementPlugin}
@@ -160,9 +185,9 @@ export const GoogleTilesLayer = forwardRef<any, TilesLayerProps>(
               token: mapboxToken,
               centerLat: JOSE_IGNACIO_CENTER.lat,
               centerLon: JOSE_IGNACIO_CENTER.lon,
-              scale: 2.2,
               zoom: 12,
             }]}
+            scale={terrainDisplacementScale}
           />
         )}
         <GlobeControls
