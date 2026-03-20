@@ -7,3 +7,64 @@ body {
   overflow: hidden;
   background: #0a0a0a;
 }
+
+body {
+  -webkit-font-smoothing: antialiased;
+}
+
+.cloud-swoosh-icon {
+  transition:
+    transform 180ms ease,
+    opacity 180ms ease,
+    filter 180ms ease;
+  will-change: transform, opacity, filter;
+}
+
+.cloud-swoosh-icon-wrap.is-active .cloud-swoosh-icon {
+  animation: cloud-hand-swoosh 720ms cubic-bezier(0.22, 0.88, 0.3, 1);
+}
+
+.cloud-swoosh-trigger:hover .cloud-swoosh-icon {
+  transform: translate3d(0.45px, -0.6px, 0) rotate(3deg);
+  filter: drop-shadow(0 2px 5px rgba(255, 255, 255, 0.12));
+}
+
+@keyframes cloud-hand-swoosh {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(0.92);
+    opacity: 0.8;
+    filter: blur(2px);
+  }
+
+  16% {
+    transform: translate3d(-1px, 0.5px, 0) rotate(-6deg) scale(0.98);
+    opacity: 1;
+    filter: blur(0);
+  }
+
+  44% {
+    transform: translate3d(5px, -3px, 0) rotate(10deg) scale(1.02);
+    opacity: 1;
+    filter: blur(0);
+  }
+
+  72% {
+    transform: translate3d(8px, -5px, 0) rotate(2deg) scale(0.94);
+    opacity: 0.56;
+    filter: blur(1px);
+  }
+
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cloud-swoosh-icon {
+    animation: none !important;
+    transition: none;
+    filter: none !important;
+  }
+}

@@ -131,13 +131,9 @@ function AtmosphericWashOverlay({
 function LightingDirectionToggle({
   lightingDirection,
   onChange,
-  onSwooshClouds,
-  isCloudSwooshing,
 }: {
   lightingDirection: ViewerLightingDirectionId;
   onChange: (value: ViewerLightingDirectionId) => void;
-  onSwooshClouds: () => void;
-  isCloudSwooshing: boolean;
 }) {
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-5 z-20 flex justify-center px-4 max-sm:bottom-4">
@@ -177,26 +173,6 @@ function LightingDirectionToggle({
             );
           },
         )}
-
-        <button
-          type="button"
-          onClick={onSwooshClouds}
-          className={`min-h-12 min-w-[172px] rounded-[22px] border px-4 py-3 text-left transition-colors duration-200 ${
-            isCloudSwooshing
-              ? "border-[#f4c57b]/48 bg-[rgba(244,197,123,0.18)] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-              : "border-white/8 bg-white/[0.03] text-white/76 hover:border-[#f4c57b]/34 hover:bg-[rgba(244,197,123,0.1)] hover:text-white"
-          }`}
-        >
-          <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/46">
-            Clouds
-          </div>
-          <div className="mt-1 text-[14px] font-semibold tracking-[-0.02em]">
-            {isCloudSwooshing ? "Clouds Swooshing" : "Swoosh Clouds"}
-          </div>
-          <div className="mt-1 text-[11px] leading-4 text-white/52">
-            Brief wind burst across the sky.
-          </div>
-        </button>
       </div>
     </div>
   );
@@ -205,15 +181,30 @@ function LightingDirectionToggle({
 function Overlays({
   drawMode,
   parcelCount,
+  cloudSwooshTick,
+  cloudsCleared,
+  isCloudSwooshing,
+  onSwooshClouds,
 }: {
   drawMode: boolean;
   parcelCount: number;
+  cloudSwooshTick: number;
+  cloudsCleared: boolean;
+  isCloudSwooshing: boolean;
+  onSwooshClouds: () => void;
 }) {
   const positions = usePillPositions((s) => s.positions);
 
   return (
     <>
-      <TopBar drawMode={drawMode} parcelCount={parcelCount} />
+      <TopBar
+        drawMode={drawMode}
+        parcelCount={parcelCount}
+        cloudSwooshTick={cloudSwooshTick}
+        cloudsCleared={cloudsCleared}
+        isCloudSwooshing={isCloudSwooshing}
+        onSwooshClouds={onSwooshClouds}
+      />
       <ParcelPillsOverlay positions={positions} />
       <ParcelSidebar />
     </>
@@ -228,6 +219,7 @@ export function MapViewer({ drawMode = false }: MapViewerProps) {
   const [lightingDirection, setLightingDirection] =
     useState<ViewerLightingDirectionId>(DEFAULT_VIEWER_LIGHTING_DIRECTION);
   const [cloudSwooshTick, setCloudSwooshTick] = useState(0);
+  const [cloudsCleared, setCloudsCleared] = useState(false);
   const [isCloudSwooshing, setIsCloudSwooshing] = useState(false);
   const cloudSwooshTimeoutRef = useRef<number | null>(null);
 
@@ -240,6 +232,11 @@ export function MapViewer({ drawMode = false }: MapViewerProps) {
   }, []);
 
   function handleCloudSwoosh() {
+    if (cloudsCleared) {
+      return;
+    }
+
+    setCloudsCleared(true);
     setCloudSwooshTick((value) => value + 1);
     setIsCloudSwooshing(true);
 
@@ -250,7 +247,7 @@ export function MapViewer({ drawMode = false }: MapViewerProps) {
     cloudSwooshTimeoutRef.current = window.setTimeout(() => {
       setIsCloudSwooshing(false);
       cloudSwooshTimeoutRef.current = null;
-    }, 5400);
+    }, 1100);
   }
 
   if (!apiToken || apiToken === "YOUR_API_KEY_HERE") {
@@ -271,6 +268,7 @@ export function MapViewer({ drawMode = false }: MapViewerProps) {
             lightingDirection === "natural-midday" ? "subtle" : "cinematic"
           }
           cloudSwooshTick={cloudSwooshTick}
+          cloudsCleared={cloudsCleared}
           lightingDirection={lightingDirection}
         >
           <GoogleTilesLayer ref={tilesRef} apiToken={apiToken}>
@@ -289,13 +287,18 @@ export function MapViewer({ drawMode = false }: MapViewerProps) {
           camera: {camPos}
         </div>
       )}
-      <Overlays drawMode={drawMode} parcelCount={parcels.features.length} />
+      <Overlays
+        drawMode={drawMode}
+        parcelCount={parcels.features.length}
+        cloudSwooshTick={cloudSwooshTick}
+        cloudsCleared={cloudsCleared}
+        isCloudSwooshing={isCloudSwooshing}
+        onSwooshClouds={handleCloudSwoosh}
+      />
       {!drawMode && (
         <LightingDirectionToggle
           lightingDirection={lightingDirection}
           onChange={setLightingDirection}
-          onSwooshClouds={handleCloudSwoosh}
-          isCloudSwooshing={isCloudSwooshing}
         />
       )}
       {drawMode && <DrawOverlayDOM />}

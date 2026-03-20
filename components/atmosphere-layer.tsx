@@ -28,6 +28,7 @@ interface AtmosphereLayerProps {
   tilesRef?: React.RefObject<{ group?: Object3D | null } | null>;
   cloudMotionPreset?: CloudMotionPreset;
   cloudSwooshTick?: number;
+  cloudsCleared?: boolean;
   lightingDirection?: ViewerLightingDirectionId;
 }
 
@@ -36,6 +37,7 @@ export function AtmosphereLayer({
   tilesRef,
   cloudMotionPreset = "cinematic",
   cloudSwooshTick = 0,
+  cloudsCleared = false,
   lightingDirection = "natural-midday",
 }: AtmosphereLayerProps) {
   const atmosphereRef = useRef<AtmosphereApi>(null);
@@ -98,6 +100,7 @@ export function AtmosphereLayer({
       <DecorativeCloudLayer
         motionPreset={cloudMotionPreset}
         swooshTick={cloudSwooshTick}
+        cloudsCleared={cloudsCleared}
       />
       <EffectComposer enableNormalPass multisampling={0}>
         <AerialPerspective

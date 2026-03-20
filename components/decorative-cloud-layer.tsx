@@ -119,6 +119,10 @@ function smoothstep(min: number, max: number, value: number) {
   return t * t * (3 - 2 * t);
 }
 
+function mix(start: number, end: number, progress: number) {
+  return start + (end - start) * progress;
+}
+
 function buildCloudTexture() {
   const size = 128;
   const data = new Uint8Array(size * size * 4);
@@ -181,11 +185,13 @@ function buildCloudTexture() {
 interface DecorativeCloudLayerProps {
   motionPreset?: CloudMotionPreset;
   swooshTick?: number;
+  cloudsCleared?: boolean;
 }
 
 export function DecorativeCloudLayer({
   motionPreset = "cinematic",
   swooshTick = 0,
+  cloudsCleared = false,
 }: DecorativeCloudLayerProps) {
   const texture = useMemo(buildCloudTexture, []);
   const bankRefs = useRef<Array<Group | null>>([]);
@@ -205,34 +211,60 @@ export function DecorativeCloudLayer({
     const swooshElapsed =
       swooshStartedAtRef.current == null ? Number.POSITIVE_INFINITY : time - swooshStartedAtRef.current;
     const swooshStrength =
-      smoothstep(0, 0.35, swooshElapsed) *
-      (1 - smoothstep(1.1, 5.4, swooshElapsed));
-    const motionBoost = 1 + swooshStrength * 1.9;
-    const speedBoost = 1 + swooshStrength * 2.6;
-    const sweepOffset = swooshStrength * 180;
+      smoothstep(0, 0.18, swooshElapsed) *
+      (1 - smoothstep(0.6, 1.75, swooshElapsed));
+    const motionBoost = 1 + swooshStrength * 2.2;
+    const speedBoost = 1 + swooshStrength * 3;
 
     CLOUD_BANKS.forEach((bank, index) => {
       const group = bankRefs.current[index];
       if (!group) return;
 
+      const rightBias = smoothstep(-1200, 1100, bank.position[0]);
+      const clearDelay = (1 - rightBias) * 0.38;
+      const moveToHorizon = cloudsCleared
+        ? smoothstep(0.12 + clearDelay, 2.35 + clearDelay, swooshElapsed)
+        : 0;
+      const fadeToHorizon = cloudsCleared
+        ? smoothstep(0.7 + clearDelay, 2.75 + clearDelay, swooshElapsed)
+        : 0;
       const driftPhase = time * bank.speed * motion.speed * speedBoost + bank.phase;
       const pulse =
         1 + Math.sin(driftPhase * 1.4) * bank.pulse * motion.pulse * (1 + swooshStrength * 0.35);
-      const directionalSweep = sweepOffset * (0.7 + index * 0.18);
-      const crossSweep = swooshStrength * 68 * (index % 2 === 0 ? -1 : 1);
+      const directionalSweep =
+        swooshStrength * (170 + rightBias * 90) + moveToHorizon * 240;
+      const crossSweep =
+        swooshStrength * 52 * (index % 2 === 0 ? -1 : 1) +
+        moveToHorizon * 34 * (index % 2 === 0 ? -1 : 1);
+
+      const driftingX =
+        bank.position[0] +
+        Math.sin(driftPhase) * bank.drift[0] * motion.drift * motionBoost +
+        directionalSweep;
+      const driftingY =
+        bank.position[1] +
+        Math.sin(driftPhase * 1.6) * bank.bob * motion.bob * (1 + swooshStrength * 0.45);
+      const driftingZ =
+        bank.position[2] +
+        Math.cos(driftPhase * 0.9) * bank.drift[1] * motion.drift * motionBoost +
+        crossSweep;
+
+      const horizonX = bank.position[0] + 2100 + rightBias * 1100;
+      const horizonY = 560 + index * 20 + rightBias * 24;
+      const horizonZ =
+        bank.position[2] + 1700 + rightBias * 620 + (index % 2 === 0 ? -220 : 220);
+      const horizonScale = 0.18 + rightBias * 0.05;
+      const visibility = 1 - fadeToHorizon;
 
       group.position.set(
-        bank.position[0] +
-          Math.sin(driftPhase) * bank.drift[0] * motion.drift * motionBoost +
-          directionalSweep,
-        bank.position[1] +
-          Math.sin(driftPhase * 1.6) * bank.bob * motion.bob * (1 + swooshStrength * 0.5),
-        bank.position[2] +
-          Math.cos(driftPhase * 0.9) * bank.drift[1] * motion.drift * motionBoost +
-          crossSweep,
+        mix(driftingX, horizonX, moveToHorizon),
+        mix(driftingY, horizonY, moveToHorizon),
+        mix(driftingZ, horizonZ, moveToHorizon),
       );
-      group.scale.setScalar(pulse * (1 + swooshStrength * 0.08));
-      group.visible = heightFade > 0.02;
+      group.scale.setScalar(
+        mix(pulse * (1 + swooshStrength * 0.08), horizonScale, moveToHorizon),
+      );
+      group.visible = heightFade > 0.02 && visibility > 0.015;
 
       bank.sprites.forEach((sprite, spriteIndex) => {
         const cloudSprite = group.children[spriteIndex];
@@ -241,7 +273,11 @@ export function DecorativeCloudLayer({
           : undefined;
 
         if (material?.opacity != null) {
-          material.opacity = sprite.opacity * heightFade * (1 + swooshStrength * 0.08);
+          material.opacity =
+            sprite.opacity *
+            heightFade *
+            visibility *
+            (1 + swooshStrength * 0.04);
         }
       });
     });
