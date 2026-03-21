@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { centroid, degToRad, formatPrice, formatArea } from "./geo-utils";
+import {
+  centroid,
+  degToRad,
+  distanceMeters,
+  formatPrice,
+  formatArea,
+} from "./geo-utils";
 
 describe("degToRad", () => {
   it("converts 180 degrees to PI", () => {
@@ -19,6 +25,12 @@ describe("centroid", () => {
     const [lon, lat] = centroid(coords);
     expect(lon).toBeCloseTo(-54.633);
     expect(lat).toBeCloseTo(-34.806);
+  });
+});
+
+describe("distanceMeters", () => {
+  it("estimates about 111 km per degree of latitude", () => {
+    expect(distanceMeters([0, 0], [0, 1])).toBeCloseTo(111195, -2);
   });
 });
 

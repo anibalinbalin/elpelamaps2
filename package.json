@@ -28,6 +28,7 @@
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.1.7",
     "next": "^16.1.7",
+    "ol": "^10.8.0",
     "postcss": "^8.5.8",
     "postprocessing": "^6.38.3",
     "react": "^19.2.4",

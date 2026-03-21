@@ -7,6 +7,7 @@ import { useParcelData } from "@/lib/use-parcel-data";
 import { useDrawTool } from "@/lib/use-draw-tool";
 import { useParcelSelection } from "@/lib/use-parcel-selection";
 import { pointInPolygon } from "@/lib/point-in-polygon";
+import { distanceMeters } from "@/lib/geo-utils";
 import { useDrawPositions } from "./draw-overlay";
 
 interface GlobeClickHandlerProps {
@@ -53,6 +54,7 @@ function raycastToLatLon(
 }
 
 const HOVER_THROTTLE_MS = 80;
+const VERTEX_HIT_DISTANCE_METERS = 28;
 
 export function GlobeClickHandler({ tilesRef }: GlobeClickHandlerProps) {
   const { camera, gl } = useThree();
@@ -61,7 +63,6 @@ export function GlobeClickHandler({ tilesRef }: GlobeClickHandlerProps) {
   const drawActive = useDrawTool((s) => s.active);
   const addVertex = useDrawTool((s) => s.addVertex);
   const moveVertex = useDrawTool((s) => s.moveVertex);
-  const draggingIndex = useDrawPositions((s) => s.draggingIndex);
   const setDragging = useDrawPositions((s) => s.setDragging);
   const controls = useThree((s) => s.controls) as any;
   const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
@@ -70,6 +71,8 @@ export function GlobeClickHandler({ tilesRef }: GlobeClickHandlerProps) {
 
   const handleClick = useCallback(
     (event: PointerEvent) => {
+      const draggingIndex = useDrawPositions.getState().draggingIndex;
+
       // If we were dragging a vertex, just release — don't add a new vertex
       if (draggingIndex !== null) {
         setDragging(null);
@@ -101,11 +104,13 @@ export function GlobeClickHandler({ tilesRef }: GlobeClickHandlerProps) {
       }
       select(null);
     },
-    [camera, gl, tilesRef, parcels, select, drawActive, addVertex, draggingIndex, setDragging, controls],
+    [camera, gl, tilesRef, parcels, select, drawActive, addVertex, setDragging, controls],
   );
 
   const handleMove = useCallback(
     (event: PointerEvent) => {
+      const draggingIndex = useDrawPositions.getState().draggingIndex;
+
       // Handle vertex dragging
       if (draggingIndex !== null) {
         const result = raycastToLatLon(event, camera, gl, tilesRef.current);
@@ -115,22 +120,13 @@ export function GlobeClickHandler({ tilesRef }: GlobeClickHandlerProps) {
       }
 
       if (drawActive) {
-        // Show grab cursor when hovering near a vertex
-        const points = useDrawPositions.getState().points;
-        const rect = gl.domElement.getBoundingClientRect();
-        const cx = event.clientX - rect.left;
-        const cy = event.clientY - rect.top;
-        let nearVertex = false;
-        for (let i = 0; i < points.length; i++) {
-          const p = points[i];
-          if (!p.visible) continue;
-          const dx = cx - p.x;
-          const dy = cy - p.y;
-          if (dx * dx + dy * dy <= 16 * 16) {
-            nearVertex = true;
-            break;
-          }
-        }
+        const result = raycastToLatLon(event, camera, gl, tilesRef.current);
+        const nearVertex = result
+          ? findNearestVertexIndex(
+              [result.lonDeg, result.latDeg],
+              useDrawTool.getState().vertices,
+            ) !== null
+          : false;
         gl.domElement.style.cursor = nearVertex ? "grab" : "crosshair";
         return;
       }
@@ -166,7 +162,7 @@ export function GlobeClickHandler({ tilesRef }: GlobeClickHandlerProps) {
       }
       gl.domElement.style.cursor = "grab";
     },
-    [camera, gl, tilesRef, parcels, hover, drawActive, draggingIndex, moveVertex],
+    [camera, gl, tilesRef, parcels, hover, drawActive, moveVertex],
   );
 
   const handlePointerDown = useCallback(
@@ -175,25 +171,21 @@ export function GlobeClickHandler({ tilesRef }: GlobeClickHandlerProps) {
 
       // Check if pointerdown is near an existing vertex — start dragging
       if (drawActive) {
-        const points = useDrawPositions.getState().points;
-        const rect = gl.domElement.getBoundingClientRect();
-        const cx = event.clientX - rect.left;
-        const cy = event.clientY - rect.top;
-        const HIT_RADIUS = 16; // px
-        for (let i = 0; i < points.length; i++) {
-          const p = points[i];
-          if (!p.visible) continue;
-          const dx = cx - p.x;
-          const dy = cy - p.y;
-          if (dx * dx + dy * dy <= HIT_RADIUS * HIT_RADIUS) {
-            setDragging(i);
+        const result = raycastToLatLon(event, camera, gl, tilesRef.current);
+        if (result) {
+          const hitIndex = findNearestVertexIndex(
+            [result.lonDeg, result.latDeg],
+            useDrawTool.getState().vertices,
+          );
+          if (hitIndex !== null) {
+            setDragging(hitIndex);
             if (controls) controls.enabled = false;
             return;
           }
         }
       }
     },
-    [drawActive, setDragging, controls, gl],
+    [camera, gl, tilesRef, drawActive, setDragging, controls],
   );
 
   useEffect(() => {
@@ -209,4 +201,22 @@ export function GlobeClickHandler({ tilesRef }: GlobeClickHandlerProps) {
   }, [gl, handlePointerDown, handleClick, handleMove]);
 
   return null;
+}
+
+function findNearestVertexIndex(
+  point: [number, number],
+  vertices: [number, number][],
+): number | null {
+  let closestIndex: number | null = null;
+  let closestDistance = Infinity;
+
+  for (let i = 0; i < vertices.length; i++) {
+    const distance = distanceMeters(point, vertices[i]);
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      closestIndex = i;
+    }
+  }
+
+  return closestDistance <= VERTEX_HIT_DISTANCE_METERS ? closestIndex : null;
 }

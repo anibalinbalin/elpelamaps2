@@ -12,7 +12,6 @@ import { usePillPositions } from "@/lib/use-pill-positions";
 import { ParcelLayer } from "./parcel-layer";
 import { AtmosphereLayer } from "./atmosphere-layer";
 import { DrawToolbar } from "./draw-toolbar";
-import { DrawOverlay, DrawOverlayDOM } from "./draw-overlay";
 import {
   INITIAL_CAMERA_POSITION,
   VIEWER_LIGHTING_DIRECTIONS,
@@ -190,7 +189,6 @@ export function MapViewer({ drawMode = false }: MapViewerProps) {
           <ScreenProjector tilesRef={tilesRef} />
           {!drawMode && <ParcelCameraFly tilesRef={tilesRef} />}
           {drawMode && <AdminEditCamera tilesRef={tilesRef} />}
-          {drawMode && <DrawOverlay tilesRef={tilesRef} />}
         </AtmosphereLayer>
       </Canvas>
       <AtmosphericWashOverlay />
@@ -208,7 +206,6 @@ export function MapViewer({ drawMode = false }: MapViewerProps) {
         isCloudSwooshing={isCloudSwooshing}
         onSwooshClouds={handleCloudSwoosh}
       />
-      {drawMode && <DrawOverlayDOM />}
       {drawMode && <DrawToolbar />}
     </div>
   );

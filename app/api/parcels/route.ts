@@ -46,6 +46,7 @@ export async function GET() {
 export async function PUT(request: Request) {
   const body = await request.json().catch(() => null);
   const incoming = parseCollection(body);
+  const mode = new URL(request.url).searchParams.get("mode");
 
   if (!incoming) {
     return NextResponse.json(
@@ -54,7 +55,9 @@ export async function PUT(request: Request) {
     );
   }
 
-  const merged = mergeParcelCollections(await readParcelCollectionFromDisk(), incoming);
+  const merged = mode === "replace"
+    ? incoming
+    : mergeParcelCollections(await readParcelCollectionFromDisk(), incoming);
   const tempPath = `${PARCELS_FILE_PATH}.tmp`;
 
   await writeFile(tempPath, `${JSON.stringify(merged, null, 2)}\n`, "utf8");

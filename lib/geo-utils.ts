@@ -2,6 +2,26 @@ export function degToRad(deg: number): number {
   return (deg * Math.PI) / 180;
 }
 
+export function distanceMeters(
+  a: [number, number],
+  b: [number, number],
+): number {
+  const [lon1, lat1] = a;
+  const [lon2, lat2] = b;
+  const lat1Rad = degToRad(lat1);
+  const lat2Rad = degToRad(lat2);
+  const deltaLat = lat2Rad - lat1Rad;
+  const deltaLon = degToRad(lon2 - lon1);
+
+  const sinLat = Math.sin(deltaLat / 2);
+  const sinLon = Math.sin(deltaLon / 2);
+  const h =
+    sinLat * sinLat +
+    Math.cos(lat1Rad) * Math.cos(lat2Rad) * sinLon * sinLon;
+
+  return 2 * 6371008.8 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
 export function centroid(ring: [number, number][]): [number, number] {
   const vertices =
     ring[0][0] === ring[ring.length - 1][0] &&
