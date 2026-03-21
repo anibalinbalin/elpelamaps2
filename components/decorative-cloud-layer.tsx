@@ -197,10 +197,19 @@ export function DecorativeCloudLayer({
   const bankRefs = useRef<Array<Group | null>>([]);
   const lastSwooshTickRef = useRef(swooshTick);
   const swooshStartedAtRef = useRef<number | null>(null);
+  const lastCloudUpdate = useRef(0);
   const motion = CLOUD_MOTION_PRESETS[motionPreset];
 
   useFrame(({ clock, camera }) => {
     const time = clock.elapsedTime;
+
+    // Throttle cloud updates — visual drift doesn't need 60fps
+    const isSwooshing =
+      swooshStartedAtRef.current != null &&
+      time - swooshStartedAtRef.current < 3.5;
+    const interval = isSwooshing ? 0.016 : 0.05;
+    if (time - lastCloudUpdate.current < interval) return;
+    lastCloudUpdate.current = time;
 
     // Skip all work once clouds are fully cleared and animation is done
     if (

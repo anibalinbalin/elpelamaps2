@@ -44,6 +44,54 @@ interface UniformRef<T> {
 const UNIFORM_MARKER = "MAPBOX_DISPLACEMENT_UNIFORMS";
 const PROJECT_MARKER = "MAPBOX_DISPLACEMENT_PROJECT";
 
+// Module-level elevation state for CPU-side sampling.
+// The GPU vertex shader displaces terrain but the CPU geometry is untouched,
+// so raycasts hit the original mesh. This function lets callers (parcel-layer,
+// draw-overlay, screen-projector) apply the same displacement on the CPU.
+let _moduleElevations: Float32Array | null = null;
+let _moduleBoundsMinX = 0;
+let _moduleBoundsMaxX = 0;
+let _moduleBoundsMinZ = 0;
+let _moduleBoundsMaxZ = 0;
+let _moduleSize = 0;
+let _moduleScale = 0;
+
+/**
+ * Sample the terrain displacement at a world-space XZ position.
+ * Returns the Y offset (elevation * scale) that the vertex shader applies,
+ * so callers can match their geometry to the visual terrain surface.
+ * Uses bilinear interpolation to match GPU LinearFilter sampling.
+ */
+export function getTerrainDisplacementY(worldX: number, worldZ: number): number {
+  if (!_moduleElevations) return 0;
+
+  const u = (worldX - _moduleBoundsMinX) / (_moduleBoundsMaxX - _moduleBoundsMinX);
+  const v = (worldZ - _moduleBoundsMinZ) / (_moduleBoundsMaxZ - _moduleBoundsMinZ);
+  const cu = Math.max(0, Math.min(1, u));
+  const cv = Math.max(0, Math.min(1, v));
+
+  const fx = cu * (_moduleSize - 1);
+  const fy = cv * (_moduleSize - 1);
+  const x0 = Math.floor(fx);
+  const y0 = Math.floor(fy);
+  const x1 = Math.min(x0 + 1, _moduleSize - 1);
+  const y1 = Math.min(y0 + 1, _moduleSize - 1);
+  const dx = fx - x0;
+  const dy = fy - y0;
+
+  const e00 = _moduleElevations[y0 * _moduleSize + x0];
+  const e10 = _moduleElevations[y0 * _moduleSize + x1];
+  const e01 = _moduleElevations[y1 * _moduleSize + x0];
+  const e11 = _moduleElevations[y1 * _moduleSize + x1];
+  const elevation =
+    e00 * (1 - dx) * (1 - dy) +
+    e10 * dx * (1 - dy) +
+    e01 * (1 - dx) * dy +
+    e11 * dx * dy;
+
+  return elevation * _moduleScale;
+}
+
 /** Decode Mapbox terrain-RGB pixel to elevation in meters */
 function decodeElevation(r: number, g: number, b: number): number {
   return -10000 + (r * 256 * 256 + g * 256 + b) * 0.1;
@@ -85,6 +133,7 @@ async function fetchElevationTexture(
   config: DisplacementConfig
 ): Promise<{
   texture: DataTexture;
+  elevations: Float32Array;
   bounds: { latMin: number; latMax: number; lonMin: number; lonMax: number };
   size: number;
 } | null> {
@@ -120,7 +169,7 @@ async function fetchElevationTexture(
     texture.wrapT = ClampToEdgeWrapping;
     texture.needsUpdate = true;
 
-    return { texture, bounds, size };
+    return { texture, elevations, bounds, size };
   } catch {
     return null;
   }
@@ -254,6 +303,7 @@ export class MapboxDisplacementPlugin {
 
   set scale(value: number) {
     this._scale = value;
+    _moduleScale = value;
     for (const uniform of this._scaleUniforms) {
       uniform.value = value;
     }
@@ -271,6 +321,16 @@ export class MapboxDisplacementPlugin {
       this._texture = result.texture;
       this._bounds = result.bounds;
       this._ready = true;
+
+      // Populate module-level state for CPU-side elevation sampling
+      const meters = metersPerDegree(this._config.centerLat);
+      _moduleBoundsMinX = (result.bounds.lonMin - this._config.centerLon) * meters.lon;
+      _moduleBoundsMaxX = (result.bounds.lonMax - this._config.centerLon) * meters.lon;
+      _moduleBoundsMinZ = -(result.bounds.latMax - this._config.centerLat) * meters.lat;
+      _moduleBoundsMaxZ = -(result.bounds.latMin - this._config.centerLat) * meters.lat;
+      _moduleElevations = result.elevations;
+      _moduleSize = result.size;
+      _moduleScale = this._scale;
 
       tiles.traverse((tile: any) => {
         if (tile.engineData?.scene) {
@@ -313,5 +373,6 @@ export class MapboxDisplacementPlugin {
     this._tiles = null;
     this._onLoadModel = null;
     this._texture = null;
+    _moduleElevations = null;
   }
 }

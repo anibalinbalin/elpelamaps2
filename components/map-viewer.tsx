@@ -183,7 +183,7 @@ export function MapViewer({ drawMode = false }: MapViewerProps) {
             tileRelief={NATURAL_DEPTH.tileRelief}
             terrainDisplacementScale={NATURAL_DEPTH.terrainDisplacementScale}
           >
-            <ParcelLayer />
+            <ParcelLayer tilesRef={tilesRef} />
           </GoogleTilesLayer>
           <GlobeClickHandler tilesRef={tilesRef} />
           <ScreenProjector tilesRef={tilesRef} />

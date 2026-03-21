@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { Raycaster, Vector3 } from "three";
+import { Matrix4, Raycaster, Vector3 } from "three";
 import { useDrawTool } from "@/lib/use-draw-tool";
 import { create } from "zustand";
+import { projectCartographicToTerrainPoint } from "@/lib/project-cartographic-to-terrain";
+import { getTerrainDisplacementY } from "@/lib/mapbox-displacement-plugin";
 
 interface DrawPoint {
   x: number;
@@ -47,6 +49,7 @@ export function DrawOverlay({ tilesRef }: { tilesRef: React.RefObject<any> }) {
   const rayDirectionVec = useMemo(() => new Vector3(), []);
   const worldVec = useMemo(() => new Vector3(), []);
   const projVec = useMemo(() => new Vector3(), []);
+  const inverseMatrix = useMemo(() => new Matrix4(), []);
 
   // Clear stale points on unmount
   useEffect(() => {
@@ -80,8 +83,11 @@ export function DrawOverlay({ tilesRef }: { tilesRef: React.RefObject<any> }) {
         normalVec,
         rayOriginVec,
         rayDirectionVec,
+        inverseMatrix,
         worldVec,
       );
+      // Match GPU terrain displacement so draw dots sit on visual surface
+      worldVec.y += getTerrainDisplacementY(worldVec.x, worldVec.z);
       projVec.copy(worldVec).project(camera);
       const x = (projVec.x * 0.5 + 0.5) * size.width;
       const y = (-projVec.y * 0.5 + 0.5) * size.height;
@@ -104,27 +110,24 @@ function projectCartographicToTerrainWorld(
   localNormal: Vector3,
   rayOrigin: Vector3,
   rayDirection: Vector3,
+  inverseMatrix: Matrix4,
   target: Vector3,
 ) {
-  tiles.ellipsoid.getCartographicToPosition(latRad, lonRad, 0, localSurface);
-  tiles.ellipsoid.getCartographicToNormal(latRad, lonRad, localNormal);
-
-  rayOrigin.copy(localSurface).addScaledVector(localNormal, 10_000);
-  rayOrigin.applyMatrix4(tiles.group.matrixWorld);
-  rayDirection.copy(localNormal).transformDirection(tiles.group.matrixWorld).multiplyScalar(-1);
-
-  raycaster.ray.origin.copy(rayOrigin);
-  raycaster.ray.direction.copy(rayDirection);
-  raycaster.near = 0;
-  raycaster.far = 20_000;
-
-  const hit = raycaster.intersectObject(tiles.group, true)[0];
-  if (hit?.point) {
-    target.copy(hit.point);
-    return;
-  }
-
-  target.copy(localSurface).applyMatrix4(tiles.group.matrixWorld);
+  projectCartographicToTerrainPoint({
+    tiles,
+    latRad,
+    lonRad,
+    raycaster,
+    buffers: {
+      localSurface,
+      localNormal,
+      rayOrigin,
+      rayDirection,
+      inverseMatrix,
+    },
+    target,
+    outputSpace: "world",
+  });
 }
 
 /** DOM overlay that draws vertex markers and connecting lines */
