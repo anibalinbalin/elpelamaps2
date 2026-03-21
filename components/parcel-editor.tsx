@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type Feature from "ol/Feature";
 import GeoJSON from "ol/format/GeoJSON";
 import type Geometry from "ol/geom/Geometry";
+import MultiPoint from "ol/geom/MultiPoint";
 import Polygon from "ol/geom/Polygon";
 import { Draw, Modify, Select, Snap } from "ol/interaction";
 import { defaults as defaultInteractions } from "ol/interaction/defaults";
@@ -30,15 +31,33 @@ const baseParcelStyle = new Style({
   stroke: new Stroke({ color: "rgba(255,255,255,0.95)", width: 2.2 }),
 });
 
-const selectedParcelStyle = new Style({
+const selectedParcelPolygonStyle = new Style({
   fill: new Fill({ color: "rgba(56, 231, 190, 0.2)" }),
   stroke: new Stroke({ color: "#38e7be", width: 3 }),
+});
+
+const selectedParcelVertexStyle = new Style({
+  geometry: (feature) => {
+    const geometry = feature.getGeometry();
+    if (!(geometry instanceof Polygon)) {
+      return undefined;
+    }
+
+    const ring = geometry.getCoordinates()[0] ?? [];
+    if (ring.length <= 1) {
+      return undefined;
+    }
+
+    return new MultiPoint(ring.slice(0, -1));
+  },
   image: new CircleStyle({
     radius: 7,
     fill: new Fill({ color: "#ffffff" }),
     stroke: new Stroke({ color: "#38e7be", width: 3 }),
   }),
 });
+
+const selectedParcelStyle = [selectedParcelPolygonStyle, selectedParcelVertexStyle];
 
 type EditorMode = "select" | "draw";
 
@@ -53,6 +72,13 @@ export function ParcelEditor() {
   const snapRef = useRef<Snap | null>(null);
   const geoJsonRef = useRef(new GeoJSON());
   const selectedIdRef = useRef<string | null>(null);
+  const previousSelectedIdRef = useRef<string | null>(null);
+  const pendingNameFocusIdRef = useRef<string | null>(null);
+  const skipNextSelectionAutosaveRef = useRef(false);
+  const parcelCollectionRef = useRef<ParcelCollection | null>(null);
+  const dirtyRef = useRef(false);
+  const saveStateRef = useRef<"idle" | "saving" | "saved" | "error">("idle");
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
 
   const [parcelCollection, setParcelCollection] = useState<ParcelCollection | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -80,10 +106,38 @@ export function ParcelEditor() {
   }, [selectedId]);
 
   useEffect(() => {
+    parcelCollectionRef.current = parcelCollection;
+  }, [parcelCollection]);
+
+  useEffect(() => {
+    dirtyRef.current = dirty;
+  }, [dirty]);
+
+  useEffect(() => {
+    saveStateRef.current = saveState;
+  }, [saveState]);
+
+  useEffect(() => {
     const granted = hasEditorAccess();
     setHasAccess(granted);
     setAccessReady(true);
   }, []);
+
+  useEffect(() => {
+    if (!selectedParcel) {
+      return;
+    }
+
+    if (pendingNameFocusIdRef.current !== selectedParcel.properties.id) {
+      return;
+    }
+
+    pendingNameFocusIdRef.current = null;
+    requestAnimationFrame(() => {
+      nameInputRef.current?.focus();
+      nameInputRef.current?.select();
+    });
+  }, [selectedParcel]);
 
   const syncParcelCollectionFromSource = useCallback(
     (markDirty: boolean) => {
@@ -139,6 +193,41 @@ export function ParcelEditor() {
       duration: 360,
       maxZoom: 19.5,
     });
+  }, []);
+
+  const saveParcels = useCallback(async (successMessage = "Saved parcel changes automatically.") => {
+    const collection = parcelCollectionRef.current;
+    if (!collection || saveStateRef.current === "saving") {
+      return;
+    }
+
+    setSaveState("saving");
+    setSaveMessage("");
+
+    try {
+      const response = await fetch("/api/parcels?mode=replace", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(collection),
+      });
+
+      if (!response.ok) {
+        throw new Error("Could not save parcel edits to project data.");
+      }
+
+      setDirty(false);
+      setSaveState("saved");
+      setSaveMessage(successMessage);
+    } catch (saveError) {
+      setSaveState("error");
+      setSaveMessage(
+        saveError instanceof Error
+          ? saveError.message
+          : "Could not save parcel edits to project data.",
+      );
+    }
   }, []);
 
   const applyEditorMode = useCallback((mode: EditorMode) => {
@@ -209,6 +298,7 @@ export function ParcelEditor() {
       if (selectedFeature) {
         selectedCollection?.push(selectedFeature);
       }
+      skipNextSelectionAutosaveRef.current = true;
       selectedIdRef.current = nextSelectionId;
       setSelectedId(nextSelectionId);
 
@@ -302,6 +392,8 @@ export function ParcelEditor() {
       select.getFeatures().clear();
       select.getFeatures().push(event.feature);
       const nextSelectedId = getFeatureId(event.feature);
+      pendingNameFocusIdRef.current = nextSelectedId;
+      skipNextSelectionAutosaveRef.current = true;
       selectedIdRef.current = nextSelectedId;
       setSelectedId(nextSelectedId);
       syncParcelCollectionFromSource(true);
@@ -332,6 +424,26 @@ export function ParcelEditor() {
       snapRef.current = null;
     };
   }, [applyEditorMode, fitToFeatures, hasAccess, loadParcels, mapboxToken, syncParcelCollectionFromSource]);
+
+  useEffect(() => {
+    if (!accessReady || !hasAccess) {
+      previousSelectedIdRef.current = selectedId;
+      return;
+    }
+
+    const previousSelectedId = previousSelectedIdRef.current;
+    if (skipNextSelectionAutosaveRef.current) {
+      skipNextSelectionAutosaveRef.current = false;
+      previousSelectedIdRef.current = selectedId;
+      return;
+    }
+
+    if (previousSelectedId && previousSelectedId !== selectedId && dirtyRef.current) {
+      void saveParcels();
+    }
+
+    previousSelectedIdRef.current = selectedId;
+  }, [accessReady, hasAccess, saveParcels, selectedId]);
 
   function handleAccessGranted() {
     grantEditorAccess();
@@ -375,55 +487,36 @@ export function ParcelEditor() {
     syncParcelCollectionFromSource(true);
   }
 
-  function deleteSelectedParcel() {
+  function deleteParcelById(id: string) {
     const source = sourceRef.current;
     const select = selectRef.current;
-    if (!source || !selectedId) return;
+    if (!source) return;
 
-    const feature = source.getFeatures().find((candidate) => getFeatureId(candidate) === selectedId);
+    const feature = source.getFeatures().find((candidate) => getFeatureId(candidate) === id);
     if (!feature) return;
 
+    const deletingSelectedParcel = selectedIdRef.current === id;
     source.removeFeature(feature);
-    select?.getFeatures().clear();
-    selectedIdRef.current = null;
-    setSelectedId(null);
+    if (deletingSelectedParcel) {
+      select?.getFeatures().clear();
+      selectedIdRef.current = null;
+      setSelectedId(null);
+    }
     syncParcelCollectionFromSource(true);
+    if (!deletingSelectedParcel) {
+      void saveParcels("Deleted parcel and saved changes automatically.");
+    }
     requestAnimationFrame(() => fitToFeatures(false));
   }
 
-  async function handleSave() {
-    if (!parcelCollection || saveState === "saving") return;
-
-    setSaveState("saving");
-    setSaveMessage("");
-
-    try {
-      const response = await fetch("/api/parcels?mode=replace", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(parcelCollection),
-      });
-
-      if (!response.ok) {
-        throw new Error("Could not save parcel edits to project data.");
-      }
-
-      setDirty(false);
-      setSaveState("saved");
-      setSaveMessage("Saved parcel edits to project data.");
-    } catch (saveError) {
-      setSaveState("error");
-      setSaveMessage(
-        saveError instanceof Error
-          ? saveError.message
-          : "Could not save parcel edits to project data.",
-      );
-    }
-  }
-
   const parcelList = parcelCollection?.features ?? [];
+  const headerStatus = saveState === "saving"
+    ? "Saving changes"
+    : saveState === "error"
+      ? "Save failed"
+      : dirty
+        ? "Changes pending"
+        : "All changes saved";
 
   if (!accessReady) {
     return <div className="h-screen w-screen bg-[#111417]" />;
@@ -467,7 +560,7 @@ export function ParcelEditor() {
         <div className="pointer-events-auto flex items-center gap-2 rounded-[999px] border border-white/10 bg-[rgba(19,24,30,0.84)] px-3 py-2 text-[11px] text-white/72 shadow-[0_18px_48px_rgba(3,10,16,0.28)] backdrop-blur-xl">
           <span>{parcelList.length} parcels</span>
           <span className="h-1 w-1 rounded-full bg-white/20" />
-          <span>{dirty ? "Unsaved changes" : "All changes local"}</span>
+          <span>{headerStatus}</span>
         </div>
       </div>
 
@@ -482,7 +575,7 @@ export function ParcelEditor() {
                 : "border border-white/10 bg-white/[0.04] text-white/78 hover:border-white/16 hover:bg-white/[0.08] hover:text-white"
             }`}
           >
-            Draw Parcel
+            New Parcel
           </button>
           <button
             type="button"
@@ -509,26 +602,10 @@ export function ParcelEditor() {
           >
             Reset
           </button>
-          <button
-            type="button"
-            onClick={deleteSelectedParcel}
-            disabled={!selectedId}
-            className="rounded-[18px] border border-white/10 bg-white/[0.04] px-4 py-2 text-[13px] font-semibold text-white/78 transition-colors duration-200 hover:border-white/16 hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Delete
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={!parcelCollection || saveState === "saving"}
-            className="rounded-[18px] bg-[#1d6a57] px-4 py-2 text-[13px] font-semibold text-white transition-colors duration-200 hover:bg-[#247d67] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {saveState === "saving" ? "Saving..." : "Save To Project"}
-          </button>
         </div>
 
         <div className="mt-3 rounded-[22px] border border-white/8 bg-white/[0.04] px-4 py-3 text-[12px] leading-5 text-white/68">
-          Click a parcel to edit it, drag vertices for geometry changes, and use draw mode for new boundaries. Snapping is active against all parcel edges.
+          Click a parcel to edit it, drag vertices for geometry changes, and use New Parcel for new boundaries. Changes save automatically when you leave a parcel. Snapping is active against all parcel edges.
         </div>
 
         {saveMessage && (
@@ -572,26 +649,43 @@ export function ParcelEditor() {
                   const active = feature.properties.id === selectedId;
 
                   return (
-                    <button
-                      key={feature.properties.id}
-                      type="button"
-                      onClick={() => selectParcelById(feature.properties.id)}
-                      className={`block w-full rounded-[18px] border px-4 py-3 text-left transition-colors duration-200 ${
-                        active
-                          ? "border-[#38e7be]/38 bg-[#38e7be]/12 text-white"
-                          : "border-white/8 bg-white/[0.03] text-white/70 hover:border-white/14 hover:bg-white/[0.06] hover:text-white"
-                      }`}
-                    >
-                      <div className="text-[12px] font-semibold tracking-[-0.01em]">
-                        {feature.properties.name}
-                      </div>
-                      <div className="mt-1 text-[10px] uppercase tracking-[0.18em] text-white/40">
-                        {feature.properties.id}
-                      </div>
-                      <div className="mt-2 text-[11px] text-white/56">
-                        {formatAreaCompact(feature.properties.areaSqMeters)}
-                      </div>
-                    </button>
+                    <div key={feature.properties.id} className="flex items-stretch gap-2">
+                      <button
+                        type="button"
+                        onClick={() => selectParcelById(feature.properties.id)}
+                        className={`block min-w-0 flex-1 rounded-[18px] border px-4 py-3 text-left transition-colors duration-200 ${
+                          active
+                            ? "border-[#38e7be]/38 bg-[#38e7be]/12 text-white"
+                            : "border-white/8 bg-white/[0.03] text-white/70 hover:border-white/14 hover:bg-white/[0.06] hover:text-white"
+                        }`}
+                      >
+                        <div className="truncate text-[12px] font-semibold tracking-[-0.01em]">
+                          {feature.properties.name}
+                        </div>
+                        <div className="mt-1 text-[10px] uppercase tracking-[0.18em] text-white/40">
+                          {feature.properties.id}
+                        </div>
+                        <div className="mt-2 text-[11px] text-white/56">
+                          {formatAreaCompact(feature.properties.areaSqMeters)}
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Delete ${feature.properties.name}`}
+                        title={`Delete ${feature.properties.name}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          deleteParcelById(feature.properties.id);
+                        }}
+                        className={`flex w-11 shrink-0 items-center justify-center rounded-[16px] border transition-colors duration-200 ${
+                          active
+                            ? "border-[#38e7be]/26 bg-[#38e7be]/10 text-[#c7fff1] hover:bg-[#38e7be]/16"
+                            : "border-white/8 bg-white/[0.03] text-white/48 hover:border-white/14 hover:bg-white/[0.06] hover:text-white/78"
+                        }`}
+                      >
+                        <TrashCanIcon />
+                      </button>
+                    </div>
                   );
                 })}
               </div>
@@ -623,8 +717,10 @@ export function ParcelEditor() {
                     Name
                   </span>
                   <input
+                    ref={nameInputRef}
                     value={selectedParcel.properties.name}
                     onChange={(event) => updateSelectedParcelProperty("name", event.target.value)}
+                    placeholder="Parcel name"
                     className="w-full rounded-[18px] border border-white/10 bg-white/[0.05] px-4 py-3 text-[14px] text-white outline-none transition-colors duration-200 focus:border-white/18 focus:bg-white/[0.08]"
                   />
                 </label>
@@ -831,4 +927,25 @@ function closeRing(ring: [number, number][]): [number, number][] {
 
 function getFeatureId(feature: Feature<Geometry>): string {
   return String(feature.get("id") ?? feature.getId() ?? "");
+}
+
+function TrashCanIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-[18px] w-[18px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 7h16" />
+      <path d="M9 3h6" />
+      <path d="M7 7l1 12h8l1-12" />
+      <path d="M10 11v5" />
+      <path d="M14 11v5" />
+    </svg>
+  );
 }
