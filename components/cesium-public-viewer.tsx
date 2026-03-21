@@ -195,6 +195,7 @@ export function CesiumPublicViewer() {
     window.CESIUM_BASE_URL = "/Cesium/";
     Ion.defaultAccessToken = apiToken;
     let disposed = false;
+    let loadTilesetFrameId: number | null = null;
 
     const viewer = new Viewer(containerRef.current, {
       animation: false,
@@ -272,35 +273,41 @@ export function CesiumPublicViewer() {
 
     handlerRef.current = handler;
 
-    void (async () => {
-      try {
-        const tileset = await createGooglePhotorealistic3DTileset({
-          onlyUsingWithGoogleGeocoder: true,
-        });
-        if (disposed) {
-          return;
+    // Defer the tileset fetch so the first Strict Mode cleanup can cancel it.
+    loadTilesetFrameId = window.requestAnimationFrame(() => {
+      void (async () => {
+        try {
+          const tileset = await createGooglePhotorealistic3DTileset({
+            onlyUsingWithGoogleGeocoder: true,
+          });
+          if (disposed) {
+            return;
+          }
+          tilesetRef.current = tileset;
+          viewer.scene.primitives.add(tileset);
+          viewer.camera.flyToBoundingSphere(parcelsBoundingSphere, {
+            duration: 0,
+            offset: INITIAL_CAMERA_OFFSET,
+          });
+          hasFramedInitialViewRef.current = true;
+        } catch (loadError) {
+          if (disposed) {
+            return;
+          }
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Could not load Google Photorealistic 3D Tiles in Cesium.",
+          );
         }
-        tilesetRef.current = tileset;
-        viewer.scene.primitives.add(tileset);
-        viewer.camera.flyToBoundingSphere(parcelsBoundingSphere, {
-          duration: 0,
-          offset: INITIAL_CAMERA_OFFSET,
-        });
-        hasFramedInitialViewRef.current = true;
-      } catch (loadError) {
-        if (disposed) {
-          return;
-        }
-        setError(
-          loadError instanceof Error
-            ? loadError.message
-            : "Could not load Google Photorealistic 3D Tiles in Cesium.",
-        );
-      }
-    })();
+      })();
+    });
 
     return () => {
       disposed = true;
+      if (loadTilesetFrameId != null) {
+        window.cancelAnimationFrame(loadTilesetFrameId);
+      }
       hoverParcel(null);
       selectParcel(null);
       updatePillPositions([], null);
