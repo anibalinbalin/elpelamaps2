@@ -27,6 +27,7 @@ interface DrawToolState {
   startDrawing: () => void;
   startEditing: (feature: ParcelFeature) => void;
   addVertex: (lon: number, lat: number) => void;
+  moveVertex: (index: number, lon: number, lat: number) => void;
   removeLastVertex: () => void;
   cancelDrawing: () => void;
   finishPolygon: (props: Omit<ParcelProperties, "id" | "areaSqMeters">) => void;
@@ -53,6 +54,11 @@ export const useDrawTool = create<DrawToolState>()(
 
       addVertex: (lon, lat) =>
         set((s) => ({ vertices: [...s.vertices, [lon, lat]] })),
+
+      moveVertex: (index, lon, lat) =>
+        set((s) => ({
+          vertices: s.vertices.map((v, i) => (i === index ? [lon, lat] : v)),
+        })),
 
       removeLastVertex: () =>
         set((s) => ({ vertices: s.vertices.slice(0, -1) })),

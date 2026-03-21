@@ -14,12 +14,16 @@ interface DrawPoint {
 
 interface DrawPositionsState {
   points: DrawPoint[];
+  draggingIndex: number | null;
   update: (pts: DrawPoint[]) => void;
+  setDragging: (index: number | null) => void;
 }
 
 export const useDrawPositions = create<DrawPositionsState>((set) => ({
   points: [],
+  draggingIndex: null,
   update: (points) => set({ points }),
+  setDragging: (draggingIndex) => set({ draggingIndex }),
 }));
 
 /**
@@ -76,39 +80,45 @@ export function DrawOverlay({ tilesRef }: { tilesRef: React.RefObject<any> }) {
 /** DOM overlay that draws vertex markers and connecting lines */
 export function DrawOverlayDOM() {
   const points = useDrawPositions((s) => s.points);
-  const visiblePoints = points.filter((p) => p.visible);
+  const draggingIndex = useDrawPositions((s) => s.draggingIndex);
 
-  if (visiblePoints.length === 0) return null;
+  // Track which original indices are visible
+  const visible: { point: DrawPoint; index: number }[] = [];
+  for (let i = 0; i < points.length; i++) {
+    if (points[i].visible) visible.push({ point: points[i], index: i });
+  }
+
+  if (visible.length === 0) return null;
 
   return (
     <svg
       className="pointer-events-none absolute inset-0 z-10 h-full w-full"
       style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
     >
-      {visiblePoints.length >= 3 && (
+      {visible.length >= 3 && (
         <polygon
-          points={visiblePoints.map((p) => `${p.x},${p.y}`).join(" ")}
+          points={visible.map((v) => `${v.point.x},${v.point.y}`).join(" ")}
           fill="rgba(0, 255, 180, 0.15)"
           stroke="#00ffb4"
           strokeWidth={2}
           strokeLinejoin="round"
         />
       )}
-      {visiblePoints.length === 2 && (
+      {visible.length === 2 && (
         <polyline
-          points={visiblePoints.map((p) => `${p.x},${p.y}`).join(" ")}
+          points={visible.map((v) => `${v.point.x},${v.point.y}`).join(" ")}
           fill="none"
           stroke="#00ffb4"
           strokeWidth={2}
         />
       )}
-      {visiblePoints.map((p, i) => (
+      {visible.map((v) => (
         <circle
-          key={i}
-          cx={p.x}
-          cy={p.y}
-          r={6}
-          fill="white"
+          key={v.index}
+          cx={v.point.x}
+          cy={v.point.y}
+          r={8}
+          fill={draggingIndex === v.index ? "#00ffb4" : "white"}
           stroke="#00ffb4"
           strokeWidth={2}
         />

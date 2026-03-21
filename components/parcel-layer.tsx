@@ -8,6 +8,7 @@ import { useParcelData } from "@/lib/use-parcel-data";
 import type { ParcelCollection } from "@/lib/parcels";
 import { PARCEL_COLORS } from "@/lib/constants";
 import { useParcelSelection } from "@/lib/use-parcel-selection";
+import { useDrawTool } from "@/lib/use-draw-tool";
 
 /**
  * Renders parcel boundaries via ImageOverlayPlugin on top of 3D tiles.
@@ -21,14 +22,17 @@ export function ParcelLayer() {
   const hoveredId = useParcelSelection((s) => s.hoveredId);
   const selectedId = useParcelSelection((s) => s.selectedId);
   const parcels = useParcelData();
+  const editingId = useDrawTool((s) => s.editingParcel?.properties.id ?? null);
   const initDone = useRef(false);
 
   // Memoize args to prevent TilesPlugin from recreating the instance on re-render
   const pluginArgs = useMemo(() => [{ renderer: gl }], [gl]);
-  const styledGeoJSON = useMemo(
-    () => applyFeatureStyles(parcels, hoveredId, selectedId),
-    [parcels, hoveredId, selectedId],
-  );
+  const styledGeoJSON = useMemo(() => {
+    const filtered = editingId
+      ? { ...parcels, features: parcels.features.filter((f) => f.properties.id !== editingId) }
+      : parcels;
+    return applyFeatureStyles(filtered, hoveredId, selectedId);
+  }, [parcels, hoveredId, selectedId, editingId]);
 
   // Create overlay once plugin is available — retry via useFrame-driven check
   // TilesPlugin sets pluginRef.current via useEffect, which may fire after our first useEffect

@@ -1,6 +1,7 @@
 "use client";
 
 import { useParcelSelection } from "@/lib/use-parcel-selection";
+import { useDrawTool } from "@/lib/use-draw-tool";
 
 export interface PillPosition {
   id: string;
@@ -18,6 +19,9 @@ interface ParcelPillsOverlayProps {
 
 export function ParcelPillsOverlay({ positions }: ParcelPillsOverlayProps) {
   const selectedId = useParcelSelection((s) => s.selectedId);
+  const drawActive = useDrawTool((s) => s.active);
+
+  if (drawActive) return null;
 
   return (
     <div className="pointer-events-none fixed inset-0 z-10">

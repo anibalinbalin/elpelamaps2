@@ -7,6 +7,7 @@ import { useParcelData } from "@/lib/use-parcel-data";
 import { useDrawTool } from "@/lib/use-draw-tool";
 import { useParcelSelection } from "@/lib/use-parcel-selection";
 import { pointInPolygon } from "@/lib/point-in-polygon";
+import { useDrawPositions } from "./draw-overlay";
 
 interface GlobeClickHandlerProps {
   tilesRef: React.RefObject<any>;
@@ -59,12 +60,23 @@ export function GlobeClickHandler({ tilesRef }: GlobeClickHandlerProps) {
   const { select, hover } = useParcelSelection();
   const drawActive = useDrawTool((s) => s.active);
   const addVertex = useDrawTool((s) => s.addVertex);
+  const moveVertex = useDrawTool((s) => s.moveVertex);
+  const draggingIndex = useDrawPositions((s) => s.draggingIndex);
+  const setDragging = useDrawPositions((s) => s.setDragging);
+  const controls = useThree((s) => s.controls) as any;
   const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
   const lastHoverTime = useRef(0);
   const lastHoveredId = useRef<string | null>(null);
 
   const handleClick = useCallback(
     (event: PointerEvent) => {
+      // If we were dragging a vertex, just release — don't add a new vertex
+      if (draggingIndex !== null) {
+        setDragging(null);
+        if (controls) controls.enabled = true;
+        return;
+      }
+
       if (drawActive) {
         const down = pointerDownPos.current;
         if (down) {
@@ -89,13 +101,37 @@ export function GlobeClickHandler({ tilesRef }: GlobeClickHandlerProps) {
       }
       select(null);
     },
-    [camera, gl, tilesRef, parcels, select, drawActive, addVertex],
+    [camera, gl, tilesRef, parcels, select, drawActive, addVertex, draggingIndex, setDragging, controls],
   );
 
   const handleMove = useCallback(
     (event: PointerEvent) => {
+      // Handle vertex dragging
+      if (draggingIndex !== null) {
+        const result = raycastToLatLon(event, camera, gl, tilesRef.current);
+        if (result) moveVertex(draggingIndex, result.lonDeg, result.latDeg);
+        gl.domElement.style.cursor = "grabbing";
+        return;
+      }
+
       if (drawActive) {
-        gl.domElement.style.cursor = "crosshair";
+        // Show grab cursor when hovering near a vertex
+        const points = useDrawPositions.getState().points;
+        const rect = gl.domElement.getBoundingClientRect();
+        const cx = event.clientX - rect.left;
+        const cy = event.clientY - rect.top;
+        let nearVertex = false;
+        for (let i = 0; i < points.length; i++) {
+          const p = points[i];
+          if (!p.visible) continue;
+          const dx = cx - p.x;
+          const dy = cy - p.y;
+          if (dx * dx + dy * dy <= 16 * 16) {
+            nearVertex = true;
+            break;
+          }
+        }
+        gl.domElement.style.cursor = nearVertex ? "grab" : "crosshair";
         return;
       }
 
@@ -130,12 +166,35 @@ export function GlobeClickHandler({ tilesRef }: GlobeClickHandlerProps) {
       }
       gl.domElement.style.cursor = "grab";
     },
-    [camera, gl, tilesRef, parcels, hover, drawActive],
+    [camera, gl, tilesRef, parcels, hover, drawActive, draggingIndex, moveVertex],
   );
 
-  const handlePointerDown = useCallback((event: PointerEvent) => {
-    pointerDownPos.current = { x: event.clientX, y: event.clientY };
-  }, []);
+  const handlePointerDown = useCallback(
+    (event: PointerEvent) => {
+      pointerDownPos.current = { x: event.clientX, y: event.clientY };
+
+      // Check if pointerdown is near an existing vertex — start dragging
+      if (drawActive) {
+        const points = useDrawPositions.getState().points;
+        const rect = gl.domElement.getBoundingClientRect();
+        const cx = event.clientX - rect.left;
+        const cy = event.clientY - rect.top;
+        const HIT_RADIUS = 16; // px
+        for (let i = 0; i < points.length; i++) {
+          const p = points[i];
+          if (!p.visible) continue;
+          const dx = cx - p.x;
+          const dy = cy - p.y;
+          if (dx * dx + dy * dy <= HIT_RADIUS * HIT_RADIUS) {
+            setDragging(i);
+            if (controls) controls.enabled = false;
+            return;
+          }
+        }
+      }
+    },
+    [drawActive, setDragging, controls, gl],
+  );
 
   useEffect(() => {
     const canvas = gl.domElement;
