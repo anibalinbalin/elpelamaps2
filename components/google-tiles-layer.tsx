@@ -38,6 +38,15 @@ const ECEF_ROTATION: any = {
 };
 const CESIUM_GOOGLE_3D_TILES = 2275207;
 const localCameraPosition = new Vector3();
+const prevCameraPosition = new Vector3();
+
+/** Slightly reduce tile streaming budget while camera is moving to free up GPU/CPU. */
+const MOVING_BUDGET = {
+  errorTarget: 28,
+  maxTilesProcessed: 64,
+  parseJobs: 4,
+  downloadJobs: 8,
+} as const;
 
 function clampHorizontalTravel(point: Vector3, maxHorizontalDistance: number): boolean {
   let changed = false;
@@ -74,14 +83,47 @@ function clampCameraPoint(point: Vector3): boolean {
 
 function TravelGuard({
   controlsRef,
+  tilesRef,
 }: {
   controlsRef: RefObject<any>;
+  tilesRef: RefObject<any>;
 }) {
+  const settledFrames = useRef(0);
+  const isMovingBudget = useRef(false);
+
   useFrame(({ camera }) => {
     const controls = controlsRef.current;
 
     if (!controls) {
       return;
+    }
+
+    // Dynamic tile budget: reduce while moving, restore when settled
+    const tiles = tilesRef.current;
+    if (tiles) {
+      const moved = prevCameraPosition.distanceToSquared(camera.position) > 0.01;
+      prevCameraPosition.copy(camera.position);
+
+      if (moved) {
+        settledFrames.current = 0;
+        if (!isMovingBudget.current) {
+          isMovingBudget.current = true;
+          tiles.errorTarget = MOVING_BUDGET.errorTarget;
+          tiles.maxTilesProcessed = MOVING_BUDGET.maxTilesProcessed;
+          tiles.parseQueue.maxJobs = MOVING_BUDGET.parseJobs;
+          tiles.downloadQueue.maxJobs = MOVING_BUDGET.downloadJobs;
+        }
+      } else {
+        settledFrames.current += 1;
+        // Wait ~30 frames (~0.5s) after settling before restoring full budget
+        if (isMovingBudget.current && settledFrames.current > 30) {
+          isMovingBudget.current = false;
+          tiles.errorTarget = TILE_STREAMING_BUDGET.errorTarget;
+          tiles.maxTilesProcessed = TILE_STREAMING_BUDGET.maxTilesProcessed;
+          tiles.parseQueue.maxJobs = TILE_STREAMING_BUDGET.parseJobs;
+          tiles.downloadQueue.maxJobs = TILE_STREAMING_BUDGET.downloadJobs;
+        }
+      }
     }
 
     let clamped = false;
@@ -108,10 +150,14 @@ function TravelGuard({
       return;
     }
 
-    controls.dragInertia?.set?.(0, 0, 0);
-    controls.rotationInertia?.set?.(0, 0);
+    // Gradually damp inertia instead of killing it instantly to avoid jank
+    if (controls.dragInertia) {
+      controls.dragInertia.multiplyScalar(0.5);
+    }
+    if (controls.rotationInertia) {
+      controls.rotationInertia.multiplyScalar(0.5);
+    }
     controls.globeInertia?.identity?.();
-    controls.resetState();
   });
 
   return null;
@@ -130,6 +176,7 @@ export const GoogleTilesLayer = forwardRef<any, TilesLayerProps>(
     const cesiumToken = process.env.NEXT_PUBLIC_CESIUM_ION_TOKEN;
     const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
     const controlsRef = useRef<any>(null);
+    const internalTilesRef = useRef<any>(null);
 
     const authPlugin = cesiumToken
       ? { plugin: CesiumIonAuthPlugin, args: [{ apiToken: cesiumToken, assetId: CESIUM_GOOGLE_3D_TILES, autoRefreshToken: true }] }
@@ -143,6 +190,8 @@ export const GoogleTilesLayer = forwardRef<any, TilesLayerProps>(
         instance.parseQueue.maxJobs = TILE_STREAMING_BUDGET.parseJobs;
         instance.downloadQueue.maxJobs = TILE_STREAMING_BUDGET.downloadJobs;
       }
+
+      internalTilesRef.current = instance;
 
       if (typeof ref === "function") {
         ref(instance);
@@ -193,11 +242,14 @@ export const GoogleTilesLayer = forwardRef<any, TilesLayerProps>(
         <GlobeControls
           ref={controlsRef}
           enableDamping
+          dampingFactor={0.12}
+          rotationSpeed={3}
+          zoomSpeed={1}
           farMargin={0.05}
           minDistance={VIEW_TRAVEL_LIMITS.minDistance}
           maxDistance={VIEW_TRAVEL_LIMITS.maxDistance}
         />
-        <TravelGuard controlsRef={controlsRef} />
+        <TravelGuard controlsRef={controlsRef} tilesRef={internalTilesRef} />
         <TilesAttributionOverlay />
         <CompassGizmo />
 

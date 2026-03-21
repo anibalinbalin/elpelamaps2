@@ -201,6 +201,16 @@ export function DecorativeCloudLayer({
 
   useFrame(({ clock, camera }) => {
     const time = clock.elapsedTime;
+
+    // Skip all work once clouds are fully cleared and animation is done
+    if (
+      cloudsCleared &&
+      swooshStartedAtRef.current != null &&
+      time - swooshStartedAtRef.current > 3.5
+    ) {
+      return;
+    }
+
     const heightFade = 1 - smoothstep(1180, 1720, camera.position.y);
 
     if (lastSwooshTickRef.current !== swooshTick) {

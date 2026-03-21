@@ -33,6 +33,7 @@ export function DrawOverlay({ tilesRef }: { tilesRef: React.RefObject<any> }) {
   const { camera, size } = useThree();
   const lastUpdate = useRef(0);
   const tempVec = useMemo(() => new Vector3(), []);
+  const projVec = useMemo(() => new Vector3(), []);
 
   // Clear stale points on unmount
   useEffect(() => {
@@ -59,10 +60,10 @@ export function DrawOverlay({ tilesRef }: { tilesRef: React.RefObject<any> }) {
       const latRad = (lat * Math.PI) / 180;
       tiles.ellipsoid.getCartographicToPosition(latRad, lonRad, 50, tempVec);
       tempVec.applyMatrix4(tiles.group.matrixWorld);
-      const projected = tempVec.clone().project(camera);
-      const x = (projected.x * 0.5 + 0.5) * size.width;
-      const y = (-projected.y * 0.5 + 0.5) * size.height;
-      const visible = projected.z < 1 && x > -50 && x < size.width + 50 && y > -50 && y < size.height + 50;
+      projVec.copy(tempVec).project(camera);
+      const x = (projVec.x * 0.5 + 0.5) * size.width;
+      const y = (-projVec.y * 0.5 + 0.5) * size.height;
+      const visible = projVec.z < 1 && x > -50 && x < size.width + 50 && y > -50 && y < size.height + 50;
       return { x, y, visible };
     });
 

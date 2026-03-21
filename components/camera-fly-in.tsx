@@ -55,8 +55,7 @@ export function CameraFlyIn({
       camera.position.lerpVectors(startPos.current, targetPos.current, eased);
 
       // Look toward the Earth's center (origin in the rotated group frame)
-      const lookTarget = new Vector3(0, 0, 0);
-      camera.lookAt(lookTarget);
+      camera.lookAt(0, 0, 0);
       camera.updateProjectionMatrix();
 
       invalidate();

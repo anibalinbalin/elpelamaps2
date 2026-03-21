@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import {
+  Bloom,
   BrightnessContrast,
   EffectComposer,
   HueSaturation,
@@ -116,11 +117,11 @@ export function AtmosphereLayer({
           intensity={lightingPreset.ambientOcclusion.intensity}
           distanceFalloff={lightingPreset.ambientOcclusion.distanceFalloff}
           denoiseRadius={lightingPreset.ambientOcclusion.denoiseRadius}
-          aoSamples={24}
-          denoiseSamples={8}
+          aoSamples={12}
+          denoiseSamples={4}
           screenSpaceRadius
           depthAwareUpsampling
-          quality="ultra"
+          quality="high"
         />
         <AerialPerspective
           sky
@@ -133,6 +134,11 @@ export function AtmosphereLayer({
           mode={ToneMappingMode.AGX}
           whitePoint={lightingPreset.toneMapping.whitePoint}
           middleGrey={lightingPreset.toneMapping.middleGrey}
+        />
+        <Bloom
+          luminanceThreshold={0.85}
+          intensity={0.3}
+          mipmapBlur
         />
         <BrightnessContrast
           brightness={lightingPreset.post.brightness}
