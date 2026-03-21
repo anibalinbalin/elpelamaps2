@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "vitest"
+    "test": "vitest",
+    "postinstall": "node scripts/copy-cesium-assets.mjs"
   },
   "dependencies": {
     "@hugeicons/core-free-icons": "^4.0.0",
@@ -25,6 +26,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "3d-tiles-renderer": "^0.4.22",
+    "cesium": "^1.139.1",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.1.7",
     "next": "^16.1.7",

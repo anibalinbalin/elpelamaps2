@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { CesiumPublicViewer } from "./cesium-public-viewer";
 import { GoogleTilesLayer } from "./google-tiles-layer";
 import { GlobeClickHandler } from "./globe-click-handler";
 import { ScreenProjector } from "./screen-projector";
@@ -18,7 +19,6 @@ import {
 } from "@/lib/constants";
 import { useParcelData } from "@/lib/use-parcel-data";
 import { AdminEditCamera } from "./admin-edit-camera";
-import { ParcelCameraFly } from "./parcel-camera-fly";
 
 function CameraDebug({ onUpdate }: { onUpdate: (pos: string) => void }) {
   const { camera } = useThree();
@@ -118,6 +118,14 @@ function Overlays({
 const NATURAL_DEPTH = VIEWER_LIGHTING_DIRECTIONS["natural-depth"];
 
 export function MapViewer({ drawMode = false }: MapViewerProps) {
+  if (!drawMode) {
+    return <CesiumPublicViewer />;
+  }
+
+  return <DrawModeMapViewer />;
+}
+
+function DrawModeMapViewer() {
   const apiToken = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const tilesRef = useRef<any>(null);
   const parcels = useParcelData();
@@ -187,8 +195,7 @@ export function MapViewer({ drawMode = false }: MapViewerProps) {
           </GoogleTilesLayer>
           <GlobeClickHandler tilesRef={tilesRef} />
           <ScreenProjector tilesRef={tilesRef} />
-          {!drawMode && <ParcelCameraFly tilesRef={tilesRef} />}
-          {drawMode && <AdminEditCamera tilesRef={tilesRef} />}
+          <AdminEditCamera tilesRef={tilesRef} />
         </AtmosphereLayer>
       </Canvas>
       <AtmosphericWashOverlay />
@@ -199,14 +206,14 @@ export function MapViewer({ drawMode = false }: MapViewerProps) {
         </div>
       )}
       <Overlays
-        drawMode={drawMode}
+        drawMode={true}
         parcelCount={parcels.features.length}
         cloudSwooshTick={cloudSwooshTick}
         cloudsCleared={cloudsCleared}
         isCloudSwooshing={isCloudSwooshing}
         onSwooshClouds={handleCloudSwoosh}
       />
-      {drawMode && <DrawToolbar />}
+      <DrawToolbar />
     </div>
   );
 }
