@@ -140,11 +140,14 @@ export function ParcelEditor() {
   }, [selectedParcel]);
 
   const syncParcelCollectionFromSource = useCallback(
-    (markDirty: boolean) => {
+    (markDirty: boolean, extraFeatures?: Feature<Geometry>[]) => {
       const source = sourceRef.current;
       if (!source) return;
 
-      const collection = serializeSource(source, geoJsonRef.current);
+      const allFeatures = extraFeatures
+        ? [...source.getFeatures(), ...extraFeatures]
+        : source.getFeatures();
+      const collection = serializeFeatures(allFeatures, geoJsonRef.current);
       setParcelCollection(collection);
 
       const activeSelectedId = selectedIdRef.current;
@@ -275,7 +278,7 @@ export function ParcelEditor() {
       }
 
       source.addFeatures(features);
-      setParcelCollection(serializeSource(source, geoJsonRef.current));
+      setParcelCollection(serializeFeatures(source.getFeatures(), geoJsonRef.current));
       setDirty(false);
       setSaveState("idle");
       setSaveMessage("");
@@ -396,7 +399,7 @@ export function ParcelEditor() {
       skipNextSelectionAutosaveRef.current = true;
       selectedIdRef.current = nextSelectedId;
       setSelectedId(nextSelectedId);
-      syncParcelCollectionFromSource(true);
+      syncParcelCollectionFromSource(true, [event.feature]);
 
       requestAnimationFrame(() => {
         fitToFeatures(true, nextSelectedId);
@@ -848,11 +851,11 @@ function parseParcelCollection(value: unknown): ParcelCollection {
   };
 }
 
-function serializeSource(
-  source: VectorSource<Feature<Geometry>>,
+function serializeFeatures(
+  features: Feature<Geometry>[],
   geoJson: GeoJSON,
 ): ParcelCollection {
-  const collection = geoJson.writeFeaturesObject(source.getFeatures(), {
+  const collection = geoJson.writeFeaturesObject(features, {
     dataProjection: "EPSG:4326",
     featureProjection: "EPSG:3857",
     decimals: 14,

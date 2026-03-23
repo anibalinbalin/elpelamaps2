@@ -153,6 +153,7 @@ export function CesiumPublicViewer() {
   const [isCloudSwooshing, setIsCloudSwooshing] = useState(false);
   const [error, setError] = useState("");
   const cloudSwooshTimeoutRef = useRef<number | null>(null);
+  const parcelsBoundingSphereRef = useRef<BoundingSphere | null>(null);
   const parcelsBoundingSphere = useMemo(() => {
     const cartesianPoints: Cartesian3[] = [];
     for (const feature of parcels.features) {
@@ -170,6 +171,10 @@ export function CesiumPublicViewer() {
 
     return BoundingSphere.fromPoints(cartesianPoints);
   }, [parcels]);
+
+  useEffect(() => {
+    parcelsBoundingSphereRef.current = parcelsBoundingSphere;
+  }, [parcelsBoundingSphere]);
 
   useEffect(() => {
     selectedIdRef.current = selectedId;
@@ -285,11 +290,13 @@ export function CesiumPublicViewer() {
           }
           tilesetRef.current = tileset;
           viewer.scene.primitives.add(tileset);
-          viewer.camera.flyToBoundingSphere(parcelsBoundingSphere, {
-            duration: 0,
-            offset: INITIAL_CAMERA_OFFSET,
-          });
-          hasFramedInitialViewRef.current = true;
+          if (parcelsBoundingSphereRef.current) {
+            viewer.camera.flyToBoundingSphere(parcelsBoundingSphereRef.current, {
+              duration: 0,
+              offset: INITIAL_CAMERA_OFFSET,
+            });
+            hasFramedInitialViewRef.current = true;
+          }
         } catch (loadError) {
           if (disposed) {
             return;
@@ -320,7 +327,8 @@ export function CesiumPublicViewer() {
       tilesetRef.current = null;
       parcelBundlesRef.current.clear();
     };
-  }, [apiToken, hoverParcel, parcelsBoundingSphere, selectParcel, updatePillPositions]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- parcelsBoundingSphere accessed via ref to avoid viewer recreation
+  }, [apiToken, hoverParcel, selectParcel, updatePillPositions]);
 
   useEffect(() => {
     const viewer = viewerRef.current;
@@ -386,14 +394,14 @@ export function CesiumPublicViewer() {
       updatePillPositions,
     );
 
-    if (!hasFramedInitialViewRef.current && parcelBundlesRef.current.size > 0) {
-      viewer.camera.flyToBoundingSphere(parcelsBoundingSphere, {
+    if (!hasFramedInitialViewRef.current && parcelBundlesRef.current.size > 0 && parcelsBoundingSphereRef.current) {
+      viewer.camera.flyToBoundingSphere(parcelsBoundingSphereRef.current, {
         duration: 0,
         offset: INITIAL_CAMERA_OFFSET,
       });
       hasFramedInitialViewRef.current = true;
     }
-  }, [parcels, parcelsBoundingSphere, updatePillPositions]);
+  }, [parcels, updatePillPositions]);
 
   useEffect(() => {
     const viewer = viewerRef.current;

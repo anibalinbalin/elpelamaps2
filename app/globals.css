@@ -81,6 +81,14 @@ body {
   }
 }
 
+/* Hide Cesium/Google credits for demo */
+.cesium-widget-credits,
+.cesium-credit-logoContainer,
+.cesium-credit-textContainer,
+.cesium-viewer-bottom {
+  display: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cloud-swoosh-icon {
     animation: none !important;
