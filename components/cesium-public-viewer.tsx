@@ -30,6 +30,7 @@ import { usePillPositions } from "@/lib/use-pill-positions";
 import { ParcelPillsOverlay, type PillPosition } from "./parcel-pills";
 import { ParcelSidebar } from "./parcel-sidebar";
 import { TopBar } from "./top-bar";
+import { ViewerLoadingSkeleton } from "./viewer-loading-skeleton";
 
 declare global {
   interface Window {
@@ -151,8 +152,11 @@ export function CesiumPublicViewer() {
   const [cloudSwooshTick, setCloudSwooshTick] = useState(0);
   const [cloudsCleared, setCloudsCleared] = useState(false);
   const [isCloudSwooshing, setIsCloudSwooshing] = useState(false);
+  const [isSceneReady, setIsSceneReady] = useState(false);
+  const [showSkeleton, setShowSkeleton] = useState(true);
   const [error, setError] = useState("");
   const cloudSwooshTimeoutRef = useRef<number | null>(null);
+  const hasMarkedSceneReadyRef = useRef(false);
   const parcelsBoundingSphereRef = useRef<BoundingSphere | null>(null);
   const parcelsBoundingSphere = useMemo(() => {
     const cartesianPoints: Cartesian3[] = [];
@@ -197,10 +201,28 @@ export function CesiumPublicViewer() {
     }
 
     setError("");
+    setIsSceneReady(false);
+    hasMarkedSceneReadyRef.current = false;
     window.CESIUM_BASE_URL = "/Cesium/";
     Ion.defaultAccessToken = apiToken;
     let disposed = false;
     let loadTilesetFrameId: number | null = null;
+    let removeInitialTilesLoadedListener: (() => void) | null = null;
+
+    const markSceneReady = () => {
+      if (disposed || hasMarkedSceneReadyRef.current) {
+        return;
+      }
+
+      hasMarkedSceneReadyRef.current = true;
+      removeInitialTilesLoadedListener?.();
+      removeInitialTilesLoadedListener = null;
+      window.requestAnimationFrame(() => {
+        if (!disposed) {
+          setIsSceneReady(true);
+        }
+      });
+    };
 
     const viewer = new Viewer(containerRef.current, {
       animation: false,
@@ -290,12 +312,20 @@ export function CesiumPublicViewer() {
           }
           tilesetRef.current = tileset;
           viewer.scene.primitives.add(tileset);
+
+          removeInitialTilesLoadedListener = tileset.initialTilesLoaded.addEventListener(
+            markSceneReady,
+          );
+
           if (parcelsBoundingSphereRef.current) {
             viewer.camera.flyToBoundingSphere(parcelsBoundingSphereRef.current, {
               duration: 0,
               offset: INITIAL_CAMERA_OFFSET,
             });
             hasFramedInitialViewRef.current = true;
+          }
+          if (tileset.tilesLoaded) {
+            markSceneReady();
           }
         } catch (loadError) {
           if (disposed) {
@@ -315,6 +345,7 @@ export function CesiumPublicViewer() {
       if (loadTilesetFrameId != null) {
         window.cancelAnimationFrame(loadTilesetFrameId);
       }
+      removeInitialTilesLoadedListener?.();
       hoverParcel(null);
       selectParcel(null);
       updatePillPositions([], null);
@@ -479,19 +510,45 @@ export function CesiumPublicViewer() {
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-[#111820]">
-      <div ref={containerRef} className="absolute inset-0" />
-      <AtmosphericWashOverlay />
-      <CloudVeilOverlay active={isCloudSwooshing} cleared={cloudsCleared} />
-      <TopBar
-        drawMode={false}
-        parcelCount={parcels.features.length}
-        cloudSwooshTick={cloudSwooshTick}
-        cloudsCleared={cloudsCleared}
-        isCloudSwooshing={isCloudSwooshing}
-        onSwooshClouds={handleCloudSwoosh}
-      />
-      <ParcelPillsOverlay positions={pillPositions} />
-      <ParcelSidebar />
+      <div
+        className={`absolute inset-0 transition-opacity duration-500 ${
+          isSceneReady ? "opacity-100" : "opacity-0"
+        }`}
+      >
+        <div ref={containerRef} className="absolute inset-0" />
+        <AtmosphericWashOverlay />
+        <CloudVeilOverlay active={isCloudSwooshing} cleared={cloudsCleared} />
+      </div>
+      <div
+        className={`transition-[opacity,transform] duration-500 ${
+          isSceneReady
+            ? "opacity-100 translate-y-0"
+            : "pointer-events-none opacity-0 translate-y-1.5"
+        }`}
+      >
+        <TopBar
+          drawMode={false}
+          parcelCount={parcels.features.length}
+          cloudSwooshTick={cloudSwooshTick}
+          cloudsCleared={cloudsCleared}
+          isCloudSwooshing={isCloudSwooshing}
+          onSwooshClouds={handleCloudSwoosh}
+        />
+        <ParcelPillsOverlay positions={pillPositions} />
+        <ParcelSidebar />
+      </div>
+      {(showSkeleton || !isSceneReady) && !error ? (
+        <div
+          className={`transition-opacity duration-700 ${
+            isSceneReady ? "pointer-events-none opacity-0" : "opacity-100"
+          }`}
+          onTransitionEnd={() => {
+            if (isSceneReady) setShowSkeleton(false);
+          }}
+        >
+          <ViewerLoadingSkeleton overlay />
+        </div>
+      ) : null}
       {error ? (
         <div className="pointer-events-none absolute bottom-4 left-4 z-20 max-w-[520px] rounded-[18px] border border-amber-300/30 bg-[rgba(32,25,16,0.86)] px-4 py-3 text-[13px] text-amber-100 shadow-[0_18px_50px_rgba(4,16,28,0.22)] backdrop-blur-md">
           {error}
