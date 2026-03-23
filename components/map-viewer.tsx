@@ -128,7 +128,7 @@ export function MapViewer({ drawMode = false }: MapViewerProps) {
 function DrawModeMapViewer() {
   const apiToken = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const tilesRef = useRef<any>(null);
-  const parcels = useParcelData();
+  const parcels = useParcelData({ includeDraftParcels: true });
   const [camPos, setCamPos] = useState("");
   const [cloudSwooshTick, setCloudSwooshTick] = useState(0);
   const [cloudsCleared, setCloudsCleared] = useState(false);

@@ -21,7 +21,7 @@ export function DrawToolbar() {
     clearDrawnParcels,
   } = useDrawTool();
   const selectedId = useParcelSelection((s) => s.selectedId);
-  const parcels = useParcelData();
+  const parcels = useParcelData({ includeDraftParcels: true });
   const selectedFeature = useMemo(
     () => selectedId ? parcels.features.find((f) => f.properties.id === selectedId) ?? null : null,
     [selectedId, parcels],

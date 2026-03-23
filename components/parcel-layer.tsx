@@ -69,7 +69,7 @@ interface ProjectionState {
 }
 
 export function ParcelLayer({ tilesRef }: ParcelLayerProps) {
-  const parcels = useParcelData();
+  const parcels = useParcelData({ includeDraftParcels: true });
   const hoveredId = useParcelSelection((s) => s.hoveredId);
   const selectedId = useParcelSelection((s) => s.selectedId);
   const editingParcel = useDrawTool((s) => s.editingParcel);

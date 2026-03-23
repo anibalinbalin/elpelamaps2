@@ -58,7 +58,7 @@ const VERTEX_HIT_DISTANCE_METERS = 28;
 
 export function GlobeClickHandler({ tilesRef }: GlobeClickHandlerProps) {
   const { camera, gl } = useThree();
-  const parcels = useParcelData();
+  const parcels = useParcelData({ includeDraftParcels: true });
   const { select, hover } = useParcelSelection();
   const drawActive = useDrawTool((s) => s.active);
   const addVertex = useDrawTool((s) => s.addVertex);

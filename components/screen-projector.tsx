@@ -16,7 +16,7 @@ interface ScreenProjectorProps {
 
 export function ScreenProjector({ tilesRef }: ScreenProjectorProps) {
   const { camera, size } = useThree();
-  const parcels = useParcelData();
+  const parcels = useParcelData({ includeDraftParcels: true });
   const selectedId = useParcelSelection((s) => s.selectedId);
   const updatePositions = usePillPositions((s) => s.update);
   const tempVec = useMemo(() => new Vector3(), []);
