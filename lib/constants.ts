@@ -159,6 +159,32 @@ export const TILE_STREAMING_BUDGET = {
   parseJobs: 6,
   downloadJobs: 12,
 } as const;
+/** Google Earth-style camera behavior for the Cesium public viewer. */
+export const CESIUM_CAMERA_BEHAVIOR = {
+  /** Progressive pitch curve: top-down at high altitude, oblique near ground */
+  autoTilt: {
+    highAltitude: 4000,
+    lowAltitude: 250,
+    highPitchDeg: -90,
+    lowPitchDeg: -35,
+  },
+  /** Zoom-to-cursor and right-drag inertia settings */
+  zoomToCursor: {
+    sensitivity: 0.0003,
+    damping: 0.88,
+    minVelocity: 0.0001,
+    gestureTimeoutMs: 300,
+    rightDragSensitivity: 0.0014,
+    dragStartThresholdPx: 4,
+  },
+  /** Double-click flies to 35% of current distance */
+  doubleClickZoomRatio: 0.35,
+  doubleClickDuration: 1.0,
+  rightDoubleClickThresholdMs: 320,
+  /** North-up compass reset */
+  northResetDuration: 0.6,
+} as const;
+
 export const PARCEL_COLORS: {
   fill: string;
   fillHover: string;

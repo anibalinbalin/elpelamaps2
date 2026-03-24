@@ -23,7 +23,9 @@ import {
   type Cesium3DTileset,
   type Entity,
 } from "cesium";
-import { JOSE_IGNACIO_CENTER, PARCEL_COLORS } from "@/lib/constants";
+import { Compass01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { JOSE_IGNACIO_CENTER, PARCEL_COLORS, CESIUM_CAMERA_BEHAVIOR } from "@/lib/constants";
 import { useParcelData } from "@/lib/use-parcel-data";
 import { centroid, formatAreaCompact } from "@/lib/geo-utils";
 import { useParcelSelection } from "@/lib/use-parcel-selection";
@@ -103,6 +105,353 @@ function CloudVeilOverlay({
   );
 }
 
+/** Map camera altitude to a target pitch via the auto-tilt curve. */
+function computeAutoTiltPitch(altitude: number): number {
+  const { highAltitude, lowAltitude, highPitchDeg, lowPitchDeg } =
+    CESIUM_CAMERA_BEHAVIOR.autoTilt;
+  const t = CesiumMath.clamp(
+    (altitude - lowAltitude) / (highAltitude - lowAltitude),
+    0,
+    1,
+  );
+  return CesiumMath.toRadians(lowPitchDeg + (highPitchDeg - lowPitchDeg) * t);
+}
+
+function CompassButton({
+  viewerRef,
+}: {
+  viewerRef: React.RefObject<Viewer | null>;
+}) {
+  const [headingDeg, setHeadingDeg] = useState(0);
+  const lastHeadingRef = useRef(0);
+
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+
+    const removeListener = viewer.scene.postRender.addEventListener(() => {
+      const deg = CesiumMath.toDegrees(viewer.camera.heading);
+      // Only update state when heading changes noticeably (avoid re-renders)
+      if (Math.abs(deg - lastHeadingRef.current) > 0.5) {
+        lastHeadingRef.current = deg;
+        setHeadingDeg(deg);
+      }
+    });
+
+    return () => removeListener();
+  }, [viewerRef]);
+
+  const handleClick = () => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+
+    viewer.camera.flyTo({
+      destination: viewer.camera.position,
+      orientation: {
+        heading: 0,
+        pitch: viewer.camera.pitch,
+        roll: 0,
+      },
+      duration: CESIUM_CAMERA_BEHAVIOR.northResetDuration,
+    });
+  };
+
+  // Hide when already facing north (within 2°)
+  const isNorth = Math.abs(headingDeg) < 2 || Math.abs(headingDeg - 360) < 2;
+
+  return (
+    <button
+      onClick={handleClick}
+      className={`fixed bottom-6 right-6 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-[rgba(20,26,32,0.72)] shadow-[0_8px_32px_rgba(0,0,0,0.3)] backdrop-blur-md transition-opacity duration-300 hover:border-white/25 hover:bg-[rgba(28,34,42,0.82)] ${
+        isNorth ? "pointer-events-none opacity-0" : "opacity-100"
+      }`}
+      title="Reset to north"
+    >
+      <div
+        style={{ transform: `rotate(${-headingDeg}deg)` }}
+        className="transition-transform duration-100"
+      >
+        <HugeiconsIcon icon={Compass01Icon} size={18} className="text-white/80" />
+      </div>
+    </button>
+  );
+}
+
+/**
+ * Set up Google Earth-style wheel zoom, right-drag zoom, and auto-tilt.
+ * Returns a cleanup function.
+ */
+function setupGoogleEarthNavigation(
+  viewer: Viewer,
+  isFlyingRef: React.RefObject<boolean>,
+) {
+  const {
+    sensitivity,
+    damping,
+    minVelocity,
+    gestureTimeoutMs,
+    rightDragSensitivity,
+    dragStartThresholdPx,
+  } = CESIUM_CAMERA_BEHAVIOR.zoomToCursor;
+  const controller = viewer.scene.screenSpaceCameraController;
+  const canvas = viewer.scene.canvas;
+
+  // Remove wheel and right-drag from Cesium's built-in zoom so we handle them ourselves.
+  controller.zoomEventTypes = [CameraEventType.PINCH];
+
+  let zoomVelocity = 0;
+  let pickPoint: Cartesian3 | null = null;
+  let isZooming = false;
+  let zoomTimeout: number | null = null;
+  let isRightDragging = false;
+  let rightDragMoved = false;
+  let rightDragClientX = 0;
+  let rightDragClientY = 0;
+  let lastRightClickAt = 0;
+  let lastRightClickClientX = 0;
+  let lastRightClickClientY = 0;
+
+  function setZoomGestureActive() {
+    isZooming = true;
+    if (zoomTimeout != null) window.clearTimeout(zoomTimeout);
+    zoomTimeout = window.setTimeout(() => {
+      isZooming = false;
+      zoomTimeout = null;
+      if (!isRightDragging) {
+        pickPoint = null;
+      }
+    }, gestureTimeoutMs);
+  }
+
+  function getCameraAltitude(): number {
+    const carto = viewer.camera.positionCartographic;
+    const groundHeight = viewer.scene.globe.getHeight(carto) ?? 0;
+    return Math.max(carto.height - groundHeight, 1);
+  }
+
+  function toCanvasPosition(clientX: number, clientY: number): Cartesian2 {
+    const rect = canvas.getBoundingClientRect();
+    return new Cartesian2(clientX - rect.left, clientY - rect.top);
+  }
+
+  function pickWorldPosition(clientX: number, clientY: number): Cartesian3 | null {
+    const windowPos = toCanvasPosition(clientX, clientY);
+    // Try 3D tiles first
+    const picked = viewer.scene.pickPosition(windowPos);
+    if (defined(picked) && !isNaN(picked.x)) return picked;
+    // Fallback: ellipsoid
+    const ellipsoidPick = viewer.camera.pickEllipsoid(windowPos, viewer.scene.globe.ellipsoid);
+    return ellipsoidPick ?? null;
+  }
+
+  function queueZoom(velocityDelta: number, clientX: number, clientY: number) {
+    if (!pickPoint) {
+      pickPoint = pickWorldPosition(clientX, clientY);
+    }
+    if (!pickPoint) return;
+
+    zoomVelocity += velocityDelta;
+    setZoomGestureActive();
+  }
+
+  function zoomByRatio(clientX: number, clientY: number, ratio: number) {
+    const pickedPosition = pickWorldPosition(clientX, clientY);
+    if (!pickedPosition) return;
+
+    const currentDistance = Cartesian3.distance(
+      viewer.camera.positionWC,
+      pickedPosition,
+    );
+    const targetDistance = CesiumMath.clamp(
+      currentDistance * ratio,
+      controller.minimumZoomDistance,
+      controller.maximumZoomDistance,
+    );
+
+    isFlyingRef.current = true;
+    viewer.camera.flyToBoundingSphere(new BoundingSphere(pickedPosition, 0), {
+      duration: CESIUM_CAMERA_BEHAVIOR.doubleClickDuration,
+      offset: new HeadingPitchRange(
+        viewer.camera.heading,
+        computeAutoTiltPitch(targetDistance),
+        targetDistance,
+      ),
+      complete: () => { isFlyingRef.current = false; },
+      cancel: () => { isFlyingRef.current = false; },
+    });
+  }
+
+  const onWheel = (event: WheelEvent) => {
+    event.preventDefault();
+    if (isFlyingRef.current) return;
+
+    // Wheel-up should zoom in, matching Google Earth.
+    queueZoom(-event.deltaY * sensitivity, event.clientX, event.clientY);
+  };
+
+  const onMouseDown = (event: MouseEvent) => {
+    if (event.button !== 2 || isFlyingRef.current) return;
+
+    event.preventDefault();
+    isRightDragging = true;
+    rightDragMoved = false;
+    rightDragClientX = event.clientX;
+    rightDragClientY = event.clientY;
+    pickPoint = pickWorldPosition(event.clientX, event.clientY);
+    canvas.style.cursor = "grabbing";
+  };
+
+  const onMouseMove = (event: MouseEvent) => {
+    if (!isRightDragging || isFlyingRef.current) return;
+
+    const deltaX = event.clientX - rightDragClientX;
+    const deltaY = event.clientY - rightDragClientY;
+    if (
+      !rightDragMoved &&
+      Math.hypot(deltaX, deltaY) >= dragStartThresholdPx
+    ) {
+      rightDragMoved = true;
+    }
+
+    if (deltaY !== 0) {
+      queueZoom(-deltaY * rightDragSensitivity, event.clientX, event.clientY);
+    }
+
+    rightDragClientX = event.clientX;
+    rightDragClientY = event.clientY;
+    event.preventDefault();
+  };
+
+  const onMouseUp = (event: MouseEvent) => {
+    if (event.button !== 2 || !isRightDragging) return;
+
+    event.preventDefault();
+    isRightDragging = false;
+    canvas.style.cursor = "grab";
+
+    if (rightDragMoved) {
+      zoomVelocity = 0;
+      isZooming = false;
+      pickPoint = null;
+      return;
+    }
+
+    const now = Date.now();
+    const clickDistance = Math.hypot(
+      event.clientX - lastRightClickClientX,
+      event.clientY - lastRightClickClientY,
+    );
+    const isDoubleClick =
+      now - lastRightClickAt <= CESIUM_CAMERA_BEHAVIOR.rightDoubleClickThresholdMs &&
+      clickDistance <= 14;
+
+    lastRightClickAt = now;
+    lastRightClickClientX = event.clientX;
+    lastRightClickClientY = event.clientY;
+
+    if (!isDoubleClick) {
+      return;
+    }
+
+    lastRightClickAt = 0;
+    zoomByRatio(
+      event.clientX,
+      event.clientY,
+      1 / CESIUM_CAMERA_BEHAVIOR.doubleClickZoomRatio,
+    );
+  };
+
+  const onContextMenu = (event: MouseEvent) => {
+    event.preventDefault();
+  };
+
+  // Per-frame animation: apply zoom velocity and auto-tilt
+  const removePreRender = viewer.scene.preRender.addEventListener(() => {
+    if (isFlyingRef.current) {
+      zoomVelocity = 0;
+      pickPoint = null;
+      return;
+    }
+
+    // Apply zoom velocity
+    if (Math.abs(zoomVelocity) > minVelocity && pickPoint) {
+      const camera = viewer.camera;
+      const currentDistance = Cartesian3.distance(camera.positionWC, pickPoint);
+
+      // Scale movement relative to distance (closer = smaller steps)
+      const moveAmount = zoomVelocity * currentDistance;
+      const direction = new Cartesian3();
+      Cartesian3.subtract(pickPoint, camera.positionWC, direction);
+      Cartesian3.normalize(direction, direction);
+
+      // Compute new position
+      const newPos = new Cartesian3();
+      Cartesian3.multiplyByScalar(direction, moveAmount, newPos);
+      Cartesian3.add(camera.positionWC, newPos, newPos);
+
+      // Check distance constraints
+      const newDistance = Cartesian3.distance(newPos, pickPoint);
+      if (
+        newDistance >= controller.minimumZoomDistance &&
+        newDistance <= controller.maximumZoomDistance
+      ) {
+        camera.position = newPos;
+      } else if (newDistance < controller.minimumZoomDistance) {
+        // Clamp to min distance
+        const clampDir = new Cartesian3();
+        Cartesian3.subtract(camera.positionWC, pickPoint, clampDir);
+        Cartesian3.normalize(clampDir, clampDir);
+        Cartesian3.multiplyByScalar(clampDir, controller.minimumZoomDistance, clampDir);
+        Cartesian3.add(pickPoint, clampDir, newPos);
+        camera.position = newPos;
+        zoomVelocity = 0;
+      } else {
+        zoomVelocity = 0;
+      }
+
+      // Decay velocity (inertia)
+      zoomVelocity *= damping;
+    } else {
+      zoomVelocity = 0;
+      pickPoint = null;
+    }
+
+    // Auto-tilt: blend pitch toward altitude-based target during zoom
+    if (isZooming || Math.abs(zoomVelocity) > minVelocity) {
+      const altitude = getCameraAltitude();
+      const targetPitch = computeAutoTiltPitch(altitude);
+      const currentPitch = viewer.camera.pitch;
+      const newPitch = currentPitch + (targetPitch - currentPitch) * 0.08;
+
+      if (Math.abs(newPitch - currentPitch) > 0.001) {
+        viewer.camera.setView({
+          orientation: {
+            heading: viewer.camera.heading,
+            pitch: newPitch,
+            roll: 0,
+          },
+        });
+      }
+    }
+  });
+
+  canvas.addEventListener("wheel", onWheel, { passive: false });
+  canvas.addEventListener("mousedown", onMouseDown);
+  canvas.addEventListener("contextmenu", onContextMenu);
+  window.addEventListener("mousemove", onMouseMove);
+  window.addEventListener("mouseup", onMouseUp);
+
+  return () => {
+    canvas.removeEventListener("wheel", onWheel);
+    canvas.removeEventListener("mousedown", onMouseDown);
+    canvas.removeEventListener("contextmenu", onContextMenu);
+    window.removeEventListener("mousemove", onMouseMove);
+    window.removeEventListener("mouseup", onMouseUp);
+    removePreRender();
+    if (zoomTimeout != null) window.clearTimeout(zoomTimeout);
+  };
+}
+
 export function CesiumPublicViewer() {
   const googleApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -114,6 +463,8 @@ export function CesiumPublicViewer() {
   const hasFramedInitialViewRef = useRef(false);
   const lastAnimatedParcelIdRef = useRef<string | null>(null);
   const selectedIdRef = useRef<string | null>(null);
+  const isFlyingRef = useRef(false);
+  const cleanupZoomRef = useRef<(() => void) | null>(null);
   const parcels = useParcelData();
   const hoveredId = useParcelSelection((s) => s.hoveredId);
   const selectedId = useParcelSelection((s) => s.selectedId);
@@ -230,30 +581,30 @@ export function CesiumPublicViewer() {
     controller.inertiaTranslate = 0.82;
     controller.inertiaZoom = 0.7;
 
-    // Google Maps 3D-style controls:
-    // Left drag = pan/orbit (spin3D contextual — default rotateEventTypes)
-    // Right drag = tilt/orbit (like Google Maps right-drag to rotate view)
-    // Scroll = zoom (wheel + pinch only, no right-drag zoom)
-    // Ctrl+left drag = also tilt (Google Maps alternative)
+    // Google Earth-style controls:
+    // Left drag = move/orbit (spin3D contextual — default rotateEventTypes)
+    // Right drag = custom zoom with auto-tilt
+    // Shift+left drag = tilt
+    // Ctrl+left drag = free-look
     controller.tiltEventTypes = [
-      CameraEventType.RIGHT_DRAG,
       CameraEventType.MIDDLE_DRAG,
-      { eventType: CameraEventType.LEFT_DRAG, modifier: KeyboardEventModifier.CTRL },
-    ];
-    controller.zoomEventTypes = [
-      CameraEventType.WHEEL,
-      CameraEventType.PINCH,
-    ];
-    // rotateEventTypes stays as LEFT_DRAG (default) — spin3D handles pan contextually
-    // Shift+drag = freelook (turn head without moving), like Google Earth 3D
-    controller.lookEventTypes = [
       { eventType: CameraEventType.LEFT_DRAG, modifier: KeyboardEventModifier.SHIFT },
+    ];
+    // Zoom via PINCH only — wheel/right-drag zoom is handled by setupGoogleEarthNavigation
+    controller.zoomEventTypes = [CameraEventType.PINCH];
+    // rotateEventTypes stays as LEFT_DRAG (default) — spin3D handles pan contextually
+    // Ctrl+drag = freelook (turn head without moving), like Google Earth 3D
+    controller.lookEventTypes = [
+      { eventType: CameraEventType.LEFT_DRAG, modifier: KeyboardEventModifier.CTRL },
     ];
     viewer.cesiumWidget.screenSpaceEventHandler.removeInputAction(
       ScreenSpaceEventType.LEFT_DOUBLE_CLICK,
     );
 
     viewerRef.current = viewer;
+
+    // Google Earth-style wheel/right-drag zoom + auto-tilt
+    cleanupZoomRef.current = setupGoogleEarthNavigation(viewer, isFlyingRef);
 
     const updateOverlayPositionsFromScene = () => {
       updateOverlayPositions(
@@ -297,6 +648,45 @@ export function CesiumPublicViewer() {
       hoverParcel(parcelId);
       (viewer.container as HTMLElement).style.cursor = parcelId ? "pointer" : "grab";
     }, ScreenSpaceEventType.MOUSE_MOVE);
+
+    // Double-click to zoom in (Google Earth-style)
+    handler.setInputAction((movement: { position: Cartesian2 }) => {
+      // Skip if a parcel was clicked — parcel selection already handles fly-to
+      const parcelId = getPickedParcelId(
+        viewer.scene.pick(movement.position),
+        parcelBundlesRef.current,
+      );
+      if (parcelId) return;
+
+      const pickedPosition = viewer.scene.pickPosition(movement.position);
+      if (!defined(pickedPosition) || isNaN(pickedPosition.x)) return;
+
+      const currentDistance = Cartesian3.distance(
+        viewer.camera.positionWC,
+        pickedPosition,
+      );
+      const targetDistance = CesiumMath.clamp(
+        currentDistance * CESIUM_CAMERA_BEHAVIOR.doubleClickZoomRatio,
+        viewer.scene.screenSpaceCameraController.minimumZoomDistance,
+        viewer.scene.screenSpaceCameraController.maximumZoomDistance,
+      );
+      const targetPitch = computeAutoTiltPitch(targetDistance);
+
+      isFlyingRef.current = true;
+      viewer.camera.flyToBoundingSphere(
+        new BoundingSphere(pickedPosition, 0),
+        {
+          duration: CESIUM_CAMERA_BEHAVIOR.doubleClickDuration,
+          offset: new HeadingPitchRange(
+            viewer.camera.heading,
+            targetPitch,
+            targetDistance,
+          ),
+          complete: () => { isFlyingRef.current = false; },
+          cancel: () => { isFlyingRef.current = false; },
+        },
+      );
+    }, ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
 
     handlerRef.current = handler;
 
@@ -352,6 +742,8 @@ export function CesiumPublicViewer() {
       updatePillPositions([], null);
       removePostRenderRef.current?.();
       removePostRenderRef.current = null;
+      cleanupZoomRef.current?.();
+      cleanupZoomRef.current = null;
       handlerRef.current?.destroy();
       handlerRef.current = null;
       viewerRef.current?.destroy();
@@ -470,6 +862,7 @@ export function CesiumPublicViewer() {
     const area = Math.max(bundle.properties.areaSqMeters, 1);
     const range = Math.max(520, Math.min(1350, Math.sqrt(area) * 12.5));
 
+    isFlyingRef.current = true;
     viewer.camera.flyToBoundingSphere(bundle.sphere, {
       duration: 1.4,
       offset: new HeadingPitchRange(
@@ -477,6 +870,8 @@ export function CesiumPublicViewer() {
         SELECTED_CAMERA_PITCH,
         range,
       ),
+      complete: () => { isFlyingRef.current = false; },
+      cancel: () => { isFlyingRef.current = false; },
     });
 
     lastAnimatedParcelIdRef.current = selectedId;
@@ -537,6 +932,7 @@ export function CesiumPublicViewer() {
         />
         <ParcelPillsOverlay positions={pillPositions} />
         <ParcelSidebar />
+        <CompassButton viewerRef={viewerRef} />
       </div>
       {(showSkeleton || !isSceneReady) && !error ? (
         <div
