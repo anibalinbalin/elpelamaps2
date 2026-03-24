@@ -1,5 +1,6 @@
 export const GOOGLE_MAPS_API_KEY: string =
-  process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
+  process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ||
+  "AIzaSyAP9O1azgxxb1OIvxBDnOPtt5neTA_yqv4";
 
 export const JOSE_IGNACIO_CENTER = { lat: -34.8295, lon: -54.633 } as const;
 /** Camera positioned to frame Lote1/Lote2 parcels */
