@@ -1,4 +1,4 @@
-export const GOOGLE_MAPS_API_KEY =
+export const GOOGLE_MAPS_API_KEY: string =
   process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 
 export const JOSE_IGNACIO_CENTER = { lat: -34.8295, lon: -54.633 } as const;
