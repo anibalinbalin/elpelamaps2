@@ -25,7 +25,7 @@ import {
 } from "cesium";
 import { Compass01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { JOSE_IGNACIO_CENTER, PARCEL_COLORS, CESIUM_CAMERA_BEHAVIOR } from "@/lib/constants";
+import { GOOGLE_MAPS_API_KEY, JOSE_IGNACIO_CENTER, PARCEL_COLORS, CESIUM_CAMERA_BEHAVIOR } from "@/lib/constants";
 import { useParcelData } from "@/lib/use-parcel-data";
 import { centroid, formatAreaCompact } from "@/lib/geo-utils";
 import { useParcelSelection } from "@/lib/use-parcel-selection";
@@ -453,7 +453,7 @@ function setupGoogleEarthNavigation(
 }
 
 export function CesiumPublicViewer() {
-  const googleApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const googleApiKey = GOOGLE_MAPS_API_KEY;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewerRef = useRef<Viewer | null>(null);
   const tilesetRef = useRef<Cesium3DTileset | null>(null);

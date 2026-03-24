@@ -14,6 +14,7 @@ import { ParcelLayer } from "./parcel-layer";
 import { AtmosphereLayer } from "./atmosphere-layer";
 import { DrawToolbar } from "./draw-toolbar";
 import {
+  GOOGLE_MAPS_API_KEY,
   INITIAL_CAMERA_POSITION,
   VIEWER_LIGHTING_DIRECTIONS,
 } from "@/lib/constants";
@@ -126,7 +127,7 @@ export function MapViewer({ drawMode = false }: MapViewerProps) {
 }
 
 function DrawModeMapViewer() {
-  const apiToken = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const apiToken = GOOGLE_MAPS_API_KEY;
   const tilesRef = useRef<any>(null);
   const parcels = useParcelData({ includeDraftParcels: true });
   const [camPos, setCamPos] = useState("");
