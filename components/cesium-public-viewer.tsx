@@ -59,31 +59,12 @@ interface ParcelEntityBundle {
   sphere: BoundingSphere;
 }
 
-const ATMOSPHERIC_WASH = {
-  sky: {
-    background: [
-      "radial-gradient(ellipse at 50% -18%, rgba(255, 244, 215, 0.17), rgba(255, 244, 215, 0.06) 24%, rgba(255, 244, 215, 0) 56%)",
-      "linear-gradient(180deg, rgba(88, 145, 212, 0.18) 0%, rgba(126, 182, 226, 0.12) 18%, rgba(161, 206, 234, 0.06) 34%, rgba(192, 219, 233, 0.02) 52%, rgba(192, 219, 233, 0) 66%)",
-      "linear-gradient(180deg, rgba(255, 235, 194, 0) 48%, rgba(255, 235, 194, 0.07) 70%, rgba(255, 235, 194, 0.12) 82%, rgba(255, 235, 194, 0.06) 92%, rgba(255, 235, 194, 0) 100%)",
-    ].join(", "),
-  } as CSSProperties,
-  horizon: {
-    inset: "42% -9% 12% -9%",
-    background: [
-      "linear-gradient(180deg, rgba(174, 214, 245, 0) 0%, rgba(174, 214, 245, 0.1) 22%, rgba(201, 227, 244, 0.18) 40%, rgba(229, 214, 184, 0.18) 58%, rgba(229, 214, 184, 0.07) 72%, rgba(229, 214, 184, 0) 100%)",
-      "radial-gradient(ellipse at 50% 58%, rgba(238, 223, 191, 0.24), rgba(238, 223, 191, 0.11) 36%, rgba(238, 223, 191, 0) 72%)",
-    ].join(", "),
-    filter: "blur(38px)",
-    opacity: 0.88,
-    transform: "scale(1.04)",
-  } as CSSProperties,
-  vignette: {
-    background: [
-      "linear-gradient(180deg, rgba(255, 252, 246, 0.045) 0%, rgba(255, 252, 246, 0.015) 16%, rgba(255, 252, 246, 0) 34%, rgba(17, 24, 31, 0.012) 100%)",
-      "radial-gradient(circle at 50% 44%, rgba(255, 255, 255, 0) 50%, rgba(17, 24, 31, 0.02) 82%, rgba(13, 18, 24, 0.052) 100%)",
-    ].join(", "),
-  } as CSSProperties,
-} as const;
+// Subtle vignette only — CesiumJS SkyAtmosphere handles the real sky/horizon
+const VIGNETTE_STYLE = {
+  background: [
+    "radial-gradient(circle at 50% 44%, rgba(255, 255, 255, 0) 50%, rgba(17, 24, 31, 0.03) 82%, rgba(13, 18, 24, 0.06) 100%)",
+  ].join(", "),
+} as CSSProperties;
 
 const INITIAL_CAMERA_OFFSET = new HeadingPitchRange(
   CesiumMath.toRadians(0),
@@ -93,22 +74,12 @@ const INITIAL_CAMERA_OFFSET = new HeadingPitchRange(
 
 const SELECTED_CAMERA_PITCH = CesiumMath.toRadians(-52);
 
-function AtmosphericWashOverlay() {
+function VignetteOverlay() {
   return (
-    <>
-      <div
-        className="pointer-events-none absolute inset-0 z-[1]"
-        style={ATMOSPHERIC_WASH.sky}
-      />
-      <div
-        className="pointer-events-none absolute inset-0 z-[1]"
-        style={ATMOSPHERIC_WASH.horizon}
-      />
-      <div
-        className="pointer-events-none absolute inset-0 z-[1]"
-        style={ATMOSPHERIC_WASH.vignette}
-      />
-    </>
+    <div
+      className="pointer-events-none absolute inset-0 z-[1]"
+      style={VIGNETTE_STYLE}
+    />
   );
 }
 
@@ -229,7 +200,7 @@ export function CesiumPublicViewer() {
       baseLayerPicker: false,
       fullscreenButton: false,
       geocoder: false,
-      globe: false,
+      // Globe kept for atmosphere rendering — surface hidden below
       homeButton: false,
       infoBox: false,
       navigationHelpButton: false,
@@ -241,7 +212,15 @@ export function CesiumPublicViewer() {
       shadows: false,
     });
 
-    viewer.scene.backgroundColor = Color.fromCssColorString("#76879a");
+    // Google Earth-style atmosphere: keep globe for sky rendering, hide surface
+    viewer.scene.backgroundColor = Color.BLACK;
+    viewer.scene.globe.baseColor = Color.TRANSPARENT;
+    viewer.scene.globe.showGroundAtmosphere = true;
+    viewer.scene.globe.atmosphereLightIntensity = 10.0;
+    viewer.scene.globe.imageryLayers.removeAll();
+    if (viewer.scene.skyAtmosphere) {
+      viewer.scene.skyAtmosphere.show = true;
+    }
     viewer.postProcessStages.fxaa.enabled = true;
     const controller = viewer.scene.screenSpaceCameraController;
     controller.maximumZoomDistance = 4000;
@@ -251,9 +230,11 @@ export function CesiumPublicViewer() {
     controller.inertiaTranslate = 0.82;
     controller.inertiaZoom = 0.7;
 
-    // In 3D mode, translateEventTypes is ignored — Cesium's spin3D handles
-    // pan/orbit contextually via rotateEventTypes. Left drag = pan/orbit (default).
-    // Remap: right-drag = tilt/orbit, scroll = zoom (no right-drag zoom).
+    // Google Maps 3D-style controls:
+    // Left drag = pan/orbit (spin3D contextual — default rotateEventTypes)
+    // Right drag = tilt/orbit (like Google Maps right-drag to rotate view)
+    // Scroll = zoom (wheel + pinch only, no right-drag zoom)
+    // Ctrl+left drag = also tilt (Google Maps alternative)
     controller.tiltEventTypes = [
       CameraEventType.RIGHT_DRAG,
       CameraEventType.MIDDLE_DRAG,
@@ -262,6 +243,11 @@ export function CesiumPublicViewer() {
     controller.zoomEventTypes = [
       CameraEventType.WHEEL,
       CameraEventType.PINCH,
+    ];
+    // rotateEventTypes stays as LEFT_DRAG (default) — spin3D handles pan contextually
+    // Shift+drag = freelook (turn head without moving), like Google Earth 3D
+    controller.lookEventTypes = [
+      { eventType: CameraEventType.LEFT_DRAG, modifier: KeyboardEventModifier.SHIFT },
     ];
     viewer.cesiumWidget.screenSpaceEventHandler.removeInputAction(
       ScreenSpaceEventType.LEFT_DOUBLE_CLICK,
@@ -531,7 +517,7 @@ export function CesiumPublicViewer() {
         }`}
       >
         <div ref={containerRef} className="absolute inset-0" />
-        <AtmosphericWashOverlay />
+        <VignetteOverlay />
         <CloudVeilOverlay active={isCloudSwooshing} cleared={cloudsCleared} />
       </div>
       <div
