@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   BoundingSphere,
+  CameraEventType,
   Cartesian2,
   Cartesian3,
   ClassificationType,
@@ -10,7 +11,7 @@ import {
   ColorMaterialProperty,
   ConstantProperty,
   HeadingPitchRange,
-  Ion,
+  KeyboardEventModifier,
   Math as CesiumMath,
   PolygonHierarchy,
   SceneTransforms,
@@ -132,7 +133,7 @@ function CloudVeilOverlay({
 }
 
 export function CesiumPublicViewer() {
-  const apiToken = process.env.NEXT_PUBLIC_CESIUM_ION_TOKEN;
+  const googleApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewerRef = useRef<Viewer | null>(null);
   const tilesetRef = useRef<Cesium3DTileset | null>(null);
@@ -193,9 +194,9 @@ export function CesiumPublicViewer() {
   }, []);
 
   useEffect(() => {
-    if (!apiToken || !containerRef.current || viewerRef.current) {
-      if (!apiToken) {
-        setError("Set NEXT_PUBLIC_CESIUM_ION_TOKEN in .env.local");
+    if (!googleApiKey || !containerRef.current || viewerRef.current) {
+      if (!googleApiKey) {
+        setError("Set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in .env.local");
       }
       return;
     }
@@ -204,7 +205,6 @@ export function CesiumPublicViewer() {
     setIsSceneReady(false);
     hasMarkedSceneReadyRef.current = false;
     window.CESIUM_BASE_URL = "/Cesium/";
-    Ion.defaultAccessToken = apiToken;
     let disposed = false;
     let loadTilesetFrameId: number | null = null;
     let removeInitialTilesLoadedListener: (() => void) | null = null;
@@ -243,12 +243,26 @@ export function CesiumPublicViewer() {
 
     viewer.scene.backgroundColor = Color.fromCssColorString("#76879a");
     viewer.postProcessStages.fxaa.enabled = true;
-    viewer.scene.screenSpaceCameraController.maximumZoomDistance = 4000;
-    viewer.scene.screenSpaceCameraController.minimumZoomDistance = 220;
-    viewer.scene.screenSpaceCameraController.enableCollisionDetection = true;
-    viewer.scene.screenSpaceCameraController.inertiaSpin = 0.75;
-    viewer.scene.screenSpaceCameraController.inertiaTranslate = 0.82;
-    viewer.scene.screenSpaceCameraController.inertiaZoom = 0.7;
+    const controller = viewer.scene.screenSpaceCameraController;
+    controller.maximumZoomDistance = 4000;
+    controller.minimumZoomDistance = 220;
+    controller.enableCollisionDetection = true;
+    controller.inertiaSpin = 0.75;
+    controller.inertiaTranslate = 0.82;
+    controller.inertiaZoom = 0.7;
+
+    // In 3D mode, translateEventTypes is ignored — Cesium's spin3D handles
+    // pan/orbit contextually via rotateEventTypes. Left drag = pan/orbit (default).
+    // Remap: right-drag = tilt/orbit, scroll = zoom (no right-drag zoom).
+    controller.tiltEventTypes = [
+      CameraEventType.RIGHT_DRAG,
+      CameraEventType.MIDDLE_DRAG,
+      { eventType: CameraEventType.LEFT_DRAG, modifier: KeyboardEventModifier.CTRL },
+    ];
+    controller.zoomEventTypes = [
+      CameraEventType.WHEEL,
+      CameraEventType.PINCH,
+    ];
     viewer.cesiumWidget.screenSpaceEventHandler.removeInputAction(
       ScreenSpaceEventType.LEFT_DOUBLE_CLICK,
     );
@@ -305,6 +319,7 @@ export function CesiumPublicViewer() {
       void (async () => {
         try {
           const tileset = await createGooglePhotorealistic3DTileset({
+            key: googleApiKey,
             onlyUsingWithGoogleGeocoder: true,
           });
           if (disposed) {
@@ -359,7 +374,7 @@ export function CesiumPublicViewer() {
       parcelBundlesRef.current.clear();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- parcelsBoundingSphere accessed via ref to avoid viewer recreation
-  }, [apiToken, hoverParcel, selectParcel, updatePillPositions]);
+  }, [googleApiKey, hoverParcel, selectParcel, updatePillPositions]);
 
   useEffect(() => {
     const viewer = viewerRef.current;
@@ -500,10 +515,10 @@ export function CesiumPublicViewer() {
     }, 1100);
   }
 
-  if (!apiToken) {
+  if (!googleApiKey) {
     return (
       <div className="flex h-screen items-center justify-center bg-[#0a0a0a] text-sm text-white/50">
-        Set NEXT_PUBLIC_CESIUM_ION_TOKEN in .env.local
+        Set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in .env.local
       </div>
     );
   }
