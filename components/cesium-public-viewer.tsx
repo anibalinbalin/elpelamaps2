@@ -911,25 +911,27 @@ export function CesiumPublicViewer() {
     if (!viewer || viewer.isDestroyed()) return;
 
     if (isNightMode) {
-      if (!nightStageRef.current) {
-        nightStageRef.current = createNightModeStage();
-      }
-      if (!viewer.postProcessStages.contains(nightStageRef.current)) {
-        viewer.postProcessStages.add(nightStageRef.current);
-      }
+      // Always create a fresh stage to avoid destroyed-object errors from React Strict Mode
+      const stage = createNightModeStage();
+      nightStageRef.current = stage;
+      viewer.postProcessStages.add(stage);
       if (viewer.scene.skyAtmosphere) {
         viewer.scene.skyAtmosphere.show = false;
       }
-      viewer.scene.backgroundColor = Color.BLACK;
     } else {
-      if (nightStageRef.current && viewer.postProcessStages.contains(nightStageRef.current)) {
-        viewer.postProcessStages.remove(nightStageRef.current);
-      }
       if (viewer.scene.skyAtmosphere) {
         viewer.scene.skyAtmosphere.show = true;
       }
-      viewer.scene.backgroundColor = Color.BLACK;
     }
+
+    return () => {
+      if (nightStageRef.current && viewer && !viewer.isDestroyed()) {
+        try {
+          viewer.postProcessStages.remove(nightStageRef.current);
+        } catch (_) {}
+      }
+      nightStageRef.current = null;
+    };
   }, [isNightMode]);
 
   if (!googleApiKey) {
