@@ -4,15 +4,15 @@ const NIGHT_FRAGMENT_SHADER = /* glsl */ `
   uniform sampler2D colorTexture;
   in vec2 v_textureCoordinates;
 
-  const float DARKEN = 0.12;
-  const float LUMINANCE_THRESH = 0.55;
-  const float SATURATION_MAX = 0.35;
-  const float GLOW_INTENSITY = 1.8;
-  const float STAR_DENSITY = 800.0;
-  const float SKY_THRESHOLD = 0.04;
+  const float DARKEN = 0.08;
+  const float LUMINANCE_THRESH = 0.72;
+  const float SATURATION_MAX = 0.25;
+  const float GLOW_INTENSITY = 2.2;
+  const float STAR_DENSITY = 900.0;
+  const float SKY_THRESHOLD = 0.06;
 
   const vec3 WARM_GLOW = vec3(1.0, 0.82, 0.55);
-  const vec3 MOON_TINT = vec3(0.7, 0.78, 1.0);
+  const vec3 MOON_TINT = vec3(0.65, 0.72, 1.0);
 
   float luminance(vec3 c) {
     return dot(c, vec3(0.2126, 0.7152, 0.0722));
@@ -35,9 +35,12 @@ const NIGHT_FRAGMENT_SHADER = /* glsl */ `
     float lum = luminance(color);
     float sat = saturation(color);
 
+    // Light detection: bright, low-saturation, not blue-dominant (rejects water/sky),
+    // and not uniformly bright (rejects sand/concrete — lights have more red than green)
     bool isLight = lum > LUMINANCE_THRESH
                 && sat < SATURATION_MAX
-                && color.r >= color.b * 0.85;
+                && color.r > color.b
+                && color.r > color.g * 0.95;
 
     vec3 nightBase = color * DARKEN * MOON_TINT;
 
