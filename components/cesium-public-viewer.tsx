@@ -22,9 +22,8 @@ import {
   defined,
   type Cesium3DTileset,
   type Entity,
-  type PostProcessStage,
 } from "cesium";
-import { createNightModeStage } from "@/lib/night-mode-shader";
+import { applyNightMode } from "@/lib/night-mode";
 import { Compass01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { GOOGLE_MAPS_API_KEY, JOSE_IGNACIO_CENTER, PARCEL_COLORS, CESIUM_CAMERA_BEHAVIOR } from "@/lib/constants";
@@ -483,7 +482,7 @@ export function CesiumPublicViewer() {
   const cloudSwooshTimeoutRef = useRef<number | null>(null);
   const hasMarkedSceneReadyRef = useRef(false);
   const [isNightMode, setIsNightMode] = useState(false);
-  const nightStageRef = useRef<PostProcessStage | null>(null);
+  const nightCleanupRef = useRef<(() => void) | null>(null);
   const parcelsBoundingSphereRef = useRef<BoundingSphere | null>(null);
   const parcelsBoundingSphere = useMemo(() => {
     const cartesianPoints: Cartesian3[] = [];
@@ -736,12 +735,8 @@ export function CesiumPublicViewer() {
     });
 
     return () => {
-      if (nightStageRef.current) {
-        try {
-          viewerRef.current?.postProcessStages.remove(nightStageRef.current);
-        } catch (_) {}
-        nightStageRef.current = null;
-      }
+      nightCleanupRef.current?.();
+      nightCleanupRef.current = null;
       disposed = true;
       if (loadTilesetFrameId != null) {
         window.cancelAnimationFrame(loadTilesetFrameId);
@@ -910,28 +905,27 @@ export function CesiumPublicViewer() {
     const viewer = viewerRef.current;
     if (!viewer || viewer.isDestroyed()) return;
 
-    if (isNightMode) {
-      // Always create a fresh stage to avoid destroyed-object errors from React Strict Mode
-      const stage = createNightModeStage();
-      nightStageRef.current = stage;
-      viewer.postProcessStages.add(stage);
-      if (viewer.scene.skyAtmosphere) {
-        viewer.scene.skyAtmosphere.show = false;
-      }
-    } else {
-      if (viewer.scene.skyAtmosphere) {
-        viewer.scene.skyAtmosphere.show = true;
-      }
-    }
+    // Clean up previous night mode if active
+    nightCleanupRef.current?.();
+    nightCleanupRef.current = null;
 
-    return () => {
-      if (nightStageRef.current && viewer && !viewer.isDestroyed()) {
-        try {
-          viewer.postProcessStages.remove(nightStageRef.current);
-        } catch (_) {}
-      }
-      nightStageRef.current = null;
-    };
+    if (isNightMode) {
+      let cancelled = false;
+      void applyNightMode(viewer, tilesetRef, JOSE_IGNACIO_CENTER).then(
+        (cleanup) => {
+          if (cancelled) {
+            cleanup();
+          } else {
+            nightCleanupRef.current = cleanup;
+          }
+        },
+      );
+      return () => {
+        cancelled = true;
+        nightCleanupRef.current?.();
+        nightCleanupRef.current = null;
+      };
+    }
   }, [isNightMode]);
 
   if (!googleApiKey) {
