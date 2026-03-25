@@ -13,7 +13,7 @@ const OVERPASS_API = "https://overpass-api.de/api/interpreter";
 
 /** Night tint applied to the 3D tileset via Cesium3DTileStyle */
 const NIGHT_STYLE = new Cesium3DTileStyle({
-  color: "color('#0d1525', 0.88)",
+  color: "color('#1e2d4a', 0.62)",
 });
 
 /** Warm glow colors for building footprints — bright enough to pop against dark tileset */
