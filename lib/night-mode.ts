@@ -1,15 +1,19 @@
 import {
-  Cartesian4,
+  Cartesian3,
   Cesium3DTileStyle,
   Color,
   CustomShader,
   CustomShaderMode,
   LightingModel,
+  TextureUniform,
   UniformType,
   type Viewer,
 } from "cesium";
 
-export const MAX_EXCLUSION_ZONES = 8;
+// --- Mask bounding box (José Ignacio area) ---
+export const MASK_BOUNDS_SW = Cartesian3.fromDegrees(-54.70, -34.86);
+export const MASK_BOUNDS_NE = Cartesian3.fromDegrees(-54.58, -34.79);
+export const MASK_SIZE = 1024;
 
 /**
  * Night mode via CustomShader on Google Photorealistic 3D Tiles.
@@ -18,7 +22,7 @@ export const MAX_EXCLUSION_ZONES = 8;
  * texture. The shader darkens with a moonlit blue tint and detects bright
  * spots for warm window glow. Ocean/waves are masked dark.
  *
- * All tunable values are exposed as uniforms for real-time tweaking.
+ * Exclusion zones use a painted mask texture instead of fixed circles.
  */
 
 export const NIGHT_SHADER = new CustomShader({
@@ -46,15 +50,17 @@ export const NIGHT_SHADER = new CustomShader({
     u_glowG: { type: UniformType.FLOAT, value: 0.780 },
     u_glowB: { type: UniformType.FLOAT, value: 0.360 },
     u_glowIntensity: { type: UniformType.FLOAT, value: 1.500 },
-    // --- Exclusion zones (xyz = ECEF center, w = radius; w <= 0 = inactive) ---
-    u_exclude0: { type: UniformType.VEC4, value: new Cartesian4(0, 0, 0, 0) },
-    u_exclude1: { type: UniformType.VEC4, value: new Cartesian4(0, 0, 0, 0) },
-    u_exclude2: { type: UniformType.VEC4, value: new Cartesian4(0, 0, 0, 0) },
-    u_exclude3: { type: UniformType.VEC4, value: new Cartesian4(0, 0, 0, 0) },
-    u_exclude4: { type: UniformType.VEC4, value: new Cartesian4(0, 0, 0, 0) },
-    u_exclude5: { type: UniformType.VEC4, value: new Cartesian4(0, 0, 0, 0) },
-    u_exclude6: { type: UniformType.VEC4, value: new Cartesian4(0, 0, 0, 0) },
-    u_exclude7: { type: UniformType.VEC4, value: new Cartesian4(0, 0, 0, 0) },
+    // --- Exclusion mask (texture-based) ---
+    u_maskTex: {
+      type: UniformType.SAMPLER_2D,
+      value: new TextureUniform({
+        typedArray: new Uint8Array([0, 0, 0, 0]),
+        width: 1,
+        height: 1,
+      }),
+    },
+    u_boundsMin: { type: UniformType.VEC3, value: MASK_BOUNDS_SW },
+    u_boundsMax: { type: UniformType.VEC3, value: MASK_BOUNDS_NE },
   },
   fragmentShaderText: /* glsl */ `
     void fragmentMain(FragmentInput fsInput, inout czm_modelMaterial material) {
@@ -79,26 +85,23 @@ export const NIGHT_SHADER = new CustomShader({
       float satScore = 1.0 - smoothstep(u_winSatMin, u_winSatMax, saturation);
       float windowScore = lumScore * satScore;
 
-      // --- Exclusion zones ---
+      // --- Exclusion mask (texture-based) ---
       vec3 pos = fsInput.attributes.positionWC;
-      float excluded = 0.0;
-      if (u_exclude0.w > 0.0) excluded = max(excluded, 1.0 - smoothstep(u_exclude0.w * 0.9, u_exclude0.w, length(pos - u_exclude0.xyz)));
-      if (u_exclude1.w > 0.0) excluded = max(excluded, 1.0 - smoothstep(u_exclude1.w * 0.9, u_exclude1.w, length(pos - u_exclude1.xyz)));
-      if (u_exclude2.w > 0.0) excluded = max(excluded, 1.0 - smoothstep(u_exclude2.w * 0.9, u_exclude2.w, length(pos - u_exclude2.xyz)));
-      if (u_exclude3.w > 0.0) excluded = max(excluded, 1.0 - smoothstep(u_exclude3.w * 0.9, u_exclude3.w, length(pos - u_exclude3.xyz)));
-      if (u_exclude4.w > 0.0) excluded = max(excluded, 1.0 - smoothstep(u_exclude4.w * 0.9, u_exclude4.w, length(pos - u_exclude4.xyz)));
-      if (u_exclude5.w > 0.0) excluded = max(excluded, 1.0 - smoothstep(u_exclude5.w * 0.9, u_exclude5.w, length(pos - u_exclude5.xyz)));
-      if (u_exclude6.w > 0.0) excluded = max(excluded, 1.0 - smoothstep(u_exclude6.w * 0.9, u_exclude6.w, length(pos - u_exclude6.xyz)));
-      if (u_exclude7.w > 0.0) excluded = max(excluded, 1.0 - smoothstep(u_exclude7.w * 0.9, u_exclude7.w, length(pos - u_exclude7.xyz)));
-      windowScore *= (1.0 - excluded);
+      vec2 maskUV = vec2(
+        (pos.x - u_boundsMin.x) / (u_boundsMax.x - u_boundsMin.x),
+        (pos.y - u_boundsMin.y) / (u_boundsMax.y - u_boundsMin.y)
+      );
+      maskUV = clamp(maskUV, 0.0, 1.0);
+      float maskVal = texture(u_maskTex, maskUV).r;
+      windowScore *= (1.0 - maskVal);
 
       // --- Window glow ---
       vec3 glowColor = vec3(u_glowR, u_glowG, u_glowB);
       vec3 glow = glowColor * u_glowIntensity * luminance;
 
-      // --- Composite (exclusion zones restore original color) ---
+      // --- Composite (masked areas restore original color) ---
       vec3 nightResult = mix(nightColor, glow, windowScore);
-      material.diffuse = mix(nightResult, original, excluded);
+      material.diffuse = mix(nightResult, original, maskVal);
     }
   `,
 });

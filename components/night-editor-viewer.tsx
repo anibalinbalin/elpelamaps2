@@ -4,18 +4,22 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import {
   Cartesian2,
   Cartesian3,
-  Cartesian4,
   Color,
   Viewer,
   createGooglePhotorealistic3DTileset,
   ScreenSpaceEventHandler,
   ScreenSpaceEventType,
-  HeightReference,
+  TextureUniform,
   Math as CesiumMath,
   type Cesium3DTileset,
-  type Entity,
 } from "cesium";
-import { NIGHT_SHADER, MAX_EXCLUSION_ZONES, applyNightMode } from "@/lib/night-mode";
+import {
+  NIGHT_SHADER,
+  MASK_BOUNDS_SW,
+  MASK_BOUNDS_NE,
+  MASK_SIZE,
+  applyNightMode,
+} from "@/lib/night-mode";
 import { NightTuner } from "./night-tuner";
 import { GOOGLE_MAPS_API_KEY, JOSE_IGNACIO_CENTER } from "@/lib/constants";
 
@@ -25,11 +29,12 @@ declare global {
   }
 }
 
-interface ExclusionZone {
-  id: string;
-  position: Cartesian3; // ECEF
-  radius: number;
-  entity: Entity;
+/** Convert a Cartesian3 world position to mask canvas pixel coordinates */
+function worldToMaskUV(pos: Cartesian3): { u: number; v: number } | null {
+  const u = (pos.x - MASK_BOUNDS_SW.x) / (MASK_BOUNDS_NE.x - MASK_BOUNDS_SW.x);
+  const v = (pos.y - MASK_BOUNDS_SW.y) / (MASK_BOUNDS_NE.y - MASK_BOUNDS_SW.y);
+  if (u < 0 || u > 1 || v < 0 || v > 1) return null;
+  return { u, v };
 }
 
 export function NightEditorViewer() {
@@ -39,86 +44,110 @@ export function NightEditorViewer() {
   const nightCleanupRef = useRef<(() => void) | null>(null);
   const handlerRef = useRef<ScreenSpaceEventHandler | null>(null);
 
+  // Mask canvas (offscreen)
+  const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const maskCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const uploadPendingRef = useRef(false);
+  const rafIdRef = useRef<number | null>(null);
+
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState("");
-  const [addMode, setAddMode] = useState(false);
-  const [radius, setRadius] = useState(100);
-  const [zones, setZones] = useState<ExclusionZone[]>([]);
-  const zonesRef = useRef<ExclusionZone[]>([]);
+  const [paintMode, setPaintMode] = useState(false);
+  const [eraseMode, setEraseMode] = useState(false);
+  const [brushSize, setBrushSize] = useState(30);
+  const [isPainting, setIsPainting] = useState(false);
 
-  // Keep ref in sync
-  zonesRef.current = zones;
+  const paintModeRef = useRef(false);
+  const eraseModeRef = useRef(false);
+  const brushSizeRef = useRef(30);
+  const isPaintingRef = useRef(false);
 
-  const syncShaderUniforms = useCallback((currentZones: ExclusionZone[]) => {
-    for (let i = 0; i < MAX_EXCLUSION_ZONES; i++) {
-      const zone = currentZones[i];
-      if (zone) {
-        NIGHT_SHADER.setUniform(
-          `u_exclude${i}`,
-          new Cartesian4(zone.position.x, zone.position.y, zone.position.z, zone.radius),
-        );
-      } else {
-        NIGHT_SHADER.setUniform(`u_exclude${i}`, new Cartesian4(0, 0, 0, 0));
-      }
+  // Keep refs in sync
+  paintModeRef.current = paintMode;
+  eraseModeRef.current = eraseMode;
+  brushSizeRef.current = brushSize;
+  isPaintingRef.current = isPainting;
+
+  // Initialize mask canvas
+  useEffect(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = MASK_SIZE;
+    canvas.height = MASK_SIZE;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.clearRect(0, 0, MASK_SIZE, MASK_SIZE);
     }
+    maskCanvasRef.current = canvas;
+    maskCtxRef.current = ctx;
   }, []);
 
-  const addZone = useCallback(
-    (position: Cartesian3, r: number) => {
+  /** Schedule a debounced texture upload (once per animation frame) */
+  const scheduleUpload = useCallback(() => {
+    if (uploadPendingRef.current) return;
+    uploadPendingRef.current = true;
+
+    rafIdRef.current = requestAnimationFrame(() => {
+      uploadPendingRef.current = false;
+      const ctx = maskCtxRef.current;
+      if (!ctx) return;
+
+      const imageData = ctx.getImageData(0, 0, MASK_SIZE, MASK_SIZE);
+      const rgba = new Uint8Array(imageData.data.buffer);
+
+      NIGHT_SHADER.setUniform(
+        "u_maskTex",
+        new TextureUniform({
+          typedArray: rgba,
+          width: MASK_SIZE,
+          height: MASK_SIZE,
+        }),
+      );
+    });
+  }, []);
+
+  /** Paint or erase at a screen position */
+  const paintAt = useCallback(
+    (screenPos: Cartesian2) => {
       const viewer = viewerRef.current;
-      if (!viewer || zonesRef.current.length >= MAX_EXCLUSION_ZONES) return;
+      const ctx = maskCtxRef.current;
+      if (!viewer || viewer.isDestroyed() || !ctx) return;
 
-      const entity = viewer.entities.add({
-        position,
-        ellipse: {
-          semiMajorAxis: r,
-          semiMinorAxis: r,
-          material: Color.RED.withAlpha(0.25),
-          outline: true,
-          outlineColor: Color.RED.withAlpha(0.7),
-          outlineWidth: 2,
-          heightReference: HeightReference.CLAMP_TO_GROUND,
-        },
-      });
+      const worldPos = viewer.scene.pickPosition(screenPos);
+      if (!worldPos) return;
 
-      const zone: ExclusionZone = {
-        id: crypto.randomUUID(),
-        position,
-        radius: r,
-        entity,
-      };
+      const uv = worldToMaskUV(worldPos);
+      if (!uv) return;
 
-      const newZones = [...zonesRef.current, zone];
-      setZones(newZones);
-      syncShaderUniforms(newZones);
-    },
-    [syncShaderUniforms],
-  );
+      // Canvas Y is flipped relative to UV v
+      const cx = uv.u * MASK_SIZE;
+      const cy = (1 - uv.v) * MASK_SIZE;
+      const r = brushSizeRef.current;
 
-  const removeZone = useCallback(
-    (zoneId: string) => {
-      const viewer = viewerRef.current;
-      if (!viewer) return;
-      const zone = zonesRef.current.find((z) => z.id === zoneId);
-      if (zone) {
-        viewer.entities.remove(zone.entity);
+      if (eraseModeRef.current) {
+        ctx.globalCompositeOperation = "destination-out";
+      } else {
+        ctx.globalCompositeOperation = "source-over";
       }
-      const newZones = zonesRef.current.filter((z) => z.id !== zoneId);
-      setZones(newZones);
-      syncShaderUniforms(newZones);
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255, 0, 0, 1)";
+      ctx.fill();
+
+      // Reset composite operation
+      ctx.globalCompositeOperation = "source-over";
+
+      scheduleUpload();
     },
-    [syncShaderUniforms],
+    [scheduleUpload],
   );
 
-  const clearAll = useCallback(() => {
-    const viewer = viewerRef.current;
-    if (!viewer) return;
-    for (const zone of zonesRef.current) {
-      viewer.entities.remove(zone.entity);
-    }
-    setZones([]);
-    syncShaderUniforms([]);
-  }, [syncShaderUniforms]);
+  const clearMask = useCallback(() => {
+    const ctx = maskCtxRef.current;
+    if (!ctx) return;
+    ctx.clearRect(0, 0, MASK_SIZE, MASK_SIZE);
+    scheduleUpload();
+  }, [scheduleUpload]);
 
   // Initialize Cesium
   useEffect(() => {
@@ -217,6 +246,9 @@ export function NightEditorViewer() {
       if (loadTilesetFrameId != null) {
         window.cancelAnimationFrame(loadTilesetFrameId);
       }
+      if (rafIdRef.current != null) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
       handlerRef.current?.destroy();
       handlerRef.current = null;
       if (!viewer.isDestroyed()) {
@@ -227,7 +259,7 @@ export function NightEditorViewer() {
     };
   }, []);
 
-  // Click handler for add/remove zones
+  // Paint handler — click-drag to paint exclusion areas
   useEffect(() => {
     const viewer = viewerRef.current;
     if (!viewer || viewer.isDestroyed()) return;
@@ -240,34 +272,50 @@ export function NightEditorViewer() {
     const handler = new ScreenSpaceEventHandler(viewer.scene.canvas);
     handlerRef.current = handler;
 
+    // LEFT_DOWN — start painting
     handler.setInputAction(
-      (click: { position: { x: number; y: number } }) => {
-        if (!viewer || viewer.isDestroyed()) return;
+      (event: { position: Cartesian2 }) => {
+        if (!paintModeRef.current) return;
+        isPaintingRef.current = true;
+        setIsPainting(true);
 
-        // Check if clicking an existing zone entity to delete
-        const screenPos = new Cartesian2(click.position.x, click.position.y);
-        const pickedObject = viewer.scene.pick(screenPos);
-        if (pickedObject?.id) {
-          const clickedEntity = pickedObject.id as Entity;
-          const matchedZone = zonesRef.current.find(
-            (z) => z.entity === clickedEntity,
-          );
-          if (matchedZone) {
-            removeZone(matchedZone.id);
-            return;
-          }
-        }
+        // Disable camera controls while painting
+        const ctrl = viewer.scene.screenSpaceCameraController;
+        ctrl.enableRotate = false;
+        ctrl.enableTranslate = false;
+        ctrl.enableZoom = false;
+        ctrl.enableTilt = false;
+        ctrl.enableLook = false;
 
-        // If in add mode, place a new zone
-        if (addMode && zonesRef.current.length < MAX_EXCLUSION_ZONES) {
-          const position = viewer.scene.pickPosition(screenPos);
-          if (position) {
-            addZone(position, radius);
-          }
-        }
+        paintAt(event.position);
       },
-      ScreenSpaceEventType.LEFT_CLICK,
+      ScreenSpaceEventType.LEFT_DOWN,
     );
+
+    // MOUSE_MOVE — continue painting while dragging
+    handler.setInputAction(
+      (event: { endPosition: Cartesian2 }) => {
+        if (!isPaintingRef.current) return;
+        paintAt(event.endPosition);
+      },
+      ScreenSpaceEventType.MOUSE_MOVE,
+    );
+
+    // LEFT_UP — stop painting
+    handler.setInputAction(() => {
+      if (isPaintingRef.current) {
+        isPaintingRef.current = false;
+        setIsPainting(false);
+
+        // Re-enable camera controls
+        const ctrl = viewer.scene.screenSpaceCameraController;
+        ctrl.enableRotate = true;
+        ctrl.enableTranslate = true;
+        ctrl.enableZoom = true;
+        ctrl.enableTilt = true;
+        ctrl.enableLook = true;
+      }
+    }, ScreenSpaceEventType.LEFT_UP);
 
     return () => {
       if (!handler.isDestroyed()) {
@@ -277,7 +325,7 @@ export function NightEditorViewer() {
         handlerRef.current = null;
       }
     };
-  }, [addMode, radius, addZone, removeZone]);
+  }, [paintAt, isReady]);
 
   return (
     <div className="relative h-screen w-screen bg-black">
@@ -301,75 +349,101 @@ export function NightEditorViewer() {
       {/* Editor toolbar */}
       <div className="fixed right-3 top-20 z-50 flex w-56 flex-col gap-2 rounded-xl border border-white/10 bg-black/85 p-3 text-white/90 shadow-2xl backdrop-blur-md">
         <div className="text-xs font-semibold uppercase tracking-wider text-white/60">
-          Exclusion Zones
+          Exclusion Brush
         </div>
 
+        {/* Paint mode toggle */}
         <button
-          onClick={() => setAddMode(!addMode)}
+          onClick={() => {
+            setPaintMode(!paintMode);
+            if (paintMode) setEraseMode(false);
+          }}
           className={`rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
-            addMode
+            paintMode
               ? "bg-red-500/80 text-white"
               : "bg-white/10 text-white/70 hover:bg-white/20"
           }`}
         >
-          {addMode ? "Cancel Placing" : "Add Zone"}
+          {paintMode ? "Exit Paint Mode" : "Paint Mode"}
         </button>
 
-        {addMode && (
-          <div className="text-[10px] text-white/40">
-            Click on the map to place an exclusion zone. Click an existing zone
-            to delete it.
-          </div>
+        {paintMode && (
+          <>
+            {/* Erase toggle */}
+            <button
+              onClick={() => setEraseMode(!eraseMode)}
+              className={`rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+                eraseMode
+                  ? "bg-blue-500/80 text-white"
+                  : "bg-white/10 text-white/70 hover:bg-white/20"
+              }`}
+            >
+              {eraseMode ? "Erasing" : "Erase Mode"}
+            </button>
+
+            <div className="text-[10px] text-white/40">
+              {eraseMode
+                ? "Click-drag to erase exclusion areas."
+                : "Click-drag on the map to paint exclusion areas."}
+            </div>
+
+            {isPainting && (
+              <div className="text-[10px] font-medium text-red-400">
+                Painting...
+              </div>
+            )}
+          </>
         )}
 
+        {/* Brush size slider */}
         <label className="flex flex-col gap-1">
           <div className="flex justify-between text-[10px]">
-            <span className="text-white/60">Radius</span>
-            <span className="font-mono text-white/40">{radius}m</span>
+            <span className="text-white/60">Brush Size</span>
+            <span className="font-mono text-white/40">{brushSize}px</span>
           </div>
           <input
             type="range"
-            min={20}
-            max={500}
-            step={10}
-            value={radius}
-            onChange={(e) => setRadius(parseInt(e.target.value, 10))}
+            min={5}
+            max={100}
+            step={1}
+            value={brushSize}
+            onChange={(e) => setBrushSize(parseInt(e.target.value, 10))}
             className="h-1 w-full cursor-pointer appearance-none rounded-full bg-white/15 accent-red-400"
           />
         </label>
 
-        <div className="text-[10px] text-white/40">
-          {zones.length}/{MAX_EXCLUSION_ZONES} zones
-        </div>
+        {/* Clear mask */}
+        <button
+          onClick={clearMask}
+          className="rounded-lg bg-white/5 px-3 py-1.5 text-[10px] text-white/50 hover:bg-white/10 hover:text-white/70"
+        >
+          Clear All
+        </button>
 
-        {zones.length > 0 && (
-          <>
-            <div className="flex flex-col gap-1">
-              {zones.map((zone, i) => (
-                <div
-                  key={zone.id}
-                  className="flex items-center justify-between rounded bg-white/5 px-2 py-1"
-                >
-                  <span className="text-[10px] text-white/50">
-                    Zone {i + 1} ({zone.radius}m)
-                  </span>
-                  <button
-                    onClick={() => removeZone(zone.id)}
-                    className="text-[10px] text-red-400 hover:text-red-300"
-                  >
-                    Delete
-                  </button>
-                </div>
-              ))}
-            </div>
-            <button
-              onClick={clearAll}
-              className="rounded-lg bg-white/5 px-3 py-1.5 text-[10px] text-white/50 hover:bg-white/10 hover:text-white/70"
-            >
-              Clear All
-            </button>
-          </>
-        )}
+        {/* Mask preview */}
+        <div className="mt-1 overflow-hidden rounded border border-white/10">
+          <canvas
+            ref={(el) => {
+              // Mirror mask canvas into this visible preview
+              if (!el || !maskCanvasRef.current) return;
+              el.width = 128;
+              el.height = 128;
+              const previewCtx = el.getContext("2d");
+              if (previewCtx) {
+                const draw = () => {
+                  previewCtx.clearRect(0, 0, 128, 128);
+                  previewCtx.drawImage(maskCanvasRef.current!, 0, 0, 128, 128);
+                  requestAnimationFrame(draw);
+                };
+                draw();
+              }
+            }}
+            className="h-32 w-full bg-black/50"
+          />
+          <div className="px-1.5 py-0.5 text-center text-[9px] text-white/30">
+            Mask Preview
+          </div>
+        </div>
       </div>
     </div>
   );
