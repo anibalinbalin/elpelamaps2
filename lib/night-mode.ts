@@ -27,18 +27,18 @@ const NIGHT_SHADER = new CustomShader({
   // UNLIT because Google tiles are already unlit (baked lighting)
   lightingModel: LightingModel.UNLIT,
   uniforms: {
-    // Moonlit tint color (dark blue)
-    u_tintColor: { type: UniformType.VEC3, value: { x: 0.075, y: 0.11, z: 0.20 } },
-    // How much of the original color bleeds through (0 = pure tint, 1 = full original)
-    u_moonlightBlend: { type: UniformType.FLOAT, value: 0.35 },
+    // How dark the scene gets (0 = black, 1 = original brightness)
+    u_darkness: { type: UniformType.FLOAT, value: 0.18 },
+    // Blue shift strength for moonlit feel
+    u_blueShift: { type: UniformType.FLOAT, value: 0.35 },
     // Window detection: minimum luminance to consider as a lit window
-    u_luminanceThresh: { type: UniformType.FLOAT, value: 0.55 },
+    u_luminanceThresh: { type: UniformType.FLOAT, value: 0.45 },
     // Window detection: maximum saturation (windows/glass tend to be desaturated)
-    u_saturationMax: { type: UniformType.FLOAT, value: 0.35 },
+    u_saturationMax: { type: UniformType.FLOAT, value: 0.40 },
     // Warm glow color for detected windows
     u_glowColor: { type: UniformType.VEC3, value: { x: 1.0, y: 0.78, z: 0.36 } },
     // How bright the window glow gets
-    u_glowIntensity: { type: UniformType.FLOAT, value: 1.8 },
+    u_glowIntensity: { type: UniformType.FLOAT, value: 2.2 },
   },
   fragmentShaderText: /* glsl */ `
     void fragmentMain(FragmentInput fsInput, inout czm_modelMaterial material) {
@@ -54,18 +54,24 @@ const NIGHT_SHADER = new CustomShader({
 
       // --- Window detection score ---
       // High luminance + low saturation = likely a window or lit surface
-      float lumScore = smoothstep(u_luminanceThresh - 0.1, u_luminanceThresh + 0.1, luminance);
-      float satScore = 1.0 - smoothstep(u_saturationMax - 0.1, u_saturationMax + 0.15, saturation);
+      float lumScore = smoothstep(u_luminanceThresh - 0.12, u_luminanceThresh + 0.12, luminance);
+      float satScore = 1.0 - smoothstep(u_saturationMax - 0.1, u_saturationMax + 0.2, saturation);
 
       // Also boost warm-toned bright pixels (interior warm light)
       float warmth = original.r / (original.b + 0.001);
-      float warmScore = smoothstep(1.2, 2.5, warmth) * lumScore * 0.5;
+      float warmScore = smoothstep(1.3, 2.5, warmth) * lumScore * 0.4;
 
       float windowScore = clamp(lumScore * satScore + warmScore, 0.0, 1.0);
 
       // --- Moonlit darkening ---
-      // Blend original color toward the blue tint
-      vec3 darkened = mix(u_tintColor, original * u_tintColor * 3.0, u_moonlightBlend);
+      // Desaturate, then darken, then shift toward blue
+      // This preserves building structure/detail while feeling nighttime
+      float gray = luminance;
+      vec3 desaturated = mix(vec3(gray), original, 0.3); // mostly gray, hint of color
+      vec3 darkened = desaturated * u_darkness;           // darken significantly
+      // Blue shift: push toward blue in the shadows
+      darkened.b += u_blueShift * (1.0 - luminance) * 0.08;
+      darkened.g += u_blueShift * (1.0 - luminance) * 0.03;
 
       // --- Window glow ---
       vec3 glow = u_glowColor * u_glowIntensity * luminance;
