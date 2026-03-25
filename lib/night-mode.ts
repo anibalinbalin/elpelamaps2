@@ -11,70 +11,65 @@ import {
 /**
  * Night mode via CustomShader on Google Photorealistic 3D Tiles.
  *
- * Instead of adding separate building geometry, this applies a GLSL fragment
- * shader directly to the tileset that:
- *   1. Darkens everything with a blue moonlit tint
- *   2. Detects "window-like" pixels by analyzing the original baked texture
- *   3. Replaces those pixels with a warm orange/yellow glow
+ * Uses MODIFY_MATERIAL so material.diffuse contains the actual baked tile
+ * texture. The shader darkens with a moonlit blue tint and detects bright
+ * spots for warm window glow. Ocean/waves are masked dark.
  *
- * Google 3D tiles use KHR_materials_unlit — material.diffuse already contains
- * the final baked appearance including lighting, so we work with that directly.
+ * All tunable values are exposed as uniforms for real-time tweaking.
  */
 
-const NIGHT_SHADER = new CustomShader({
-  // MODIFY_MATERIAL so material.diffuse contains the actual baked tile texture
+export const NIGHT_SHADER = new CustomShader({
   mode: CustomShaderMode.MODIFY_MATERIAL,
-  // UNLIT because Google tiles are already unlit (baked lighting)
   lightingModel: LightingModel.UNLIT,
   uniforms: {
-    // Night exposure — power curve exponent (higher = darker, 1.0 = no change)
-    u_gamma: { type: UniformType.FLOAT, value: 1.8 },
-    // Overall brightness scale after gamma
-    u_exposure: { type: UniformType.FLOAT, value: 0.55 },
-    // Window detection: minimum luminance to consider as a lit window
-    u_luminanceThresh: { type: UniformType.FLOAT, value: 0.50 },
-    // Warm glow color for detected windows
-    u_glowColor: { type: UniformType.VEC3, value: { x: 1.0, y: 0.78, z: 0.36 } },
-    // How bright the window glow gets
-    u_glowIntensity: { type: UniformType.FLOAT, value: 2.5 },
+    // --- Moonlit tint ---
+    u_tintR: { type: UniformType.FLOAT, value: 0.040 },
+    u_tintG: { type: UniformType.FLOAT, value: 0.110 },
+    u_tintB: { type: UniformType.FLOAT, value: 0.680 },
+    u_tintBrightness: { type: UniformType.FLOAT, value: 1.000 },
+    // --- Ocean masking ---
+    u_waterBlueMin: { type: UniformType.FLOAT, value: 1.600 },
+    u_waterBlueMax: { type: UniformType.FLOAT, value: 0.950 },
+    u_waterSatMin: { type: UniformType.FLOAT, value: 0.070 },
+    u_waterSatMax: { type: UniformType.FLOAT, value: 0.110 },
+    u_waterDarken: { type: UniformType.FLOAT, value: 0.110 },
+    // --- Window detection ---
+    u_winLumMin: { type: UniformType.FLOAT, value: 0.870 },
+    u_winLumMax: { type: UniformType.FLOAT, value: 1.000 },
+    u_winSatMin: { type: UniformType.FLOAT, value: 0.220 },
+    u_winSatMax: { type: UniformType.FLOAT, value: 0.670 },
+    // --- Window glow ---
+    u_glowR: { type: UniformType.FLOAT, value: 1.000 },
+    u_glowG: { type: UniformType.FLOAT, value: 0.780 },
+    u_glowB: { type: UniformType.FLOAT, value: 0.360 },
+    u_glowIntensity: { type: UniformType.FLOAT, value: 1.500 },
   },
   fragmentShaderText: /* glsl */ `
     void fragmentMain(FragmentInput fsInput, inout czm_modelMaterial material) {
       vec3 original = material.diffuse;
       float luminance = dot(original, vec3(0.2126, 0.7152, 0.0722));
 
-      // --- Night tone curve ---
-      // Gamma curve darkens midtones/shadows while preserving bright detail
-      // This keeps contrast between roads, roofs, walls, trees visible
-      vec3 curved = pow(original, vec3(u_gamma));
+      // --- Moonlit blue tint ---
+      vec3 tint = vec3(u_tintR, u_tintG, u_tintB);
+      vec3 nightColor = original * tint * u_tintBrightness;
 
-      // Desaturate and shift toward cool blue (moonlight color grading)
-      float gray = dot(curved, vec3(0.2126, 0.7152, 0.0722));
-      vec3 nightColor = vec3(
-        gray * 0.7,            // reduce red
-        gray * 0.8,            // slightly reduce green
-        gray * 1.3             // boost blue
-      ) * u_exposure;
-
-      // Blend a hint of original color back for realism
-      nightColor = mix(nightColor, curved * u_exposure, 0.15);
-
-      // --- Window detection ---
+      // --- Ocean/wave masking ---
+      float blueRatio = original.b / (luminance + 0.001);
       float maxC = max(original.r, max(original.g, original.b));
       float minC = min(original.r, min(original.g, original.b));
       float saturation = (maxC > 0.001) ? (maxC - minC) / maxC : 0.0;
+      float isWater = smoothstep(u_waterBlueMin, u_waterBlueMax, blueRatio)
+                    * smoothstep(u_waterSatMin, u_waterSatMax, saturation);
+      nightColor *= mix(1.0, u_waterDarken, isWater);
 
-      // Bright + desaturated = window/glass/light surface
-      float lumScore = smoothstep(u_luminanceThresh - 0.1, u_luminanceThresh + 0.15, luminance);
-      float satScore = 1.0 - smoothstep(0.25, 0.55, saturation);
-      // Warm bright pixels (orangish light)
-      float warmth = original.r / (original.b + 0.01);
-      float warmBoost = smoothstep(1.3, 2.5, warmth) * lumScore * 0.5;
-
-      float windowScore = clamp(lumScore * satScore + warmBoost, 0.0, 1.0);
+      // --- Window detection ---
+      float lumScore = smoothstep(u_winLumMin, u_winLumMax, luminance);
+      float satScore = 1.0 - smoothstep(u_winSatMin, u_winSatMax, saturation);
+      float windowScore = lumScore * satScore;
 
       // --- Window glow ---
-      vec3 glow = u_glowColor * u_glowIntensity * luminance;
+      vec3 glowColor = vec3(u_glowR, u_glowG, u_glowB);
+      vec3 glow = glowColor * u_glowIntensity * luminance;
 
       // --- Composite ---
       material.diffuse = mix(nightColor, glow, windowScore);
@@ -82,12 +77,29 @@ const NIGHT_SHADER = new CustomShader({
   `,
 });
 
+/** Uniform metadata for the tuning panel */
+export const NIGHT_UNIFORMS = [
+  { key: "u_tintR", label: "Tint Red", min: 0, max: 1, step: 0.01, group: "Moonlit Tint" },
+  { key: "u_tintG", label: "Tint Green", min: 0, max: 1, step: 0.01, group: "Moonlit Tint" },
+  { key: "u_tintB", label: "Tint Blue", min: 0, max: 1, step: 0.01, group: "Moonlit Tint" },
+  { key: "u_tintBrightness", label: "Brightness", min: 1, max: 15, step: 0.1, group: "Moonlit Tint" },
+  { key: "u_waterBlueMin", label: "Blue Ratio Min", min: 0.5, max: 2, step: 0.05, group: "Ocean Mask" },
+  { key: "u_waterBlueMax", label: "Blue Ratio Max", min: 0.5, max: 3, step: 0.05, group: "Ocean Mask" },
+  { key: "u_waterSatMin", label: "Sat Min", min: 0, max: 0.5, step: 0.01, group: "Ocean Mask" },
+  { key: "u_waterSatMax", label: "Sat Max", min: 0, max: 1, step: 0.01, group: "Ocean Mask" },
+  { key: "u_waterDarken", label: "Darken Factor", min: 0, max: 1, step: 0.01, group: "Ocean Mask" },
+  { key: "u_winLumMin", label: "Lum Min", min: 0.3, max: 1, step: 0.01, group: "Window Detection" },
+  { key: "u_winLumMax", label: "Lum Max", min: 0.3, max: 1, step: 0.01, group: "Window Detection" },
+  { key: "u_winSatMin", label: "Sat Min", min: 0, max: 1, step: 0.01, group: "Window Detection" },
+  { key: "u_winSatMax", label: "Sat Max", min: 0, max: 1, step: 0.01, group: "Window Detection" },
+  { key: "u_glowR", label: "Glow Red", min: 0, max: 1, step: 0.01, group: "Window Glow" },
+  { key: "u_glowG", label: "Glow Green", min: 0, max: 1, step: 0.01, group: "Window Glow" },
+  { key: "u_glowB", label: "Glow Blue", min: 0, max: 1, step: 0.01, group: "Window Glow" },
+  { key: "u_glowIntensity", label: "Intensity", min: 0, max: 5, step: 0.1, group: "Window Glow" },
+] as const;
+
 /**
- * Apply night mode to a Cesium viewer:
- * 1. Apply CustomShader to the 3D tileset for moonlit + window glow effect
- * 2. Hide sky atmosphere, set black background
- *
- * Returns a cleanup function to restore day mode.
+ * Apply night mode. Returns cleanup function.
  */
 export function applyNightMode(
   viewer: Viewer,
@@ -99,14 +111,11 @@ export function applyNightMode(
   const prevCustomShader = tileset?.customShader;
   const prevStyle = tileset?.style;
 
-  // Apply the night shader
   if (tileset) {
     tileset.customShader = NIGHT_SHADER;
-    // Clear any style that might interfere
     tileset.style = undefined;
   }
 
-  // Hide daytime atmosphere
   if (viewer.scene.skyAtmosphere) {
     viewer.scene.skyAtmosphere.show = false;
   }
@@ -114,12 +123,10 @@ export function applyNightMode(
 
   return () => {
     if (viewer.isDestroyed()) return;
-
     if (tileset) {
       tileset.customShader = prevCustomShader;
       tileset.style = prevStyle;
     }
-
     if (viewer.scene.skyAtmosphere) {
       viewer.scene.skyAtmosphere.show = true;
     }

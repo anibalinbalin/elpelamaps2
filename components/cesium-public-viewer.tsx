@@ -24,6 +24,7 @@ import {
   type Entity,
 } from "cesium";
 import { applyNightMode } from "@/lib/night-mode";
+import { NightTuner } from "./night-tuner";
 import { Compass01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { GOOGLE_MAPS_API_KEY, JOSE_IGNACIO_CENTER, PARCEL_COLORS, CESIUM_CAMERA_BEHAVIOR } from "@/lib/constants";
@@ -936,6 +937,7 @@ export function CesiumPublicViewer() {
         <div ref={containerRef} className="absolute inset-0" />
         {!isNightMode && <VignetteOverlay />}
         {!isNightMode && <CloudVeilOverlay active={isCloudSwooshing} cleared={cloudsCleared} />}
+        {isNightMode && <NightTuner />}
       </div>
       <div
         className={`transition-[opacity,transform] duration-500 ${
