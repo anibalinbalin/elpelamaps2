@@ -22,7 +22,9 @@ import {
   defined,
   type Cesium3DTileset,
   type Entity,
+  type PostProcessStage,
 } from "cesium";
+import { createNightModeStage } from "@/lib/night-mode-shader";
 import { Compass01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { GOOGLE_MAPS_API_KEY, JOSE_IGNACIO_CENTER, PARCEL_COLORS, CESIUM_CAMERA_BEHAVIOR } from "@/lib/constants";
@@ -480,6 +482,8 @@ export function CesiumPublicViewer() {
   const [error, setError] = useState("");
   const cloudSwooshTimeoutRef = useRef<number | null>(null);
   const hasMarkedSceneReadyRef = useRef(false);
+  const [isNightMode, setIsNightMode] = useState(false);
+  const nightStageRef = useRef<PostProcessStage | null>(null);
   const parcelsBoundingSphereRef = useRef<BoundingSphere | null>(null);
   const parcelsBoundingSphere = useMemo(() => {
     const cartesianPoints: Cartesian3[] = [];
@@ -732,6 +736,12 @@ export function CesiumPublicViewer() {
     });
 
     return () => {
+      if (nightStageRef.current) {
+        try {
+          viewerRef.current?.postProcessStages.remove(nightStageRef.current);
+        } catch (_) {}
+        nightStageRef.current = null;
+      }
       disposed = true;
       if (loadTilesetFrameId != null) {
         window.cancelAnimationFrame(loadTilesetFrameId);
@@ -896,6 +906,32 @@ export function CesiumPublicViewer() {
     }, 1100);
   }
 
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || viewer.isDestroyed()) return;
+
+    if (isNightMode) {
+      if (!nightStageRef.current) {
+        nightStageRef.current = createNightModeStage();
+      }
+      if (!viewer.postProcessStages.contains(nightStageRef.current)) {
+        viewer.postProcessStages.add(nightStageRef.current);
+      }
+      if (viewer.scene.skyAtmosphere) {
+        viewer.scene.skyAtmosphere.show = false;
+      }
+      viewer.scene.backgroundColor = Color.BLACK;
+    } else {
+      if (nightStageRef.current && viewer.postProcessStages.contains(nightStageRef.current)) {
+        viewer.postProcessStages.remove(nightStageRef.current);
+      }
+      if (viewer.scene.skyAtmosphere) {
+        viewer.scene.skyAtmosphere.show = true;
+      }
+      viewer.scene.backgroundColor = Color.BLACK;
+    }
+  }, [isNightMode]);
+
   if (!googleApiKey) {
     return (
       <div className="flex h-screen items-center justify-center bg-[#0a0a0a] text-sm text-white/50">
@@ -912,8 +948,8 @@ export function CesiumPublicViewer() {
         }`}
       >
         <div ref={containerRef} className="absolute inset-0" />
-        <VignetteOverlay />
-        <CloudVeilOverlay active={isCloudSwooshing} cleared={cloudsCleared} />
+        {!isNightMode && <VignetteOverlay />}
+        {!isNightMode && <CloudVeilOverlay active={isCloudSwooshing} cleared={cloudsCleared} />}
       </div>
       <div
         className={`transition-[opacity,transform] duration-500 ${
@@ -929,6 +965,8 @@ export function CesiumPublicViewer() {
           cloudsCleared={cloudsCleared}
           isCloudSwooshing={isCloudSwooshing}
           onSwooshClouds={handleCloudSwoosh}
+          isNightMode={isNightMode}
+          onToggleNightMode={() => setIsNightMode((v) => !v)}
         />
         <ParcelPillsOverlay positions={pillPositions} />
         <ParcelSidebar />
