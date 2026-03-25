@@ -8,89 +8,29 @@ import {
   PolygonHierarchy,
   type Viewer,
 } from "cesium";
-
-const OVERPASS_API = "https://overpass-api.de/api/interpreter";
+import buildings from "./jose-ignacio-buildings.json";
 
 /** Night tint applied to the 3D tileset via Cesium3DTileStyle */
 const NIGHT_STYLE = new Cesium3DTileStyle({
   color: "color('#1e2d4a', 0.62)",
 });
 
-/** Warm glow colors for building footprints — bright enough to pop against dark tileset */
+/** Warm glow colors for building footprints */
 const BUILDING_GLOW = Color.fromCssColorString("rgba(255, 200, 90, 0.75)");
 const BUILDING_GLOW_BRIGHT = Color.fromCssColorString("rgba(255, 225, 140, 0.9)");
-
-interface OsmNode {
-  type: "node";
-  id: number;
-  lat: number;
-  lon: number;
-}
-
-interface OsmWay {
-  type: "way";
-  id: number;
-  nodes: number[];
-  tags?: Record<string, string>;
-}
-
-type OsmElement = OsmNode | OsmWay;
-
-/**
- * Fetch building footprints from OpenStreetMap Overpass API
- * for a given center point and radius.
- */
-async function fetchOsmBuildings(
-  lat: number,
-  lon: number,
-  radiusMeters = 6000,
-): Promise<Array<{ coords: [number, number][]; tags: Record<string, string> }>> {
-  const query = `[out:json][timeout:30];(way["building"](around:${radiusMeters},${lat},${lon}););out body;>;out skel qt;`;
-
-  const response = await fetch(OVERPASS_API, {
-    method: "POST",
-    body: `data=${encodeURIComponent(query)}`,
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-  });
-
-  if (!response.ok) return [];
-
-  const data = await response.json();
-  const elements: OsmElement[] = data.elements ?? [];
-
-  const nodes = new Map<number, OsmNode>();
-  const ways: OsmWay[] = [];
-
-  for (const el of elements) {
-    if (el.type === "node") nodes.set(el.id, el);
-    else if (el.type === "way") ways.push(el);
-  }
-
-  return ways
-    .map((way) => {
-      const coords: [number, number][] = [];
-      for (const nodeId of way.nodes) {
-        const node = nodes.get(nodeId);
-        if (node) coords.push([node.lon, node.lat]);
-      }
-      return { coords, tags: way.tags ?? {} };
-    })
-    .filter((b) => b.coords.length >= 3);
-}
 
 /**
  * Apply night mode to a Cesium viewer:
  * 1. Darken/tint the 3D tileset via Cesium3DTileStyle
  * 2. Hide sky atmosphere
- * 3. Add OSM building footprints as glowing polygons
+ * 3. Add pre-fetched OSM building footprints as glowing polygons
  *
  * Returns a cleanup function to restore day mode.
  */
-export async function applyNightMode(
+export function applyNightMode(
   viewer: Viewer,
   tilesetRef: { current: { style: Cesium3DTileStyle | undefined } | null },
-  center: { lat: number; lon: number },
-): Promise<() => void> {
+): () => void {
   if (viewer.isDestroyed()) return () => {};
 
   // 1. Darken tileset
@@ -106,42 +46,32 @@ export async function applyNightMode(
   }
   viewer.scene.backgroundColor = Color.BLACK;
 
-  // 3. Fetch and render OSM buildings as glowing footprints
+  // 3. Add building footprints as glowing extruded polygons
   const buildingEntities: Entity[] = [];
 
-  try {
-    const buildings = await fetchOsmBuildings(center.lat, center.lon);
+  for (const building of buildings) {
+    const positions = Cartesian3.fromDegreesArray(
+      building.coords.flatMap((c) => [c[0], c[1]]),
+    );
 
-    for (const building of buildings) {
-      const positions = Cartesian3.fromDegreesArray(
-        building.coords.flatMap(([lon, lat]) => [lon, lat]),
-      );
+    // Vary glow intensity per building for realism
+    const hash = Math.abs(building.coords[0][0] * 1000 + building.coords[0][1] * 1000);
+    const bright = hash % 3 < 1;
+    const height = Math.max(3, building.levels * 3);
 
-      // Vary glow intensity slightly per building for realism
-      const hash = building.coords[0][0] * 1000 + building.coords[0][1] * 1000;
-      const bright = Math.abs(hash % 3) === 0;
+    const entity = viewer.entities.add({
+      polygon: {
+        hierarchy: new PolygonHierarchy(positions),
+        material: new ColorMaterialProperty(
+          bright ? BUILDING_GLOW_BRIGHT : BUILDING_GLOW,
+        ),
+        extrudedHeight: new ConstantProperty(height),
+        height: new ConstantProperty(0),
+        outline: false,
+      },
+    });
 
-      // Use extruded polygon slightly above ground — not classification (which gets
-      // affected by the tileset style darkening). Height gives a faint glow-box effect.
-      const levels = parseInt(building.tags.building_levels ?? building.tags["building:levels"] ?? "1", 10);
-      const height = Math.max(3, levels * 3);
-
-      const entity = viewer.entities.add({
-        polygon: {
-          hierarchy: new PolygonHierarchy(positions),
-          material: new ColorMaterialProperty(
-            bright ? BUILDING_GLOW_BRIGHT : BUILDING_GLOW,
-          ),
-          extrudedHeight: new ConstantProperty(height),
-          height: new ConstantProperty(0),
-          outline: false,
-        },
-      });
-
-      buildingEntities.push(entity);
-    }
-  } catch (_) {
-    // OSM fetch failed — night mode still works, just without building glow
+    buildingEntities.push(entity);
   }
 
   // Return cleanup function

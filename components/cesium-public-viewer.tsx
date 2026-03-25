@@ -910,18 +910,8 @@ export function CesiumPublicViewer() {
     nightCleanupRef.current = null;
 
     if (isNightMode) {
-      let cancelled = false;
-      void applyNightMode(viewer, tilesetRef, JOSE_IGNACIO_CENTER).then(
-        (cleanup) => {
-          if (cancelled) {
-            cleanup();
-          } else {
-            nightCleanupRef.current = cleanup;
-          }
-        },
-      );
+      nightCleanupRef.current = applyNightMode(viewer, tilesetRef);
       return () => {
-        cancelled = true;
         nightCleanupRef.current?.();
         nightCleanupRef.current = null;
       };
