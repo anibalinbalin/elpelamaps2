@@ -233,7 +233,9 @@ export function NightEditorViewer() {
     if (!viewer || viewer.isDestroyed()) return;
 
     // Clean up previous handler
-    handlerRef.current?.destroy();
+    if (handlerRef.current && !handlerRef.current.isDestroyed()) {
+      handlerRef.current.destroy();
+    }
 
     const handler = new ScreenSpaceEventHandler(viewer.scene.canvas);
     handlerRef.current = handler;
@@ -268,7 +270,9 @@ export function NightEditorViewer() {
     );
 
     return () => {
-      handler.destroy();
+      if (!handler.isDestroyed()) {
+        handler.destroy();
+      }
       if (handlerRef.current === handler) {
         handlerRef.current = null;
       }
