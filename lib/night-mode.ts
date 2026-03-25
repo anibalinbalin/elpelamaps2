@@ -1,7 +1,6 @@
 import {
   Cartesian3,
   Cesium3DTileStyle,
-  ClassificationType,
   Color,
   ColorMaterialProperty,
   ConstantProperty,
@@ -14,12 +13,12 @@ const OVERPASS_API = "https://overpass-api.de/api/interpreter";
 
 /** Night tint applied to the 3D tileset via Cesium3DTileStyle */
 const NIGHT_STYLE = new Cesium3DTileStyle({
-  color: "color('#1a2540', 0.82)",
+  color: "color('#0d1525', 0.88)",
 });
 
-/** Warm glow color for building footprints */
-const BUILDING_GLOW = Color.fromCssColorString("rgba(255, 195, 80, 0.55)");
-const BUILDING_GLOW_BRIGHT = Color.fromCssColorString("rgba(255, 210, 120, 0.7)");
+/** Warm glow colors for building footprints — bright enough to pop against dark tileset */
+const BUILDING_GLOW = Color.fromCssColorString("rgba(255, 200, 90, 0.75)");
+const BUILDING_GLOW_BRIGHT = Color.fromCssColorString("rgba(255, 225, 140, 0.9)");
 
 interface OsmNode {
   type: "node";
@@ -44,9 +43,9 @@ type OsmElement = OsmNode | OsmWay;
 async function fetchOsmBuildings(
   lat: number,
   lon: number,
-  radiusMeters = 3000,
+  radiusMeters = 6000,
 ): Promise<Array<{ coords: [number, number][]; tags: Record<string, string> }>> {
-  const query = `[out:json][timeout:25];(way["building"](around:${radiusMeters},${lat},${lon}););out body;>;out skel qt;`;
+  const query = `[out:json][timeout:30];(way["building"](around:${radiusMeters},${lat},${lon}););out body;>;out skel qt;`;
 
   const response = await fetch(OVERPASS_API, {
     method: "POST",
@@ -122,16 +121,20 @@ export async function applyNightMode(
       const hash = building.coords[0][0] * 1000 + building.coords[0][1] * 1000;
       const bright = Math.abs(hash % 3) === 0;
 
+      // Use extruded polygon slightly above ground — not classification (which gets
+      // affected by the tileset style darkening). Height gives a faint glow-box effect.
+      const levels = parseInt(building.tags.building_levels ?? building.tags["building:levels"] ?? "1", 10);
+      const height = Math.max(3, levels * 3);
+
       const entity = viewer.entities.add({
         polygon: {
           hierarchy: new PolygonHierarchy(positions),
           material: new ColorMaterialProperty(
             bright ? BUILDING_GLOW_BRIGHT : BUILDING_GLOW,
           ),
-          classificationType: new ConstantProperty(
-            ClassificationType.CESIUM_3D_TILE,
-          ),
-          zIndex: new ConstantProperty(10),
+          extrudedHeight: new ConstantProperty(height),
+          height: new ConstantProperty(0),
+          outline: false,
         },
       });
 
