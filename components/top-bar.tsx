@@ -1,6 +1,6 @@
 "use client";
 
-import { WavingHand01Icon, WavingHand02Icon } from "@hugeicons/core-free-icons";
+import { Moon02Icon, Sun03Icon, WavingHand01Icon, WavingHand02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -14,6 +14,8 @@ interface TopBarProps {
   cloudsCleared: boolean;
   isCloudSwooshing: boolean;
   onSwooshClouds: () => void;
+  isNightMode?: boolean;
+  onToggleNightMode?: () => void;
 }
 
 export function TopBar({
@@ -23,6 +25,8 @@ export function TopBar({
   cloudsCleared,
   isCloudSwooshing,
   onSwooshClouds,
+  isNightMode,
+  onToggleNightMode,
 }: TopBarProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -92,6 +96,36 @@ export function TopBar({
               swooshTick={cloudSwooshTick}
               onClick={onSwooshClouds}
             />
+            {onToggleNightMode && (
+              <>
+                <div className="mx-1 h-8 w-px bg-white/10" />
+                <button
+                  type="button"
+                  onClick={onToggleNightMode}
+                  aria-label={isNightMode ? "Switch to day" : "Switch to night"}
+                  title={isNightMode ? "Switch to day" : "Switch to night"}
+                  className={`group relative flex h-11 w-11 items-center justify-center rounded-[18px] border text-white/72 shadow-[0_10px_24px_rgba(7,18,28,0.14),inset_0_1px_0_rgba(255,255,255,0.08)] transition-[transform,border-color,background-color,color,box-shadow] duration-300 active:scale-[0.985] ${
+                    isNightMode
+                      ? "border-amber-400/30 bg-[rgba(255,200,60,0.12)] text-amber-200/90 shadow-[0_12px_28px_rgba(7,18,28,0.16),inset_0_1px_0_rgba(255,255,255,0.1)]"
+                      : "border-white/8 bg-[rgba(255,255,255,0.025)] hover:-translate-y-px hover:border-white/14 hover:bg-[rgba(255,255,255,0.045)] hover:text-white/88 hover:shadow-[0_12px_28px_rgba(7,18,28,0.18),inset_0_1px_0_rgba(255,255,255,0.1)]"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none absolute inset-[5px] rounded-[14px] bg-[radial-gradient(circle_at_35%_30%,rgba(255,255,255,0.12),rgba(255,255,255,0)_68%)] transition-opacity duration-300 ${
+                      isNightMode
+                        ? "opacity-100"
+                        : "opacity-[0.45] group-hover:opacity-[0.8]"
+                    }`}
+                  />
+                  <HugeiconsIcon
+                    icon={isNightMode ? Sun03Icon : Moon02Icon}
+                    size={18}
+                    strokeWidth={1.6}
+                    color="currentColor"
+                  />
+                </button>
+              </>
+            )}
           </div>
         </div>
 
