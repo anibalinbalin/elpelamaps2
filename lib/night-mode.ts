@@ -1,5 +1,4 @@
 import {
-  Cartesian3,
   Cesium3DTileStyle,
   Color,
   CustomShader,
@@ -11,9 +10,15 @@ import {
 } from "cesium";
 
 // --- Mask bounding box (José Ignacio area) ---
-export const MASK_BOUNDS_SW = Cartesian3.fromDegrees(-54.70, -34.86);
-export const MASK_BOUNDS_NE = Cartesian3.fromDegrees(-54.58, -34.79);
 export const MASK_SIZE = 1024;
+
+/** Lon/lat bounds for the 2D editor and shader (degrees) */
+export const MASK_BOUNDS_LON_LAT = {
+  sw: [-54.70, -34.86] as [number, number],
+  ne: [-54.58, -34.79] as [number, number],
+};
+
+const DEG2RAD = Math.PI / 180;
 
 /**
  * Night mode via CustomShader on Google Photorealistic 3D Tiles.
@@ -59,8 +64,10 @@ export const NIGHT_SHADER = new CustomShader({
         height: 1,
       }),
     },
-    u_boundsMin: { type: UniformType.VEC3, value: MASK_BOUNDS_SW },
-    u_boundsMax: { type: UniformType.VEC3, value: MASK_BOUNDS_NE },
+    u_boundsMinLon: { type: UniformType.FLOAT, value: MASK_BOUNDS_LON_LAT.sw[0] * DEG2RAD },
+    u_boundsMinLat: { type: UniformType.FLOAT, value: MASK_BOUNDS_LON_LAT.sw[1] * DEG2RAD },
+    u_boundsMaxLon: { type: UniformType.FLOAT, value: MASK_BOUNDS_LON_LAT.ne[0] * DEG2RAD },
+    u_boundsMaxLat: { type: UniformType.FLOAT, value: MASK_BOUNDS_LON_LAT.ne[1] * DEG2RAD },
   },
   fragmentShaderText: /* glsl */ `
     void fragmentMain(FragmentInput fsInput, inout czm_modelMaterial material) {
@@ -86,11 +93,18 @@ export const NIGHT_SHADER = new CustomShader({
       float windowScore = lumScore * satScore;
 
       // --- Exclusion mask (texture-based) ---
+      // Convert ECEF world coordinates to geodetic lon/lat (radians).
+      // atan(z, p) gives geocentric lat; multiplying p by (1 - e²) converts
+      // to geodetic lat so it matches the WGS84 coordinates in the mask bounds.
       vec3 pos = fsInput.attributes.positionWC;
+      float lon = atan(pos.y, pos.x);
+      float p = sqrt(pos.x * pos.x + pos.y * pos.y);
+      float lat = atan(pos.z, p * (1.0 - 0.00669438));
       vec2 maskUV = vec2(
-        (pos.x - u_boundsMin.x) / (u_boundsMax.x - u_boundsMin.x),
-        (pos.y - u_boundsMin.y) / (u_boundsMax.y - u_boundsMin.y)
+        (lon - u_boundsMinLon) / (u_boundsMaxLon - u_boundsMinLon),
+        (lat - u_boundsMinLat) / (u_boundsMaxLat - u_boundsMinLat)
       );
+      maskUV.y = 1.0 - maskUV.y; // flip: canvas row 0 = north, but texImage2D row 0 = UV.y 0
       maskUV = clamp(maskUV, 0.0, 1.0);
       float maskVal = texture(u_maskTex, maskUV).r;
       windowScore *= (1.0 - maskVal);
@@ -99,9 +113,9 @@ export const NIGHT_SHADER = new CustomShader({
       vec3 glowColor = vec3(u_glowR, u_glowG, u_glowB);
       vec3 glow = glowColor * u_glowIntensity * luminance;
 
-      // --- Composite (masked areas restore original color) ---
+      // --- Composite (mask only suppresses glow, night tint stays) ---
       vec3 nightResult = mix(nightColor, glow, windowScore);
-      material.diffuse = mix(nightResult, original, maskVal);
+      material.diffuse = nightResult;
     }
   `,
 });
@@ -160,4 +174,19 @@ export function applyNightMode(
       viewer.scene.skyAtmosphere.show = true;
     }
   };
+}
+
+/**
+ * Upload a mask canvas to the night shader's `u_maskTex` uniform.
+ * The canvas must be MASK_SIZE x MASK_SIZE.
+ */
+export function updateMaskTexture(canvas: HTMLCanvasElement): void {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const imageData = ctx.getImageData(0, 0, MASK_SIZE, MASK_SIZE);
+  const rgba = new Uint8Array(imageData.data.buffer);
+  NIGHT_SHADER.setUniform(
+    "u_maskTex",
+    new TextureUniform({ typedArray: rgba, width: MASK_SIZE, height: MASK_SIZE }),
+  );
 }
