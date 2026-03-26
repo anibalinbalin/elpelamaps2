@@ -74,12 +74,14 @@ export function TopBar({
               label="Viewer"
               onClick={handleViewerClick}
             />
-            <ModeButton
-              active={false}
-              disabled={isPending}
-              label="Editor"
-              onClick={handleEditorClick}
-            />
+            <div className="hidden sm:block">
+              <ModeButton
+                active={false}
+                disabled={isPending}
+                label="Editor"
+                onClick={handleEditorClick}
+              />
+            </div>
             <div className="mx-1 h-7 w-px bg-white/10 sm:h-8" />
             <CloudSwooshButton
               active={isCloudSwooshing}
