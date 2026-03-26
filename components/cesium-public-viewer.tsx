@@ -23,8 +23,9 @@ import {
   type Cesium3DTileset,
   type Entity,
 } from "cesium";
-import { applyNightMode } from "@/lib/night-mode";
-import { NightTuner } from "./night-tuner";
+import { applyNightMode, recreateNightShader, getMaskPixels, MASK_BOUNDS_LON_LAT, MASK_SIZE } from "@/lib/night-mode";
+import { rasterizeZonesToCanvas } from "@/lib/night-zones";
+import type { NightZoneCollection } from "@/lib/night-zones";
 import { Compass01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { GOOGLE_MAPS_API_KEY, JOSE_IGNACIO_CENTER, PARCEL_COLORS, CESIUM_CAMERA_BEHAVIOR } from "@/lib/constants";
@@ -911,8 +912,36 @@ export function CesiumPublicViewer() {
     nightCleanupRef.current = null;
 
     if (isNightMode) {
-      nightCleanupRef.current = applyNightMode(viewer, tilesetRef);
+      // Fetch exclusion zones, bake them into a fresh shader, then apply.
+      // Creating a new CustomShader with the mask texture already set avoids
+      // relying on setUniform for SAMPLER_2D after compilation (which Cesium
+      // may silently ignore on an already-compiled shader).
+      let cancelled = false;
+      void (async () => {
+        let maskPixels: Uint8Array | undefined;
+        try {
+          const res = await fetch("/api/night-zones", { cache: "no-store" });
+          if (!cancelled && res.ok) {
+            const zones: NightZoneCollection = await res.json();
+            if (!cancelled && zones.features.length > 0) {
+              const canvas = document.createElement("canvas");
+              canvas.width = MASK_SIZE;
+              canvas.height = MASK_SIZE;
+              rasterizeZonesToCanvas(canvas, zones, MASK_BOUNDS_LON_LAT);
+              maskPixels = getMaskPixels(canvas) ?? undefined;
+            }
+          }
+        } catch {
+          // Non-critical — night mode still works without mask zones
+        }
+
+        if (cancelled) return;
+        const shader = recreateNightShader(maskPixels);
+        nightCleanupRef.current = applyNightMode(viewer, tilesetRef, shader);
+      })();
+
       return () => {
+        cancelled = true;
         nightCleanupRef.current?.();
         nightCleanupRef.current = null;
       };
@@ -937,7 +966,6 @@ export function CesiumPublicViewer() {
         <div ref={containerRef} className="absolute inset-0" />
         {!isNightMode && <VignetteOverlay />}
         {!isNightMode && <CloudVeilOverlay active={isCloudSwooshing} cleared={cloudsCleared} />}
-        {isNightMode && <NightTuner />}
       </div>
       <div
         className={`transition-[opacity,transform] duration-500 ${
