@@ -59,15 +59,15 @@ export function TopBar({
 
   return (
     <>
-      <div className="pointer-events-none fixed inset-x-0 top-0 z-10 flex items-start justify-between bg-gradient-to-b from-[#82b7ef]/14 via-[#82b7ef]/5 to-transparent px-5 py-4">
+      <div className="pointer-events-none fixed inset-x-0 top-0 z-40 flex items-start justify-between bg-gradient-to-b from-[#82b7ef]/14 via-[#82b7ef]/5 to-transparent px-3 py-3 sm:px-5 sm:py-4">
         <div className="flex items-baseline gap-2 pt-2">
-          <span className="text-base font-bold tracking-wide text-white">
+          <span className="text-sm font-bold tracking-wide text-white sm:text-base">
             José Ignacio Lotes Demo
           </span>
         </div>
 
-        <div className="pointer-events-auto absolute left-1/2 top-4 -translate-x-1/2">
-          <div className="flex items-center rounded-[28px] border border-white/12 bg-[rgba(28,25,26,0.92)] p-[7px] shadow-[0_18px_50px_rgba(4,16,28,0.24)] backdrop-blur-md">
+        <div className="pointer-events-auto absolute left-1/2 top-3 w-max max-w-[calc(100vw-1.5rem)] -translate-x-1/2 sm:top-4 sm:max-w-none">
+          <div className="flex items-center rounded-[24px] border border-white/12 bg-[rgba(28,25,26,0.92)] p-[5px] shadow-[0_18px_50px_rgba(4,16,28,0.24)] backdrop-blur-md sm:rounded-[28px] sm:p-[7px]">
             <ModeButton
               active={!drawMode}
               disabled={isPending}
@@ -80,7 +80,7 @@ export function TopBar({
               label="Editor"
               onClick={handleEditorClick}
             />
-            <div className="mx-1 h-8 w-px bg-white/10" />
+            <div className="mx-1 h-7 w-px bg-white/10 sm:h-8" />
             <CloudSwooshButton
               active={isCloudSwooshing}
               cleared={cloudsCleared}
@@ -89,13 +89,13 @@ export function TopBar({
             />
             {onToggleNightMode && (
               <>
-                <div className="mx-1 h-8 w-px bg-white/10" />
+                <div className="mx-1 h-7 w-px bg-white/10 sm:h-8" />
                 <button
                   type="button"
                   onClick={onToggleNightMode}
                   aria-label={isNightMode ? "Switch to day" : "Switch to night"}
                   title={isNightMode ? "Switch to day" : "Switch to night"}
-                  className={`group relative flex h-11 w-11 items-center justify-center rounded-[18px] border text-white/72 shadow-[0_10px_24px_rgba(7,18,28,0.14),inset_0_1px_0_rgba(255,255,255,0.08)] transition-[transform,border-color,background-color,color,box-shadow] duration-300 active:scale-[0.985] ${
+                  className={`group relative flex h-10 w-10 items-center justify-center rounded-[16px] border text-white/72 shadow-[0_10px_24px_rgba(7,18,28,0.14),inset_0_1px_0_rgba(255,255,255,0.08)] transition-[transform,border-color,background-color,color,box-shadow] duration-300 active:scale-[0.985] sm:h-11 sm:w-11 sm:rounded-[18px] ${
                     isNightMode
                       ? "border-amber-400/30 bg-[rgba(255,200,60,0.12)] text-amber-200/90 shadow-[0_12px_28px_rgba(7,18,28,0.16),inset_0_1px_0_rgba(255,255,255,0.1)]"
                       : "border-white/8 bg-[rgba(255,255,255,0.025)] hover:-translate-y-px hover:border-white/14 hover:bg-[rgba(255,255,255,0.045)] hover:text-white/88 hover:shadow-[0_12px_28px_rgba(7,18,28,0.18),inset_0_1px_0_rgba(255,255,255,0.1)]"
@@ -120,7 +120,7 @@ export function TopBar({
           </div>
         </div>
 
-        <div className="rounded-full border border-white/20 bg-[#0f2741]/18 px-3 py-1 text-[11px] text-white/76 shadow-[0_10px_30px_rgba(6,22,39,0.12)] backdrop-blur-md">
+        <div className="hidden rounded-full border border-white/20 bg-[#0f2741]/18 px-3 py-1 text-[11px] text-white/76 shadow-[0_10px_30px_rgba(6,22,39,0.12)] backdrop-blur-md sm:block">
           {parcelCount} Parcels
         </div>
       </div>
@@ -157,7 +157,7 @@ function CloudSwooshButton({
       disabled={cleared}
       aria-label={label}
       title={label}
-      className={`cloud-swoosh-trigger group relative flex h-11 w-11 items-center justify-center rounded-[18px] border text-white/72 shadow-[0_10px_24px_rgba(7,18,28,0.14),inset_0_1px_0_rgba(255,255,255,0.08)] transition-[transform,border-color,background-color,color,box-shadow] duration-300 active:scale-[0.985] disabled:cursor-default ${
+      className={`cloud-swoosh-trigger group relative flex h-10 w-10 items-center justify-center rounded-[16px] border text-white/72 shadow-[0_10px_24px_rgba(7,18,28,0.14),inset_0_1px_0_rgba(255,255,255,0.08)] transition-[transform,border-color,background-color,color,box-shadow] duration-300 active:scale-[0.985] disabled:cursor-default sm:h-11 sm:w-11 sm:rounded-[18px] ${
         active || cleared
           ? "border-white/16 bg-[rgba(255,255,255,0.065)] text-white/82 shadow-[0_12px_28px_rgba(7,18,28,0.16),inset_0_1px_0_rgba(255,255,255,0.1)]"
           : "border-white/8 bg-[rgba(255,255,255,0.025)] hover:-translate-y-px hover:border-white/14 hover:bg-[rgba(255,255,255,0.045)] hover:text-white/88 hover:shadow-[0_12px_28px_rgba(7,18,28,0.18),inset_0_1px_0_rgba(255,255,255,0.1)]"
@@ -203,7 +203,7 @@ function ModeButton({ active, disabled, label, onClick }: ModeButtonProps) {
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`rounded-[22px] px-7 py-3 text-[15px] font-semibold tracking-[-0.02em] transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60 ${
+      className={`rounded-[18px] px-4 py-2.5 text-[13px] font-semibold tracking-[-0.02em] transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-[22px] sm:px-7 sm:py-3 sm:text-[15px] ${
         active
           ? "bg-[rgba(255,255,255,0.14)] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
           : "text-white/68 hover:text-white/88"

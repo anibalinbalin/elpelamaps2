@@ -112,9 +112,14 @@ function ViewerControlsHint() {
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-6 z-20 flex justify-center px-4">
       <div className="max-w-[min(100%,36rem)] rounded-[18px] border border-white/10 bg-[rgba(16,20,25,0.82)] px-5 py-3 text-center text-[12px] text-white/60 shadow-lg backdrop-blur-xl">
-        Drag to orbit. Scroll to zoom. Hold
-        <span className="px-1 font-mono text-white/82">Shift</span>
-        while dragging to tilt the view.
+        <span className="sm:hidden">
+          Drag to orbit. Use two fingers to zoom and tilt the view.
+        </span>
+        <span className="hidden sm:inline">
+          Drag to orbit. Scroll to zoom. Hold
+          <span className="px-1 font-mono text-white/82">Shift</span>
+          while dragging to tilt the view.
+        </span>
       </div>
     </div>
   );
@@ -590,6 +595,8 @@ export function CesiumPublicViewer() {
       viewer.scene.skyAtmosphere.show = true;
     }
     viewer.postProcessStages.fxaa.enabled = true;
+    (viewer.container as HTMLElement).style.touchAction = "none";
+    viewer.scene.canvas.style.touchAction = "none";
     const controller = viewer.scene.screenSpaceCameraController;
     controller.maximumZoomDistance = 4000;
     controller.minimumZoomDistance = 220;
@@ -602,9 +609,11 @@ export function CesiumPublicViewer() {
     // Left drag = move/orbit (spin3D contextual — default rotateEventTypes)
     // Right drag = custom zoom with auto-tilt
     // Shift+left drag = tilt
+    // Pinch remains enabled so touch devices can tilt/rotate without a keyboard.
     // Ctrl+left drag = free-look
     controller.tiltEventTypes = [
       CameraEventType.MIDDLE_DRAG,
+      CameraEventType.PINCH,
       { eventType: CameraEventType.LEFT_DRAG, modifier: KeyboardEventModifier.SHIFT },
     ];
     // Zoom via PINCH only — wheel/right-drag zoom is handled by setupGoogleEarthNavigation
@@ -975,7 +984,7 @@ export function CesiumPublicViewer() {
           isSceneReady ? "opacity-100" : "opacity-0"
         }`}
       >
-        <div ref={containerRef} className="absolute inset-0" />
+        <div ref={containerRef} className="absolute inset-0 touch-none" />
         {!isNightMode && <VignetteOverlay />}
         {!isNightMode && <CloudVeilOverlay active={isCloudSwooshing} cleared={cloudsCleared} />}
       </div>
