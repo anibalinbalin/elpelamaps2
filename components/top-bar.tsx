@@ -5,7 +5,6 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { EditorAccessDialog } from "./editor-access-dialog";
-import { grantEditorAccess, hasEditorAccess } from "@/lib/editor-access";
 
 interface TopBarProps {
   drawMode: boolean;
@@ -48,18 +47,10 @@ export function TopBar({
       return;
     }
 
-    if (hasEditorAccess()) {
-      startTransition(() => {
-        router.push("/editor");
-      });
-      return;
-    }
-
     setShowEditorAccessDialog(true);
   }
 
   function handleEditorAccessSuccess() {
-    grantEditorAccess();
     setShowEditorAccessDialog(false);
     startTransition(() => {
       router.push("/editor");

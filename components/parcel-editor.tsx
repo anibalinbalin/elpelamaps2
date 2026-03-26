@@ -810,6 +810,13 @@ export function ParcelEditor() {
             )}
           </div>
         </div>
+
+        <a
+          href="/viewer"
+          className="mt-3 flex items-center justify-center rounded-[18px] border border-white/10 bg-white/[0.04] px-4 py-3 text-[13px] font-semibold text-white/68 transition-colors duration-200 hover:border-white/16 hover:bg-white/[0.08] hover:text-white"
+        >
+          Back to Viewer
+        </a>
       </aside>
     </div>
   );
