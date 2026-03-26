@@ -989,8 +989,8 @@ export function CesiumPublicViewer() {
         {!isNightMode && <CloudVeilOverlay active={isCloudSwooshing} cleared={cloudsCleared} />}
       </div>
       <div
-        className={`absolute inset-0 transition-opacity duration-500 ${
-          isSceneReady ? "opacity-100" : "pointer-events-none opacity-0"
+        className={`pointer-events-none absolute inset-0 transition-opacity duration-500 ${
+          isSceneReady ? "opacity-100" : "opacity-0"
         }`}
       >
         <TopBar
