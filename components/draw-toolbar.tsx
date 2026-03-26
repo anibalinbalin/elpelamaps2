@@ -163,6 +163,9 @@ export function DrawToolbar() {
           <span className="text-white/62">
             Click to place vertices. Enter to finish. Esc to cancel. Backspace to undo.
           </span>
+          <span className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs font-medium text-white/76">
+            Hold <span className="font-mono text-white/90">Shift</span> and drag to move around
+          </span>
           <button
             type="button"
             onClick={openFinishForm}
@@ -223,6 +226,9 @@ export function DrawToolbar() {
             Selected {selectedFeature.properties.id}
           </span>
         )}
+        <span className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs font-medium text-white/76">
+          Hold <span className="font-mono text-white/90">Shift</span> and drag to move around
+        </span>
         {saveMessage && (
           <span
             className={`px-2 text-xs ${

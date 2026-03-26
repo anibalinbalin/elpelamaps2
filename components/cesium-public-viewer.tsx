@@ -108,6 +108,18 @@ function CloudVeilOverlay({
   );
 }
 
+function ViewerControlsHint() {
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-6 z-20 flex justify-center px-4">
+      <div className="max-w-[min(100%,36rem)] rounded-[18px] border border-white/10 bg-[rgba(16,20,25,0.82)] px-5 py-3 text-center text-[12px] text-white/60 shadow-lg backdrop-blur-xl">
+        Drag to orbit. Scroll to zoom. Hold
+        <span className="px-1 font-mono text-white/82">Shift</span>
+        while dragging to tilt the view.
+      </div>
+    </div>
+  );
+}
+
 /** Map camera altitude to a target pitch via the auto-tilt curve. */
 function computeAutoTiltPitch(altitude: number): number {
   const { highAltitude, lowAltitude, highPitchDeg, lowPitchDeg } =
@@ -986,6 +998,7 @@ export function CesiumPublicViewer() {
         />
         <ParcelPillsOverlay positions={pillPositions} />
         <ParcelSidebar />
+        <ViewerControlsHint />
         <CompassButton viewerRef={viewerRef} />
       </div>
       {(showSkeleton || !isSceneReady) && !error ? (
