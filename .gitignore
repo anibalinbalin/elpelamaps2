@@ -42,3 +42,11 @@ next-env.d.ts
 # superpowers
 .superpowers/
 .gstack/
+
+# agent/IDE configs
+.agents/
+.claude/
+.context/
+.kiro/
+.trae/
+skills-lock.json

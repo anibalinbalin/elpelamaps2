@@ -43,7 +43,7 @@ export function NightTuner() {
     return (
       <button
         onClick={() => setCollapsed(false)}
-        className="fixed left-3 top-20 z-50 rounded-lg bg-black/80 px-3 py-1.5 text-xs text-white/70 backdrop-blur-sm hover:text-white"
+        className="fixed right-4 bottom-6 z-50 rounded-[18px] border border-white/10 bg-[rgba(19,24,30,0.88)] px-4 py-2 text-xs text-white/78 shadow-[0_18px_48px_rgba(3,10,16,0.34)] backdrop-blur-xl hover:text-white"
       >
         Night Tuner
       </button>
@@ -51,9 +51,9 @@ export function NightTuner() {
   }
 
   return (
-    <div className="fixed left-3 top-20 z-50 flex max-h-[70vh] w-64 flex-col rounded-xl border border-white/10 bg-black/85 text-white/90 shadow-2xl backdrop-blur-md">
+    <div className="fixed right-4 bottom-6 z-50 flex max-h-[70vh] w-64 flex-col rounded-[22px] border border-white/10 bg-[rgba(16,20,25,0.92)] text-white/90 shadow-[0_32px_90px_rgba(3,10,16,0.42)] backdrop-blur-xl">
       <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
-        <span className="text-xs font-semibold uppercase tracking-wider text-white/60">
+        <span className="text-xs font-semibold uppercase tracking-[0.24em] text-white/44">
           Night Tuner
         </span>
         <div className="flex gap-1.5">
