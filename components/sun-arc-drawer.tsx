@@ -75,7 +75,7 @@ export function SunArcDrawer({ sunT, onSunT }: SunArcDrawerProps) {
   }, []);
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-12 z-30 flex justify-center px-3">
+    <div className="sun-arc-enter pointer-events-none fixed inset-x-0 bottom-12 z-30 flex justify-center px-3">
       <div className="pointer-events-auto w-full max-w-[360px] rounded-[20px] border border-white/9 bg-[rgba(16,20,25,0.93)] px-4 pb-3 pt-3 shadow-[0_28px_80px_rgba(3,10,16,0.55),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-[28px]">
         {/* Time row */}
         <div className="mb-2 flex items-center justify-between">
@@ -86,11 +86,13 @@ export function SunArcDrawer({ sunT, onSunT }: SunArcDrawerProps) {
           >
             {tToTimeString(sunT)}
           </span>
-          {!hintSeen && (
-            <span className="text-[10px] tracking-[0.04em] text-white/28">
-              drag arc
-            </span>
-          )}
+          <span
+            className={`text-[10px] tracking-[0.04em] text-white/28 transition-opacity duration-300 ${
+              hintSeen ? "opacity-0" : "opacity-100"
+            }`}
+          >
+            drag arc
+          </span>
         </div>
 
         {/* Arc SVG — drag target */}

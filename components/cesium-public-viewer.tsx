@@ -518,7 +518,9 @@ export function CesiumPublicViewer() {
   const [error, setError] = useState("");
   const cloudSwooshTimeoutRef = useRef<number | null>(null);
   const hasMarkedSceneReadyRef = useRef(false);
-  const [isNightMode, setIsNightMode] = useState(false);
+  const [manualNightMode, setManualNightMode] = useState(false);
+  const [sunArcNight, setSunArcNight] = useState(false);
+  const isNightMode = manualNightMode || sunArcNight;
   const [isSunMode, setIsSunMode] = useState(false);
   const [sunT, setSunT] = useState(0.5); // default: afternoon
   const nightCleanupRef = useRef<(() => void) | null>(null);
@@ -563,10 +565,10 @@ export function CesiumPublicViewer() {
 
       // Guard: only toggle if the value actually changes to avoid triggering
       // the isNightMode useEffect (shader rebuild + fetch) on every drag frame
-      setIsNightMode((prev) => (prev === isNight ? prev : isNight));
+      setSunArcNight((prev) => (prev === isNight ? prev : isNight));
     },
     // NIGHT_SHADER is an ES module live binding (not React state) — stable reference,
-    // intentionally omitted from deps. setSunT / setIsNightMode are also stable setters.
+    // intentionally omitted from deps. setSunT / setSunArcNight are also stable setters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
@@ -1062,6 +1064,9 @@ export function CesiumPublicViewer() {
       if (tileset) {
         tileset.shadows = ShadowMode.DISABLED;
       }
+
+      // Reset sun arc night state so manual 🌙 toggle is unaffected
+      setSunArcNight(false);
     }
 
     if (!prevIsSunModeRef.current && isSunMode) {
@@ -1121,7 +1126,7 @@ export function CesiumPublicViewer() {
           isCloudSwooshing={isCloudSwooshing}
           onSwooshClouds={handleCloudSwoosh}
           isNightMode={isNightMode}
-          onToggleNightMode={() => setIsNightMode((v) => !v)}
+          onToggleNightMode={() => setManualNightMode((v) => !v)}
           isSunMode={isSunMode}
           onToggleSunMode={() => setIsSunMode((v) => !v)}
         />
