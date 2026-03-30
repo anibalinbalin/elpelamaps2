@@ -1,6 +1,6 @@
 "use client";
 
-import { Moon02Icon, Sun03Icon, WavingHand01Icon, WavingHand02Icon } from "@hugeicons/core-free-icons";
+import { Moon02Icon, Sun03Icon, SunriseIcon, WavingHand01Icon, WavingHand02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -143,7 +143,7 @@ export function TopBar({
                     }`}
                   />
                   <HugeiconsIcon
-                    icon={Sun03Icon}
+                    icon={SunriseIcon}
                     size={18}
                     strokeWidth={1.6}
                     color="currentColor"
