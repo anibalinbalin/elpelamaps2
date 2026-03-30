@@ -48,7 +48,6 @@ function computeAzimuth(hour: number): number {
 
 function computeColorTemp(elevation: number, isNight: boolean): { r: number; g: number; b: number } {
   if (isNight) return { r: 0.04, g: 0.11, b: 0.68 };
-  if (elevation < 0) return { r: 0.04, g: 0.11, b: 0.68 };
   if (elevation < 15) {
     const f = elevation / 15;
     return {
