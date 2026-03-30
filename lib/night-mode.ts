@@ -67,7 +67,7 @@ const NIGHT_FRAGMENT = /* glsl */ `
     float lumScore = smoothstep(u_winLumMin, u_winLumMax, luminance);
     float satScore = 1.0 - smoothstep(u_winSatMin, u_winSatMax, saturation);
     float windowScore = lumScore * satScore;
-    // Suppress window glow in daytime
+    // Suppress window glow in daytime (fade in over the dusk/dawn transition band)
     float nightFactor = smoothstep(0.3, 0.7, u_timeOfDay);
     windowScore *= nightFactor;
 
@@ -80,7 +80,7 @@ const NIGHT_FRAGMENT = /* glsl */ `
       (lon - u_boundsMinLon) / (u_boundsMaxLon - u_boundsMinLon),
       (lat - u_boundsMinLat) / (u_boundsMaxLat - u_boundsMinLat)
     );
-    maskUV.y = 1.0 - maskUV.y;
+    maskUV.y = 1.0 - maskUV.y; // flip: canvas row 0 = north, but texImage2D row 0 = UV.y 0
     maskUV = clamp(maskUV, 0.0, 1.0);
     float maskVal = texture(u_maskTex, maskUV).r;
     windowScore *= (1.0 - maskVal);
@@ -135,7 +135,7 @@ export function createNightShader(maskPixels?: Uint8Array): CustomShader {
       u_boundsMaxLat: { type: UniformType.FLOAT, value: MASK_BOUNDS_LON_LAT.ne[1] * DEG2RAD },
       u_sunAzimuth:   { type: UniformType.FLOAT, value: 0.0 },    // radians, sun azimuth
       u_sunElevation: { type: UniformType.FLOAT, value: 1.309 },   // radians (~75° peak)
-      u_timeOfDay:    { type: UniformType.FLOAT, value: 0.0 },     // 0=day, 1=night
+      u_timeOfDay:    { type: UniformType.FLOAT, value: 1.0 },     // 0=day, 1=night (default full-night until sun arc is used)
       u_shadowDark:   { type: UniformType.FLOAT, value: 0.55 },    // shadow face darkness
     },
     fragmentShaderText: NIGHT_FRAGMENT,
