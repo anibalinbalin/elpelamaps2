@@ -66,6 +66,8 @@ interface ParcelEntityBundle {
   sphere: BoundingSphere;
 }
 
+const DEG2RAD = Math.PI / 180;
+
 // Subtle vignette only — CesiumJS SkyAtmosphere handles the real sky/horizon
 const VIGNETTE_STYLE = {
   background: [
@@ -506,8 +508,7 @@ export function CesiumPublicViewer() {
   const [isSunMode, setIsSunMode] = useState(false);
   const [sunT, setSunT] = useState(0.5); // default: afternoon
   const nightCleanupRef = useRef<(() => void) | null>(null);
-
-  const DEG2RAD = Math.PI / 180;
+  const prevIsSunModeRef = useRef(false);
 
   const handleSunTime = useCallback(
     (t: number) => {
@@ -998,19 +999,25 @@ export function CesiumPublicViewer() {
   }, [isNightMode]);
 
   useEffect(() => {
-    if (!isSunMode) {
+    if (prevIsSunModeRef.current && !isSunMode) {
       // Restore default night shader uniforms when sun mode is dismissed
       try {
+        NIGHT_SHADER.setUniform("u_sunAzimuth",   0.0);
+        NIGHT_SHADER.setUniform("u_sunElevation", 1.309);
         NIGHT_SHADER.setUniform("u_timeOfDay",    1.0);
         NIGHT_SHADER.setUniform("u_tintR",        0.040);
         NIGHT_SHADER.setUniform("u_tintG",        0.110);
         NIGHT_SHADER.setUniform("u_tintB",        0.680);
-        NIGHT_SHADER.setUniform("u_sunElevation", 1.309);
       } catch {
         // Shader not yet compiled — no-op
       }
     }
-  }, [isSunMode]);
+    if (!prevIsSunModeRef.current && isSunMode) {
+      // Sync shader to current arc position when drawer is first opened
+      handleSunTime(sunT);
+    }
+    prevIsSunModeRef.current = isSunMode;
+  }, [isSunMode, sunT, handleSunTime]);
 
   if (!googleApiKey) {
     return (
