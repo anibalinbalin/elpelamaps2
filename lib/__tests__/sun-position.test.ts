@@ -7,7 +7,7 @@ describe("timeToSunAngles", () => {
     expect(elevation).toBeGreaterThan(50);
   });
 
-  it("returns near-zero elevation near sunrise (t=0)", () => {
+  it("returns just-below-horizon elevation at start of range (t=0, hour 6:00 — 15min before sunrise)", () => {
     const { elevation } = timeToSunAngles(0);
     expect(elevation).toBeLessThan(10);
     expect(elevation).toBeGreaterThan(-10);
@@ -26,8 +26,9 @@ describe("timeToSunAngles", () => {
     expect(blend).toBe(0);
   });
 
-  it("returns warm colorTemp (r > b) near sunset (t=0.72)", () => {
-    const { colorTemp } = timeToSunAngles(0.72);
+  it("returns warm colorTemp (r > b) near sunset (t=0.77, elevation ~9°)", () => {
+    // t=0.77 → hour 19.86 → ~15 min before sunset; elevation ≈ 9° (warm-color branch)
+    const { colorTemp } = timeToSunAngles(0.77);
     expect(colorTemp.r).toBeGreaterThan(colorTemp.b);
   });
 

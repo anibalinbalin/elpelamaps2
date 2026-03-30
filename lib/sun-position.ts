@@ -9,7 +9,7 @@ export interface SunAngles {
 }
 
 // José Ignacio summer day approximation
-// t: 0 = 6:00 AM, 1 = 12:00 AM (midnight) — 18-hour range
+// t: 0 = 6:00 AM, 1 = midnight (24:00 / next-day 00:00) — 18-hour range
 // Sunrise ≈ 6:15 AM (hour 6.25), sunset ≈ 8:15 PM (hour 20.25)
 const SUNRISE_HOUR = 6.25;
 const SUNSET_HOUR = 20.25;
