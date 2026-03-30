@@ -1071,6 +1071,15 @@ export function CesiumPublicViewer() {
     prevIsSunModeRef.current = isSunMode;
   }, [isSunMode, sunT, handleSunTime]);
 
+  // Dim overlay — fades in as sun approaches the horizon (elevation 20° → 0°)
+  // Only active in sun mode during daytime; night shader handles darkness at night
+  const sunDimOpacity = useMemo(() => {
+    if (!isSunMode || isNightMode) return 0;
+    const { elevation } = timeToSunAngles(sunT);
+    const clamped = Math.max(0, Math.min(20, elevation));
+    return (1 - clamped / 20) * 0.45;
+  }, [isSunMode, isNightMode, sunT]);
+
   if (!googleApiKey) {
     return (
       <div className="flex h-screen items-center justify-center bg-[#0a0a0a] text-sm text-white/50">
@@ -1089,6 +1098,12 @@ export function CesiumPublicViewer() {
         <div ref={containerRef} className="absolute inset-0 touch-none" />
         {!isNightMode && <VignetteOverlay />}
         {!isNightMode && <CloudVeilOverlay active={isCloudSwooshing} cleared={cloudsCleared} />}
+        {sunDimOpacity > 0 && (
+          <div
+            className="pointer-events-none absolute inset-0 bg-black"
+            style={{ opacity: sunDimOpacity }}
+          />
+        )}
         {isSunMode && (
           <SunArcDrawer sunT={sunT} onSunT={handleSunTime} />
         )}
