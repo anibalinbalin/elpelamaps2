@@ -11,12 +11,14 @@ import {
   ColorMaterialProperty,
   ConstantProperty,
   HeadingPitchRange,
+  JulianDate,
   KeyboardEventModifier,
   Math as CesiumMath,
   PolygonHierarchy,
   SceneTransforms,
   ScreenSpaceEventHandler,
   ScreenSpaceEventType,
+  ShadowMode,
   Viewer,
   createGooglePhotorealistic3DTileset,
   defined,
@@ -67,6 +69,18 @@ interface ParcelEntityBundle {
 }
 
 const DEG2RAD = Math.PI / 180;
+
+// Reference: January 15 summer day in José Ignacio (UY = UTC-3).
+// t=0 → 6:00 AM local = 09:00 UTC. t=1 → midnight local = 03:00 UTC next day.
+const SUN_ARC_REFERENCE_UTC = JulianDate.fromDate(new Date("2025-01-15T09:00:00Z"));
+
+function arcTToJulianDate(t: number): JulianDate {
+  return JulianDate.addSeconds(
+    SUN_ARC_REFERENCE_UTC,
+    Math.max(0, Math.min(1, t)) * 18 * 3600,
+    new JulianDate(),
+  );
+}
 
 // Subtle vignette only — CesiumJS SkyAtmosphere handles the real sky/horizon
 const VIGNETTE_STYLE = {
@@ -524,6 +538,27 @@ export function CesiumPublicViewer() {
         NIGHT_SHADER.setUniform("u_tintB",        colorTemp.b);
       } catch {
         // Shader may not be compiled yet — uniforms will take effect after first compile
+      }
+
+      // Phase 2+3: Drive Cesium clock → SunLight direction + sky atmosphere update
+      const viewer = viewerRef.current;
+      if (viewer) {
+        viewer.clock.currentTime = arcTToJulianDate(t);
+
+        // Enable shadows only when sun is meaningfully above the horizon (> 10°)
+        const shadowsEnabled = elevation > 10;
+        if (viewer.shadows !== shadowsEnabled) {
+          viewer.shadows = shadowsEnabled;
+        }
+
+        // Enable shadow casting/receiving on the tileset
+        const tileset = tilesetRef.current;
+        if (tileset) {
+          const mode = shadowsEnabled ? ShadowMode.ENABLED : ShadowMode.DISABLED;
+          if (tileset.shadows !== mode) {
+            tileset.shadows = mode;
+          }
+        }
       }
 
       // Guard: only toggle if the value actually changes to avoid triggering
@@ -1016,7 +1051,19 @@ export function CesiumPublicViewer() {
       } catch {
         // Shader not yet compiled — no-op
       }
+
+      // Disable shadows and restore Cesium clock to present
+      const viewer = viewerRef.current;
+      if (viewer) {
+        viewer.shadows = false;
+        viewer.clock.currentTime = JulianDate.now();
+      }
+      const tileset = tilesetRef.current;
+      if (tileset) {
+        tileset.shadows = ShadowMode.DISABLED;
+      }
     }
+
     if (!prevIsSunModeRef.current && isSunMode) {
       // Sync shader to current arc position when drawer is first opened
       handleSunTime(sunT);
