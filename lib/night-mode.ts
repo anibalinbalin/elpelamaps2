@@ -35,7 +35,7 @@ const NIGHT_FRAGMENT = /* glsl */ `
     vec3 original = material.diffuse;
     float luminance = dot(original, vec3(0.2126, 0.7152, 0.0722));
 
-    // --- Moonlit blue tint ---
+    // --- Moonlit / day tint ---
     vec3 tint = vec3(u_tintR, u_tintG, u_tintB);
     vec3 nightColor = original * tint * u_tintBrightness;
 
@@ -48,15 +48,30 @@ const NIGHT_FRAGMENT = /* glsl */ `
                   * smoothstep(u_waterSatMin, u_waterSatMax, saturation);
     nightColor *= mix(1.0, u_waterDarken, isWater);
 
+    // --- Directional sun lighting (Phase 1: surface normal N·L) ---
+    // Convert sun azimuth/elevation to a direction vector in world space,
+    // then rotate into eye space so it matches normalEC (eye-space normal).
+    vec3 sunDirWorld = vec3(
+      cos(u_sunElevation) * sin(u_sunAzimuth),
+      cos(u_sunElevation) * cos(u_sunAzimuth),
+      sin(u_sunElevation)
+    );
+    vec3 sunDirEC = normalize(mat3(czm_view) * sunDirWorld);
+    vec3 normalEC = normalize(fsInput.attributes.normalEC);
+    float NdotL = max(dot(normalEC, sunDirEC), 0.0);
+    float shadowFactor = mix(u_shadowDark, 1.0, NdotL);
+    // Apply shadow only in day mode; fade out as night comes in
+    nightColor *= mix(shadowFactor, 1.0, u_timeOfDay);
+
     // --- Window detection ---
     float lumScore = smoothstep(u_winLumMin, u_winLumMax, luminance);
     float satScore = 1.0 - smoothstep(u_winSatMin, u_winSatMax, saturation);
     float windowScore = lumScore * satScore;
+    // Suppress window glow in daytime
+    float nightFactor = smoothstep(0.3, 0.7, u_timeOfDay);
+    windowScore *= nightFactor;
 
     // --- Exclusion mask (texture-based) ---
-    // Convert ECEF world coordinates to geodetic lon/lat (radians).
-    // atan(z, p) gives geocentric lat; multiplying p by (1 - e²) converts
-    // to geodetic lat so it matches the WGS84 coordinates in the mask bounds.
     vec3 pos = fsInput.attributes.positionWC;
     float lon = atan(pos.y, pos.x);
     float p = sqrt(pos.x * pos.x + pos.y * pos.y);
@@ -65,7 +80,7 @@ const NIGHT_FRAGMENT = /* glsl */ `
       (lon - u_boundsMinLon) / (u_boundsMaxLon - u_boundsMinLon),
       (lat - u_boundsMinLat) / (u_boundsMaxLat - u_boundsMinLat)
     );
-    maskUV.y = 1.0 - maskUV.y; // flip: canvas row 0 = north, but texImage2D row 0 = UV.y 0
+    maskUV.y = 1.0 - maskUV.y;
     maskUV = clamp(maskUV, 0.0, 1.0);
     float maskVal = texture(u_maskTex, maskUV).r;
     windowScore *= (1.0 - maskVal);
@@ -74,7 +89,7 @@ const NIGHT_FRAGMENT = /* glsl */ `
     vec3 glowColor = vec3(u_glowR, u_glowG, u_glowB);
     vec3 glow = glowColor * u_glowIntensity * luminance;
 
-    // --- Composite (mask only suppresses glow, night tint stays) ---
+    // --- Composite ---
     vec3 nightResult = mix(nightColor, glow, windowScore);
     material.diffuse = nightResult;
   }
@@ -118,6 +133,10 @@ export function createNightShader(maskPixels?: Uint8Array): CustomShader {
       u_boundsMinLat: { type: UniformType.FLOAT, value: MASK_BOUNDS_LON_LAT.sw[1] * DEG2RAD },
       u_boundsMaxLon: { type: UniformType.FLOAT, value: MASK_BOUNDS_LON_LAT.ne[0] * DEG2RAD },
       u_boundsMaxLat: { type: UniformType.FLOAT, value: MASK_BOUNDS_LON_LAT.ne[1] * DEG2RAD },
+      u_sunAzimuth:   { type: UniformType.FLOAT, value: 0.0 },    // radians, sun azimuth
+      u_sunElevation: { type: UniformType.FLOAT, value: 1.309 },   // radians (~75° peak)
+      u_timeOfDay:    { type: UniformType.FLOAT, value: 0.0 },     // 0=day, 1=night
+      u_shadowDark:   { type: UniformType.FLOAT, value: 0.55 },    // shadow face darkness
     },
     fragmentShaderText: NIGHT_FRAGMENT,
   });
