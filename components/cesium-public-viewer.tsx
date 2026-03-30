@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   BoundingSphere,
   CameraEventType,
@@ -23,7 +23,9 @@ import {
   type Cesium3DTileset,
   type Entity,
 } from "cesium";
-import { applyNightMode, recreateNightShader, getMaskPixels, MASK_BOUNDS_LON_LAT, MASK_SIZE } from "@/lib/night-mode";
+import { applyNightMode, recreateNightShader, getMaskPixels, MASK_BOUNDS_LON_LAT, MASK_SIZE, NIGHT_SHADER } from "@/lib/night-mode";
+import { SunArcDrawer } from "@/components/sun-arc-drawer";
+import { timeToSunAngles } from "@/lib/sun-position";
 import { rasterizeZonesToCanvas } from "@/lib/night-zones";
 import type { NightZoneCollection } from "@/lib/night-zones";
 import { Compass01Icon } from "@hugeicons/core-free-icons";
@@ -501,7 +503,33 @@ export function CesiumPublicViewer() {
   const cloudSwooshTimeoutRef = useRef<number | null>(null);
   const hasMarkedSceneReadyRef = useRef(false);
   const [isNightMode, setIsNightMode] = useState(false);
+  const [isSunMode, setIsSunMode] = useState(false);
+  const [sunT, setSunT] = useState(0.5); // default: afternoon
   const nightCleanupRef = useRef<(() => void) | null>(null);
+
+  const DEG2RAD = Math.PI / 180;
+
+  const handleSunTime = useCallback(
+    (t: number) => {
+      setSunT(t);
+      const { azimuth, elevation, isNight, blend, colorTemp } = timeToSunAngles(t);
+
+      try {
+        NIGHT_SHADER.setUniform("u_sunAzimuth",   azimuth   * DEG2RAD);
+        NIGHT_SHADER.setUniform("u_sunElevation", elevation * DEG2RAD);
+        NIGHT_SHADER.setUniform("u_timeOfDay",    blend);
+        NIGHT_SHADER.setUniform("u_tintR",        colorTemp.r);
+        NIGHT_SHADER.setUniform("u_tintG",        colorTemp.g);
+        NIGHT_SHADER.setUniform("u_tintB",        colorTemp.b);
+      } catch {
+        // Shader may not be compiled yet — uniforms will take effect after first compile
+      }
+
+      setIsNightMode(isNight);
+    },
+    [],
+  );
+
   const parcelsBoundingSphereRef = useRef<BoundingSphere | null>(null);
   const parcelsBoundingSphere = useMemo(() => {
     const cartesianPoints: Cartesian3[] = [];
@@ -969,6 +997,21 @@ export function CesiumPublicViewer() {
     }
   }, [isNightMode]);
 
+  useEffect(() => {
+    if (!isSunMode) {
+      // Restore default night shader uniforms when sun mode is dismissed
+      try {
+        NIGHT_SHADER.setUniform("u_timeOfDay",    1.0);
+        NIGHT_SHADER.setUniform("u_tintR",        0.040);
+        NIGHT_SHADER.setUniform("u_tintG",        0.110);
+        NIGHT_SHADER.setUniform("u_tintB",        0.680);
+        NIGHT_SHADER.setUniform("u_sunElevation", 1.309);
+      } catch {
+        // Shader not yet compiled — no-op
+      }
+    }
+  }, [isSunMode]);
+
   if (!googleApiKey) {
     return (
       <div className="flex h-screen items-center justify-center bg-[#0a0a0a] text-sm text-white/50">
@@ -987,6 +1030,9 @@ export function CesiumPublicViewer() {
         <div ref={containerRef} className="absolute inset-0 touch-none" />
         {!isNightMode && <VignetteOverlay />}
         {!isNightMode && <CloudVeilOverlay active={isCloudSwooshing} cleared={cloudsCleared} />}
+        {isSunMode && (
+          <SunArcDrawer sunT={sunT} onSunT={handleSunTime} />
+        )}
       </div>
       <div
         className={`pointer-events-none absolute inset-0 transition-opacity duration-500 ${
@@ -1002,6 +1048,8 @@ export function CesiumPublicViewer() {
           onSwooshClouds={handleCloudSwoosh}
           isNightMode={isNightMode}
           onToggleNightMode={() => setIsNightMode((v) => !v)}
+          isSunMode={isSunMode}
+          onToggleSunMode={() => setIsSunMode((v) => !v)}
         />
         <ParcelPillsOverlay positions={pillPositions} />
         <ParcelSidebar />
