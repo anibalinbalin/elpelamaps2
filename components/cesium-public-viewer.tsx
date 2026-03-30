@@ -526,8 +526,13 @@ export function CesiumPublicViewer() {
         // Shader may not be compiled yet — uniforms will take effect after first compile
       }
 
-      setIsNightMode(isNight);
+      // Guard: only toggle if the value actually changes to avoid triggering
+      // the isNightMode useEffect (shader rebuild + fetch) on every drag frame
+      setIsNightMode((prev) => (prev === isNight ? prev : isNight));
     },
+    // NIGHT_SHADER is an ES module live binding (not React state) — stable reference,
+    // intentionally omitted from deps. setSunT / setIsNightMode are also stable setters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 

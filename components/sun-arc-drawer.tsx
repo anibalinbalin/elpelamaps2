@@ -34,7 +34,8 @@ function tToTimeString(t: number): string {
 }
 
 // t ≥ DUSK_T → show moon, activate night shader
-const DUSK_T = 0.78; // ~8:02 PM (t=0.78 → hour 20.04)
+// t where sun reaches horizon: (SUNSET_HOUR=20.25 - 6) / 18 ≈ 0.792
+const DUSK_T = 0.79; // moon appears as sun dips below the horizon
 
 export interface SunArcDrawerProps {
   sunT: number;
