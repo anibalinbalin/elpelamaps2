@@ -34,7 +34,7 @@ function tToTimeString(t: number): string {
 }
 
 // t ≥ DUSK_T → show moon, activate night shader
-const DUSK_T = 0.78; // ~6:18 PM
+const DUSK_T = 0.78; // ~8:02 PM (t=0.78 → hour 20.04)
 
 export interface SunArcDrawerProps {
   sunT: number;
@@ -85,13 +85,11 @@ export function SunArcDrawer({ sunT, onSunT }: SunArcDrawerProps) {
           >
             {tToTimeString(sunT)}
           </span>
-          <span
-            className={`text-[10px] tracking-[0.04em] text-white/28 transition-opacity duration-500 ${
-              hintSeen ? "opacity-0" : "opacity-100"
-            }`}
-          >
-            drag arc
-          </span>
+          {!hintSeen && (
+            <span className="text-[10px] tracking-[0.04em] text-white/28">
+              drag arc
+            </span>
+          )}
         </div>
 
         {/* Arc SVG — drag target */}
@@ -102,6 +100,7 @@ export function SunArcDrawer({ sunT, onSunT }: SunArcDrawerProps) {
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
         >
           <defs>
             <linearGradient id={`arcGrad-${uid}`} x1="0%" y1="0%" x2="100%" y2="0%">
