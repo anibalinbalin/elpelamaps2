@@ -15,6 +15,8 @@ interface TopBarProps {
   onSwooshClouds: () => void;
   isNightMode?: boolean;
   onToggleNightMode?: () => void;
+  isSunMode?: boolean;
+  onToggleSunMode?: () => void;
 }
 
 export function TopBar({
@@ -26,6 +28,8 @@ export function TopBar({
   onSwooshClouds,
   isNightMode,
   onToggleNightMode,
+  isSunMode,
+  onToggleSunMode,
 }: TopBarProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -112,6 +116,34 @@ export function TopBar({
                   />
                   <HugeiconsIcon
                     icon={isNightMode ? Sun03Icon : Moon02Icon}
+                    size={18}
+                    strokeWidth={1.6}
+                    color="currentColor"
+                  />
+                </button>
+              </>
+            )}
+            {onToggleSunMode && (
+              <>
+                <div className="mx-1 h-7 w-px bg-white/10 sm:h-8" />
+                <button
+                  type="button"
+                  onClick={onToggleSunMode}
+                  aria-label={isSunMode ? "Hide sun arc" : "Show sun arc"}
+                  title={isSunMode ? "Hide sun arc" : "Show sun arc"}
+                  className={`group relative flex h-10 w-10 items-center justify-center rounded-[16px] border text-white/72 shadow-[0_10px_24px_rgba(7,18,28,0.14),inset_0_1px_0_rgba(255,255,255,0.08)] transition-[transform,border-color,background-color,color,box-shadow] duration-300 active:scale-[0.985] sm:h-11 sm:w-11 sm:rounded-[18px] ${
+                    isSunMode
+                      ? "border-amber-400/30 bg-[rgba(255,180,30,0.12)] text-amber-200/90 shadow-[0_12px_28px_rgba(7,18,28,0.16),inset_0_1px_0_rgba(255,255,255,0.1)]"
+                      : "border-white/8 bg-[rgba(255,255,255,0.025)] hover:-translate-y-px hover:border-white/14 hover:bg-[rgba(255,255,255,0.045)] hover:text-white/88 hover:shadow-[0_12px_28px_rgba(7,18,28,0.18),inset_0_1px_0_rgba(255,255,255,0.1)]"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none absolute inset-[5px] rounded-[14px] bg-[radial-gradient(circle_at_35%_30%,rgba(255,255,255,0.12),rgba(255,255,255,0)_68%)] transition-opacity duration-300 ${
+                      isSunMode ? "opacity-100" : "opacity-[0.45] group-hover:opacity-[0.8]"
+                    }`}
+                  />
+                  <HugeiconsIcon
+                    icon={Sun03Icon}
                     size={18}
                     strokeWidth={1.6}
                     color="currentColor"
