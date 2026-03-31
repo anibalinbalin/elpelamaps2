@@ -13,11 +13,16 @@ import {
   HeadingPitchRange,
   JulianDate,
   KeyboardEventModifier,
+  Matrix3,
+  Matrix4,
   Math as CesiumMath,
+  PostProcessStage,
+  PostProcessStageSampleMode,
   PolygonHierarchy,
   SceneTransforms,
   ScreenSpaceEventHandler,
   ScreenSpaceEventType,
+  Transforms,
   Viewer,
   createGooglePhotorealistic3DTileset,
   defined,
@@ -72,6 +77,114 @@ const DEG2RAD = Math.PI / 180;
 // Reference: January 15 summer day in José Ignacio (UY = UTC-3).
 // t=0 → 6:00 AM local = 09:00 UTC. t=1 → midnight local = 03:00 UTC next day.
 const SUN_ARC_REFERENCE_UTC = JulianDate.fromDate(new Date("2025-01-15T09:00:00Z"));
+const JOSE_IGNACIO_CENTER_CARTESIAN = Cartesian3.fromDegrees(
+  JOSE_IGNACIO_CENTER.lon,
+  JOSE_IGNACIO_CENTER.lat,
+  0,
+);
+const JOSE_IGNACIO_ENU_ROTATION = Matrix4.getMatrix3(
+  Transforms.eastNorthUpToFixedFrame(JOSE_IGNACIO_CENTER_CARTESIAN),
+  new Matrix3(),
+);
+const SUN_DIRECTION_SCRATCH = new Cartesian3();
+const SUN_DIRECTION_WORLD = new Cartesian3();
+const SHADOW_STEP_COUNT = 14;
+const SUN_SHADOW_STAGE_FRAGMENT = /* glsl */ `
+  uniform sampler2D colorTexture;
+  uniform sampler2D depthTexture;
+  in vec2 v_textureCoordinates;
+  uniform vec3 u_shadowDirectionWC;
+  uniform float u_shadowStrength;
+  uniform float u_shadowMetersPerStep;
+  uniform float u_shadowDepthBias;
+  uniform float u_shadowSoftness;
+
+  vec3 worldPositionFromUv(vec2 uv, float depth)
+  {
+    vec4 positionEC = czm_windowToEyeCoordinates(uv * czm_viewport.zw, depth);
+    positionEC /= positionEC.w;
+    vec4 positionWC = czm_inverseView * vec4(positionEC.xyz, 1.0);
+    return positionWC.xyz / positionWC.w;
+  }
+
+  vec3 eyePositionFromUv(vec2 uv, float depth)
+  {
+    vec4 positionEC = czm_windowToEyeCoordinates(uv * czm_viewport.zw, depth);
+    return positionEC.xyz / positionEC.w;
+  }
+
+  vec2 worldToUv(vec3 positionWC)
+  {
+    vec4 clip = czm_viewProjection * vec4(positionWC, 1.0);
+    if (clip.w <= 0.0) {
+      return vec2(-1.0);
+    }
+
+    vec2 uv = clip.xy / clip.w * 0.5 + 0.5;
+    return uv;
+  }
+
+  void main()
+  {
+    vec4 color = texture(colorTexture, v_textureCoordinates);
+    if (u_shadowStrength <= 0.001) {
+      out_FragColor = color;
+      return;
+    }
+
+    float receiverDepth = czm_readDepth(depthTexture, v_textureCoordinates);
+    if (receiverDepth == 0.0) {
+      out_FragColor = color;
+      return;
+    }
+
+    float luminance = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
+    float blueRatio = color.b / (luminance + 0.001);
+    float maxC = max(color.r, max(color.g, color.b));
+    float minC = min(color.r, min(color.g, color.b));
+    float saturation = (maxC > 0.001) ? (maxC - minC) / maxC : 0.0;
+    float water = smoothstep(1.35, 1.95, blueRatio) * smoothstep(0.06, 0.18, saturation);
+
+    vec3 receiverWC = worldPositionFromUv(v_textureCoordinates, receiverDepth);
+    float shadow = 0.0;
+
+    for (int i = 1; i <= ${SHADOW_STEP_COUNT}; i++) {
+      float stepMeters = float(i) * u_shadowMetersPerStep;
+      vec3 sampleWC = receiverWC + u_shadowDirectionWC * stepMeters;
+      vec2 sampleUv = worldToUv(sampleWC);
+
+      if (sampleUv.x <= 0.001 || sampleUv.y <= 0.001 || sampleUv.x >= 0.999 || sampleUv.y >= 0.999) {
+        break;
+      }
+
+      float sceneDepth = czm_readDepth(depthTexture, sampleUv);
+      if (sceneDepth == 0.0) {
+        continue;
+      }
+
+      vec3 sceneWC = worldPositionFromUv(sampleUv, sceneDepth);
+      vec3 sceneEC = eyePositionFromUv(sampleUv, sceneDepth);
+      vec4 sampleEC4 = czm_view * vec4(sampleWC, 1.0);
+      vec3 sampleEC = sampleEC4.xyz / sampleEC4.w;
+      float depthDelta = sceneEC.z - sampleEC.z;
+      float hit = smoothstep(u_shadowDepthBias, u_shadowDepthBias + u_shadowSoftness, depthDelta);
+      vec3 rayDelta = sceneWC - receiverWC;
+      float alongRay = dot(rayDelta, u_shadowDirectionWC);
+      vec3 closestPointOnRay = receiverWC + u_shadowDirectionWC * alongRay;
+      float rayMiss = distance(sceneWC, closestPointOnRay);
+      float rayMatch = 1.0 - smoothstep(10.0, 32.0, rayMiss);
+      hit *= rayMatch * (stepMeters <= alongRay ? 1.0 : 0.0);
+      float distanceFade = 1.0 - (float(i - 1) / float(${SHADOW_STEP_COUNT}));
+      shadow = max(shadow, hit * distanceFade);
+    }
+
+    shadow *= u_shadowStrength;
+    shadow *= (1.0 - water);
+
+    float darken = shadow * 0.34;
+    out_FragColor = vec4(color.rgb * (1.0 - darken), color.a);
+  }
+`;
 
 function arcTToJulianDate(t: number): JulianDate {
   return JulianDate.addSeconds(
@@ -79,6 +192,23 @@ function arcTToJulianDate(t: number): JulianDate {
     Math.max(0, Math.min(1, t)) * 18 * 3600,
     new JulianDate(),
   );
+}
+
+function sunAnglesToWorldDirection(
+  azimuthDeg: number,
+  elevationDeg: number,
+  result = new Cartesian3(),
+): Cartesian3 {
+  const azimuth = azimuthDeg * DEG2RAD;
+  const elevation = elevationDeg * DEG2RAD;
+  Cartesian3.fromElements(
+    Math.sin(azimuth) * Math.cos(elevation),
+    Math.cos(azimuth) * Math.cos(elevation),
+    Math.sin(elevation),
+    SUN_DIRECTION_SCRATCH,
+  );
+  Matrix3.multiplyByVector(JOSE_IGNACIO_ENU_ROTATION, SUN_DIRECTION_SCRATCH, result);
+  return Cartesian3.normalize(result, result);
 }
 
 // Subtle vignette only — CesiumJS SkyAtmosphere handles the real sky/horizon
@@ -524,6 +654,12 @@ export function CesiumPublicViewer() {
   const [sunT, setSunT] = useState(0.5); // default: afternoon
   const sunTRef = useRef(0.5);
   const nightCleanupRef = useRef<(() => void) | null>(null);
+  const sunShadowStageRef = useRef<PostProcessStage | null>(null);
+  const sunShadowDirectionRef = useRef(Cartesian3.clone(Cartesian3.UNIT_Z));
+  const sunShadowStrengthRef = useRef(0);
+  const sunShadowStepMetersRef = useRef(16);
+  const sunShadowDepthBiasRef = useRef(3.5);
+  const sunShadowSoftnessRef = useRef(14);
   const prevIsSunModeRef = useRef(false);
 
   useEffect(() => {
@@ -532,6 +668,16 @@ export function CesiumPublicViewer() {
 
   const syncSunShaderUniforms = useCallback((t: number, shader = NIGHT_SHADER) => {
     const state = timeToSunAngles(t);
+    const daylight = 1 - state.blend;
+    const elevationFactor = CesiumMath.clamp(state.elevation / 75, 0, 1);
+
+    sunAnglesToWorldDirection(state.azimuth, state.elevation, SUN_DIRECTION_WORLD);
+    Cartesian3.clone(SUN_DIRECTION_WORLD, sunShadowDirectionRef.current);
+    sunShadowStrengthRef.current = daylight * CesiumMath.lerp(0.56, 0.2, elevationFactor);
+    const shadowDistance = CesiumMath.lerp(180, 72, elevationFactor);
+    sunShadowStepMetersRef.current = shadowDistance / SHADOW_STEP_COUNT;
+    sunShadowDepthBiasRef.current = CesiumMath.lerp(4.5, 2.4, elevationFactor);
+    sunShadowSoftnessRef.current = CesiumMath.lerp(16, 8, elevationFactor);
 
     try {
       shader.setUniform("u_sunAzimuth", state.azimuth * DEG2RAD);
@@ -659,6 +805,19 @@ export function CesiumPublicViewer() {
       viewer.scene.skyAtmosphere.show = true;
     }
     viewer.postProcessStages.fxaa.enabled = true;
+    sunShadowStageRef.current = viewer.scene.postProcessStages.add(new PostProcessStage({
+      name: "sun-shadow-projection",
+      fragmentShader: SUN_SHADOW_STAGE_FRAGMENT,
+      sampleMode: PostProcessStageSampleMode.LINEAR,
+      uniforms: {
+        u_shadowDirectionWC: () => sunShadowDirectionRef.current,
+        u_shadowStrength: () => sunShadowStrengthRef.current,
+        u_shadowMetersPerStep: () => sunShadowStepMetersRef.current,
+        u_shadowDepthBias: () => sunShadowDepthBiasRef.current,
+        u_shadowSoftness: () => sunShadowSoftnessRef.current,
+      },
+    })) as PostProcessStage;
+    sunShadowStageRef.current.enabled = false;
     (viewer.container as HTMLElement).style.touchAction = "none";
     viewer.scene.canvas.style.touchAction = "none";
     const controller = viewer.scene.screenSpaceCameraController;
@@ -824,6 +983,10 @@ export function CesiumPublicViewer() {
     return () => {
       nightCleanupRef.current?.();
       nightCleanupRef.current = null;
+      if (sunShadowStageRef.current && viewer.scene.postProcessStages.contains(sunShadowStageRef.current)) {
+        viewer.scene.postProcessStages.remove(sunShadowStageRef.current);
+      }
+      sunShadowStageRef.current = null;
       disposed = true;
       if (loadTilesetFrameId != null) {
         window.cancelAnimationFrame(loadTilesetFrameId);
@@ -1056,6 +1219,11 @@ export function CesiumPublicViewer() {
       if (viewer) {
         viewer.clock.currentTime = JulianDate.now();
       }
+      const shadowStage = sunShadowStageRef.current;
+      if (shadowStage) {
+        shadowStage.enabled = false;
+      }
+      sunShadowStrengthRef.current = 0;
 
       // Reset sun arc night state so manual 🌙 toggle is unaffected
       setSunArcNight(false);
@@ -1067,6 +1235,15 @@ export function CesiumPublicViewer() {
     }
     prevIsSunModeRef.current = isSunMode;
   }, [isSunMode, sunT, handleSunTime]);
+
+  useEffect(() => {
+    const shadowStage = sunShadowStageRef.current;
+    if (!shadowStage) return;
+    shadowStage.enabled = isSunMode;
+    if (!isSunMode) {
+      sunShadowStrengthRef.current = 0;
+    }
+  }, [isSunMode]);
 
   // Dim overlay — fades in as sun approaches the horizon (elevation 20° → 0°)
   // Only active in sun mode during daytime; night shader handles darkness at night
