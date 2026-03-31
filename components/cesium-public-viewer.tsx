@@ -95,6 +95,167 @@ const INITIAL_CAMERA_OFFSET = new HeadingPitchRange(
 );
 
 const SELECTED_CAMERA_PITCH = CesiumMath.toRadians(-52);
+const SUN_ARC_NIGHT_ENTER_ELEVATION = -1.5;
+const SUN_ARC_NIGHT_EXIT_ELEVATION = 2.5;
+const CLOUD_SCRUB_OFFSET_LIMIT = 1.2;
+const DEFAULT_VIEWER_SKY_T = 0.42;
+
+interface CloudScrubMotion {
+  velocity: number;
+  energy: number;
+  lift: number;
+}
+
+interface CloudVeilLayer {
+  id: string;
+  className: string;
+  speed: number;
+  phase: number;
+  travelPx: number;
+  driftY: number;
+  scaleBase: number;
+  scaleSwing: number;
+  opacityBase: number;
+  scrubWeight: number;
+  depth: number;
+}
+
+const CLOUD_VEIL_LAYERS: CloudVeilLayer[] = [
+  {
+    id: "layer-a",
+    className: "absolute inset-x-[-12%] top-[6%] h-[18%] bg-[radial-gradient(ellipse_at_50%_50%,rgba(255,255,255,0.42),rgba(255,255,255,0.22)_34%,rgba(255,255,255,0)_72%)] blur-[30px]",
+    speed: 1.08,
+    phase: 0.04,
+    travelPx: 320,
+    driftY: 12,
+    scaleBase: 1,
+    scaleSwing: 0.08,
+    opacityBase: 1,
+    scrubWeight: 0.84,
+    depth: 0.86,
+  },
+  {
+    id: "layer-b",
+    className: "absolute right-[-8%] top-[16%] h-[22%] w-[36%] bg-[radial-gradient(ellipse_at_50%_50%,rgba(255,255,255,0.26),rgba(255,255,255,0.12)_38%,rgba(255,255,255,0)_74%)] blur-[34px]",
+    speed: 1.56,
+    phase: 0.27,
+    travelPx: 290,
+    driftY: 8,
+    scaleBase: 0.96,
+    scaleSwing: 0.11,
+    opacityBase: 0.78,
+    scrubWeight: 1,
+    depth: 1.02,
+  },
+  {
+    id: "layer-c",
+    className: "absolute left-[-6%] top-[14%] h-[20%] w-[42%] bg-[radial-gradient(ellipse_at_50%_50%,rgba(255,255,255,0.24),rgba(255,255,255,0.1)_36%,rgba(255,255,255,0)_74%)] blur-[36px]",
+    speed: 1.32,
+    phase: 0.52,
+    travelPx: 340,
+    driftY: 14,
+    scaleBase: 0.98,
+    scaleSwing: 0.1,
+    opacityBase: 0.74,
+    scrubWeight: 0.9,
+    depth: 0.92,
+  },
+  {
+    id: "layer-d",
+    className: "absolute left-[24%] top-[10%] h-[16%] w-[28%] bg-[radial-gradient(ellipse_at_50%_50%,rgba(255,255,255,0.21),rgba(255,255,255,0.09)_34%,rgba(255,255,255,0)_74%)] blur-[28px]",
+    speed: 1.86,
+    phase: 0.81,
+    travelPx: 250,
+    driftY: 7,
+    scaleBase: 0.88,
+    scaleSwing: 0.08,
+    opacityBase: 0.62,
+    scrubWeight: 1.18,
+    depth: 1.22,
+  },
+  {
+    id: "layer-e",
+    className: "absolute left-[-14%] top-[18%] h-[24%] w-[48%] bg-[radial-gradient(ellipse_at_50%_50%,rgba(255,255,255,0.28),rgba(255,255,255,0.12)_36%,rgba(255,255,255,0)_76%)] blur-[42px]",
+    speed: 0.94,
+    phase: 0.18,
+    travelPx: 380,
+    driftY: 16,
+    scaleBase: 1.08,
+    scaleSwing: 0.09,
+    opacityBase: 0.58,
+    scrubWeight: 0.78,
+    depth: 0.74,
+  },
+  {
+    id: "layer-f",
+    className: "absolute right-[-10%] top-[4%] h-[19%] w-[33%] bg-[radial-gradient(ellipse_at_50%_50%,rgba(255,255,255,0.24),rgba(255,255,255,0.1)_34%,rgba(255,255,255,0)_74%)] blur-[32px]",
+    speed: 2.12,
+    phase: 0.63,
+    travelPx: 230,
+    driftY: 10,
+    scaleBase: 0.9,
+    scaleSwing: 0.1,
+    opacityBase: 0.5,
+    scrubWeight: 1.12,
+    depth: 1.16,
+  },
+  {
+    id: "layer-g",
+    className: "absolute inset-x-[-20%] top-[2%] h-[24%] bg-[radial-gradient(ellipse_at_50%_50%,rgba(255,255,255,0.32),rgba(255,255,255,0.14)_30%,rgba(255,255,255,0)_72%)] blur-[48px]",
+    speed: 0.74,
+    phase: 0.39,
+    travelPx: 440,
+    driftY: 18,
+    scaleBase: 1.12,
+    scaleSwing: 0.08,
+    opacityBase: 0.46,
+    scrubWeight: 0.66,
+    depth: 0.58,
+  },
+  {
+    id: "layer-h",
+    className: "absolute left-[10%] top-[8%] h-[17%] w-[34%] bg-[radial-gradient(ellipse_at_50%_50%,rgba(255,255,255,0.28),rgba(255,255,255,0.12)_34%,rgba(255,255,255,0)_76%)] blur-[26px]",
+    speed: 2.36,
+    phase: 0.11,
+    travelPx: 310,
+    driftY: 9,
+    scaleBase: 0.9,
+    scaleSwing: 0.12,
+    opacityBase: 0.52,
+    scrubWeight: 1.32,
+    depth: 1.3,
+  },
+  {
+    id: "layer-i",
+    className: "absolute right-[4%] top-[20%] h-[18%] w-[30%] bg-[radial-gradient(ellipse_at_50%_50%,rgba(255,255,255,0.22),rgba(255,255,255,0.08)_34%,rgba(255,255,255,0)_76%)] blur-[24px]",
+    speed: 2.64,
+    phase: 0.58,
+    travelPx: 260,
+    driftY: 6,
+    scaleBase: 0.84,
+    scaleSwing: 0.11,
+    opacityBase: 0.44,
+    scrubWeight: 1.48,
+    depth: 1.42,
+  },
+];
+
+function clamp01(value: number) {
+  return Math.max(0, Math.min(1, value));
+}
+
+function smoothstep(edge0: number, edge1: number, x: number) {
+  const t = clamp01((x - edge0) / (edge1 - edge0));
+  return t * t * (3 - 2 * t);
+}
+
+function wrap01(value: number) {
+  return value - Math.floor(value);
+}
+
+function wrapCentered(value: number, span: number) {
+  return ((((value % span) + span) % span) - span / 2);
+}
 
 function VignetteOverlay() {
   return (
@@ -108,35 +269,112 @@ function VignetteOverlay() {
 function CloudVeilOverlay({
   active,
   cleared,
+  sunT,
+  scrubMotion,
 }: {
   active: boolean;
   cleared: boolean;
+  sunT: number;
+  scrubMotion: CloudScrubMotion;
 }) {
+  const cloudLayers = useMemo(() => {
+    return CLOUD_VEIL_LAYERS.flatMap((layer, index) => {
+      const panoramicTime = sunT * (1.45 + layer.depth * 0.95) + scrubMotion.velocity * (0.2 + layer.depth * 0.08);
+      const stride = 460 + layer.depth * 180 + index * 18;
+      const pan = wrapCentered(panoramicTime * layer.travelPx * 4.8, stride);
+      const densityBoost = 1 + scrubMotion.energy * (0.28 + layer.depth * 0.04);
+      const lift = scrubMotion.lift * (8 + layer.depth * 7);
+
+      return [-1, 0, 1, 2].map((copy, copyIndex) => {
+        const copyPhase = panoramicTime + layer.phase + copy * 0.18;
+        const bob = Math.sin(copyPhase * Math.PI * 2 + index * 0.7);
+        const swell = (Math.cos(copyPhase * Math.PI * 2.2 + copyIndex * 0.9) + 1) * 0.5;
+        const localSweep = Math.sin(copyPhase * Math.PI * 1.2 + copy * 0.4) * (18 + layer.depth * 12);
+        const xOffset = pan + copy * stride + localSweep + scrubMotion.velocity * layer.scrubWeight * 180;
+        const yOffset =
+          bob * (layer.driftY + copyIndex * 1.8) +
+          Math.cos(copyPhase * Math.PI * 2.8 + index * 0.35) * (3 + layer.depth * 2.6) -
+          lift * (0.45 + copyIndex * 0.08);
+        const scale =
+          layer.scaleBase +
+          (copyIndex - 1) * 0.032 +
+          swell * (0.08 + layer.depth * 0.025) +
+          scrubMotion.energy * (0.075 + layer.depth * 0.018);
+        const opacity = Math.max(
+          0.16,
+          layer.opacityBase *
+            (0.82 - copyIndex * 0.1) *
+            (0.78 + swell * 0.24) *
+            densityBoost,
+        );
+
+        return {
+          ...layer,
+          id: `${layer.id}-band-${copyIndex}`,
+          xOffset,
+          yOffset,
+          scale,
+          opacity,
+        };
+      });
+    });
+  }, [scrubMotion.energy, scrubMotion.lift, scrubMotion.velocity, sunT]);
+
   return (
     <div
       className={`pointer-events-none absolute inset-0 z-[2] transition-opacity duration-700 ${
         cleared ? "opacity-0" : active ? "opacity-35" : "opacity-100"
       }`}
     >
-      <div className="absolute inset-x-[-12%] top-[6%] h-[18%] bg-[radial-gradient(ellipse_at_50%_50%,rgba(255,255,255,0.42),rgba(255,255,255,0.22)_34%,rgba(255,255,255,0)_72%)] blur-[30px]" />
-      <div className="absolute right-[-8%] top-[16%] h-[22%] w-[36%] bg-[radial-gradient(ellipse_at_50%_50%,rgba(255,255,255,0.26),rgba(255,255,255,0.12)_38%,rgba(255,255,255,0)_74%)] blur-[34px]" />
-      <div className="absolute left-[-6%] top-[14%] h-[20%] w-[42%] bg-[radial-gradient(ellipse_at_50%_50%,rgba(255,255,255,0.24),rgba(255,255,255,0.1)_36%,rgba(255,255,255,0)_74%)] blur-[36px]" />
+      {cloudLayers.map((layer) => {
+        return (
+          <div
+            key={layer.id}
+            className={`${layer.className} transition-opacity duration-200 ease-linear`}
+            style={{
+              opacity: layer.opacity,
+              transform: `translate3d(${layer.xOffset}px, ${layer.yOffset}px, 0) scale(${layer.scale})`,
+              transformOrigin: "50% 50%",
+              willChange: "transform, opacity",
+            }}
+          />
+        );
+      })}
     </div>
   );
 }
 
-function ViewerControlsHint() {
+function ViewerControlsHint({ minimized = false }: { minimized?: boolean }) {
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-6 z-20 flex justify-center px-4">
-      <div className="max-w-[min(100%,36rem)] rounded-[18px] border border-white/10 bg-[rgba(16,20,25,0.82)] px-5 py-3 text-center text-[12px] text-white/60 shadow-lg backdrop-blur-xl">
-        <span className="sm:hidden">
-          Drag to orbit. Use two fingers to zoom and tilt the view.
-        </span>
-        <span className="hidden sm:inline">
-          Drag to orbit. Scroll to zoom. Hold
-          <span className="px-1 font-mono text-white/82">Shift</span>
-          while dragging to tilt the view.
-        </span>
+      <div
+        className={`overflow-hidden rounded-[18px] border border-white/10 bg-[rgba(16,20,25,0.82)] text-center shadow-lg backdrop-blur-xl transition-[max-width,transform,opacity,padding] duration-300 ${
+          minimized
+            ? "max-w-[11rem] translate-y-2 px-4 py-2 opacity-70"
+            : "max-w-[min(100%,36rem)] px-5 py-3 opacity-100"
+        }`}
+      >
+        <div
+          className={`transition-[transform,opacity] duration-300 ${
+            minimized ? "translate-y-3 opacity-0" : "translate-y-0 opacity-100"
+          }`}
+        >
+          <span className="sm:hidden text-[12px] text-white/60">
+            Drag to orbit. Use two fingers to zoom and tilt the view.
+          </span>
+          <span className="hidden text-[12px] text-white/60 sm:inline">
+            Drag to orbit. Scroll to zoom. Hold
+            <span className="px-1 font-mono text-white/82">Shift</span>
+            while dragging to tilt the view.
+          </span>
+        </div>
+        <div
+          className={`absolute inset-x-0 top-1/2 -translate-y-1/2 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/42 transition-[transform,opacity] duration-300 ${
+            minimized ? "translate-y-0 opacity-100" : "-translate-y-3 opacity-0"
+          }`}
+        >
+          Viewer controls
+        </div>
       </div>
     </div>
   );
@@ -512,6 +750,11 @@ export function CesiumPublicViewer() {
   const [cloudSwooshTick, setCloudSwooshTick] = useState(0);
   const [cloudsCleared, setCloudsCleared] = useState(false);
   const [isCloudSwooshing, setIsCloudSwooshing] = useState(false);
+  const [cloudScrubMotion, setCloudScrubMotion] = useState<CloudScrubMotion>({
+    velocity: 0,
+    energy: 0,
+    lift: 0,
+  });
   const [isSceneReady, setIsSceneReady] = useState(false);
   const [showSkeleton, setShowSkeleton] = useState(true);
   const [error, setError] = useState("");
@@ -521,14 +764,23 @@ export function CesiumPublicViewer() {
   const [sunArcNight, setSunArcNight] = useState(false);
   const isNightMode = manualNightMode || sunArcNight;
   const [isSunMode, setIsSunMode] = useState(false);
+  const isShaderMode = isSunMode || manualNightMode;
+  const [isSunArcInteracting, setIsSunArcInteracting] = useState(false);
   const [sunT, setSunT] = useState(0.5); // default: afternoon
   const sunTRef = useRef(0.5);
   const nightCleanupRef = useRef<(() => void) | null>(null);
   const prevIsSunModeRef = useRef(false);
+  const prevManualNightModeRef = useRef(false);
+  const isSunArcInteractingRef = useRef(false);
+  const cloudScrubResetTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     sunTRef.current = sunT;
   }, [sunT]);
+
+  useEffect(() => {
+    isSunArcInteractingRef.current = isSunArcInteracting;
+  }, [isSunArcInteracting]);
 
   const syncSunShaderUniforms = useCallback((t: number, shader = NIGHT_SHADER) => {
     const state = timeToSunAngles(t);
@@ -549,8 +801,33 @@ export function CesiumPublicViewer() {
 
   const handleSunTime = useCallback(
     (t: number) => {
+      const delta = t - sunTRef.current;
       setSunT(t);
-      const { isNight } = syncSunShaderUniforms(t);
+
+      if (isSunArcInteractingRef.current && Math.abs(delta) > 0.0005) {
+        const deltaAbs = Math.abs(delta);
+
+        if (cloudScrubResetTimeoutRef.current != null) {
+          window.clearTimeout(cloudScrubResetTimeoutRef.current);
+        }
+
+        setCloudScrubMotion((prev) => ({
+          velocity: CesiumMath.clamp(prev.velocity * 0.22 + delta * 42, -CLOUD_SCRUB_OFFSET_LIMIT, CLOUD_SCRUB_OFFSET_LIMIT),
+          energy: CesiumMath.clamp(prev.energy * 0.4 + deltaAbs * 30, 0, 1),
+          lift: CesiumMath.clamp(prev.lift * 0.38 + deltaAbs * 22, 0, 1),
+        }));
+
+        cloudScrubResetTimeoutRef.current = window.setTimeout(() => {
+          setCloudScrubMotion({ velocity: 0, energy: 0, lift: 0 });
+          cloudScrubResetTimeoutRef.current = null;
+        }, 260);
+      }
+
+      if (manualNightMode) {
+        return;
+      }
+
+      const state = syncSunShaderUniforms(t);
 
       // Cesium clock still drives the sky/atmosphere even though the tiles
       // rely on the custom shader for facade response.
@@ -560,10 +837,15 @@ export function CesiumPublicViewer() {
       }
 
       // Guard: only toggle if the value actually changes to avoid triggering
-      // the shader attach effect on every drag frame.
-      setSunArcNight((prev) => (prev === isNight ? prev : isNight));
+      // a visual mode flip while the arc hovers around the horizon threshold.
+      setSunArcNight((prev) => {
+        const nextIsNight = prev
+          ? state.elevation <= SUN_ARC_NIGHT_EXIT_ELEVATION
+          : state.elevation <= SUN_ARC_NIGHT_ENTER_ELEVATION;
+        return prev === nextIsNight ? prev : nextIsNight;
+      });
     },
-    [syncSunShaderUniforms],
+    [manualNightMode, syncSunShaderUniforms],
   );
 
   const parcelsBoundingSphereRef = useRef<BoundingSphere | null>(null);
@@ -597,6 +879,9 @@ export function CesiumPublicViewer() {
     return () => {
       if (cloudSwooshTimeoutRef.current != null) {
         window.clearTimeout(cloudSwooshTimeoutRef.current);
+      }
+      if (cloudScrubResetTimeoutRef.current != null) {
+        window.clearTimeout(cloudScrubResetTimeoutRef.current);
       }
     };
   }, []);
@@ -658,6 +943,7 @@ export function CesiumPublicViewer() {
     if (viewer.scene.skyAtmosphere) {
       viewer.scene.skyAtmosphere.show = true;
     }
+    viewer.clock.currentTime = arcTToJulianDate(DEFAULT_VIEWER_SKY_T);
     viewer.postProcessStages.fxaa.enabled = true;
     (viewer.container as HTMLElement).style.touchAction = "none";
     viewer.scene.canvas.style.touchAction = "none";
@@ -996,7 +1282,7 @@ export function CesiumPublicViewer() {
     nightCleanupRef.current?.();
     nightCleanupRef.current = null;
 
-    if (isSunMode || isNightMode) {
+    if (isShaderMode) {
       // Fetch exclusion zones, bake them into a fresh shader, then apply.
       // Creating a new CustomShader with the mask texture already set avoids
       // relying on setUniform for SAMPLER_2D after compilation (which Cesium
@@ -1022,10 +1308,12 @@ export function CesiumPublicViewer() {
 
         if (cancelled) return;
         const shader = recreateNightShader(maskPixels);
-        if (isSunMode) {
+        if (isSunMode && !manualNightMode) {
           syncSunShaderUniforms(sunTRef.current, shader);
         }
-        nightCleanupRef.current = applyNightMode(viewer, tilesetRef, shader);
+        nightCleanupRef.current = applyNightMode(viewer, tilesetRef, shader, {
+          preserveAtmosphere: isSunMode && !manualNightMode && !sunArcNight,
+        });
       })();
 
       return () => {
@@ -1034,7 +1322,7 @@ export function CesiumPublicViewer() {
         nightCleanupRef.current = null;
       };
     }
-  }, [isNightMode, isSunMode, syncSunShaderUniforms]);
+  }, [isShaderMode, isSunMode, manualNightMode, sunArcNight, syncSunShaderUniforms]);
 
   useEffect(() => {
     if (prevIsSunModeRef.current && !isSunMode) {
@@ -1054,7 +1342,7 @@ export function CesiumPublicViewer() {
       // custom shader and does not use Cesium's shadow pipeline here.
       const viewer = viewerRef.current;
       if (viewer) {
-        viewer.clock.currentTime = JulianDate.now();
+        viewer.clock.currentTime = arcTToJulianDate(DEFAULT_VIEWER_SKY_T);
       }
 
       // Reset sun arc night state so manual 🌙 toggle is unaffected
@@ -1067,6 +1355,13 @@ export function CesiumPublicViewer() {
     }
     prevIsSunModeRef.current = isSunMode;
   }, [isSunMode, sunT, handleSunTime]);
+
+  useEffect(() => {
+    if (prevManualNightModeRef.current && !manualNightMode && isSunMode) {
+      handleSunTime(sunTRef.current);
+    }
+    prevManualNightModeRef.current = manualNightMode;
+  }, [handleSunTime, isSunMode, manualNightMode]);
 
   // Dim overlay — fades in as sun approaches the horizon (elevation 20° → 0°)
   // Only active in sun mode during daytime; night shader handles darkness at night
@@ -1094,7 +1389,14 @@ export function CesiumPublicViewer() {
       >
         <div ref={containerRef} className="absolute inset-0 touch-none" />
         {!isNightMode && <VignetteOverlay />}
-        {!isNightMode && <CloudVeilOverlay active={isCloudSwooshing} cleared={cloudsCleared} />}
+        {!isNightMode && (
+          <CloudVeilOverlay
+            active={isCloudSwooshing}
+            cleared={cloudsCleared}
+            sunT={sunT}
+            scrubMotion={cloudScrubMotion}
+          />
+        )}
         {sunDimOpacity > 0 && (
           <div
             className="pointer-events-none absolute inset-0 bg-black"
@@ -1102,7 +1404,11 @@ export function CesiumPublicViewer() {
           />
         )}
         {isSunMode && (
-          <SunArcDrawer sunT={sunT} onSunT={handleSunTime} />
+          <SunArcDrawer
+            sunT={sunT}
+            onSunT={handleSunTime}
+            onInteractionChange={setIsSunArcInteracting}
+          />
         )}
       </div>
       <div
@@ -1124,7 +1430,7 @@ export function CesiumPublicViewer() {
         />
         <ParcelPillsOverlay positions={pillPositions} />
         <ParcelSidebar />
-        <ViewerControlsHint />
+        {!isSunMode && <ViewerControlsHint minimized={isSunArcInteracting} />}
         <CompassButton viewerRef={viewerRef} />
       </div>
       {(showSkeleton || !isSceneReady) && !error ? (

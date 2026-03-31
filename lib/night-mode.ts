@@ -202,12 +202,16 @@ export function applyNightMode(
   viewer: Viewer,
   tilesetRef: { current: { style: Cesium3DTileStyle | undefined; customShader: CustomShader | undefined } | null },
   shader: CustomShader = NIGHT_SHADER,
+  options?: { preserveAtmosphere?: boolean },
 ): () => void {
   if (viewer.isDestroyed()) return () => {};
 
   const tileset = tilesetRef.current;
   const prevCustomShader = tileset?.customShader;
   const prevStyle = tileset?.style;
+  const preserveAtmosphere = options?.preserveAtmosphere ?? false;
+  const prevBackgroundColor = Color.clone(viewer.scene.backgroundColor, new Color());
+  const prevSkyAtmosphereShow = viewer.scene.skyAtmosphere?.show;
 
   if (tileset) {
     tileset.customShader = shader;
@@ -215,9 +219,11 @@ export function applyNightMode(
   }
 
   if (viewer.scene.skyAtmosphere) {
-    viewer.scene.skyAtmosphere.show = false;
+    viewer.scene.skyAtmosphere.show = preserveAtmosphere;
   }
-  viewer.scene.backgroundColor = Color.BLACK;
+  viewer.scene.backgroundColor = preserveAtmosphere
+    ? Color.fromCssColorString("#9ec8ff")
+    : Color.BLACK;
 
   return () => {
     if (viewer.isDestroyed()) return;
@@ -226,8 +232,9 @@ export function applyNightMode(
       tileset.style = prevStyle;
     }
     if (viewer.scene.skyAtmosphere) {
-      viewer.scene.skyAtmosphere.show = true;
+      viewer.scene.skyAtmosphere.show = prevSkyAtmosphereShow ?? true;
     }
+    viewer.scene.backgroundColor = prevBackgroundColor;
   };
 }
 
