@@ -21,11 +21,12 @@ export const MASK_BOUNDS_LON_LAT = {
 const DEG2RAD = Math.PI / 180;
 
 /**
- * Night mode via CustomShader on Google Photorealistic 3D Tiles.
+ * Sun + night response via CustomShader on Google Photorealistic 3D Tiles.
  *
  * Uses MODIFY_MATERIAL so material.diffuse contains the actual baked tile
- * texture. The shader darkens with a moonlit blue tint and detects bright
- * spots for warm window glow. Ocean/waves are masked dark.
+ * texture. In daytime it approximates facade response with a wrapped N·L term
+ * and time-of-day tinting. At night it falls back to the existing moonlit
+ * treatment and warm window glow. Ocean/waves are masked dark only in night.
  *
  * Exclusion zones use a painted mask texture instead of fixed circles.
  */
@@ -35,9 +36,8 @@ const NIGHT_FRAGMENT = /* glsl */ `
     vec3 original = material.diffuse;
     float luminance = dot(original, vec3(0.2126, 0.7152, 0.0722));
 
-    // --- Moonlit / day tint ---
+    // --- Shared tint from the current sun state ---
     vec3 tint = vec3(u_tintR, u_tintG, u_tintB);
-    vec3 nightColor = original * tint * u_tintBrightness;
 
     // --- Ocean/wave masking ---
     float blueRatio = original.b / (luminance + 0.001);
@@ -46,9 +46,7 @@ const NIGHT_FRAGMENT = /* glsl */ `
     float saturation = (maxC > 0.001) ? (maxC - minC) / maxC : 0.0;
     float isWater = smoothstep(u_waterBlueMin, u_waterBlueMax, blueRatio)
                   * smoothstep(u_waterSatMin, u_waterSatMax, saturation);
-    nightColor *= mix(1.0, u_waterDarken, isWater);
-
-    // --- Directional sun lighting (Phase 1: surface normal N·L) ---
+    // --- Directional sun response ---
     // Convert sun azimuth/elevation to a direction vector in world space,
     // then rotate into eye space so it matches normalEC (eye-space normal).
     vec3 sunDirWorld = vec3(
@@ -58,10 +56,22 @@ const NIGHT_FRAGMENT = /* glsl */ `
     );
     vec3 sunDirEC = normalize(mat3(czm_view) * sunDirWorld);
     vec3 normalEC = normalize(fsInput.attributes.normalEC);
-    float NdotL = max(dot(normalEC, sunDirEC), 0.0);
-    float shadowFactor = mix(u_shadowDark, 1.0, NdotL);
-    // Apply shadow only in day mode; fade out as night comes in
-    nightColor *= mix(shadowFactor, 1.0, u_timeOfDay);
+    float wrappedNdotL = clamp(
+      (dot(normalEC, sunDirEC) + u_sunWrap) / (1.0 + u_sunWrap),
+      0.0,
+      1.0
+    );
+    float sunShade = mix(u_shadowDark, 1.0, wrappedNdotL);
+    float dayShade = mix(1.0, max(sunShade, u_dayAmbient), u_dayStrength);
+
+    // Keep the baked Google texture dominant; tint should feel like sunlight,
+    // not a full recolor of the asset.
+    vec3 dayTint = mix(vec3(1.0), tint, 0.28);
+    vec3 dayColor = original * dayTint * dayShade;
+
+    // --- Night branch ---
+    vec3 nightColor = original * tint * u_tintBrightness;
+    nightColor *= mix(1.0, u_waterDarken, isWater);
 
     // --- Window detection ---
     float lumScore = smoothstep(u_winLumMin, u_winLumMax, luminance);
@@ -91,12 +101,12 @@ const NIGHT_FRAGMENT = /* glsl */ `
 
     // --- Composite ---
     vec3 nightResult = mix(nightColor, glow, windowScore);
-    material.diffuse = nightResult;
+    material.diffuse = mix(dayColor, nightResult, u_timeOfDay);
   }
 `;
 
 /**
- * Create a fresh night shader instance.
+ * Create a fresh sun-response shader instance.
  * When `maskPixels` is provided (RGBA Uint8Array, MASK_SIZE×MASK_SIZE),
  * the exclusion mask is baked directly into the initial texture — no
  * runtime `setUniform` needed (which Cesium may not honour on an
@@ -136,6 +146,9 @@ export function createNightShader(maskPixels?: Uint8Array): CustomShader {
       u_sunAzimuth:   { type: UniformType.FLOAT, value: 0.0 },    // radians, sun azimuth
       u_sunElevation: { type: UniformType.FLOAT, value: 1.309 },   // radians (~75° peak)
       u_timeOfDay:    { type: UniformType.FLOAT, value: 1.0 },     // 0=day, 1=night (default full-night until sun arc is used)
+      u_dayStrength:  { type: UniformType.FLOAT, value: 0.92 },    // 0=no daytime modulation, 1=full facade response
+      u_dayAmbient:   { type: UniformType.FLOAT, value: 0.70 },    // daylight floor for shadowed faces
+      u_sunWrap:      { type: UniformType.FLOAT, value: 0.28 },    // soften the day/night terminator on facades
       u_shadowDark:   { type: UniformType.FLOAT, value: 0.55 },    // shadow face darkness
     },
     fragmentShaderText: NIGHT_FRAGMENT,
@@ -144,12 +157,12 @@ export function createNightShader(maskPixels?: Uint8Array): CustomShader {
   return shader;
 }
 
-/** The currently-active night shader instance (updated by `createNightShader`). */
+/** The currently-active sun-response shader instance (updated by `createNightShader`). */
 // eslint-disable-next-line import/no-mutable-exports
 export let NIGHT_SHADER: CustomShader = createNightShader();
 
 /**
- * Create a fresh night shader and update the module-level reference.
+ * Create a fresh sun-response shader and update the module-level reference.
  * Use this from consumer code (viewer, editor) so `NIGHT_SHADER` stays current.
  */
 export function recreateNightShader(maskPixels?: Uint8Array): CustomShader {

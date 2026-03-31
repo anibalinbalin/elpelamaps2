@@ -18,7 +18,6 @@ import {
   SceneTransforms,
   ScreenSpaceEventHandler,
   ScreenSpaceEventType,
-  ShadowMode,
   Viewer,
   createGooglePhotorealistic3DTileset,
   defined,
@@ -523,54 +522,48 @@ export function CesiumPublicViewer() {
   const isNightMode = manualNightMode || sunArcNight;
   const [isSunMode, setIsSunMode] = useState(false);
   const [sunT, setSunT] = useState(0.5); // default: afternoon
+  const sunTRef = useRef(0.5);
   const nightCleanupRef = useRef<(() => void) | null>(null);
   const prevIsSunModeRef = useRef(false);
+
+  useEffect(() => {
+    sunTRef.current = sunT;
+  }, [sunT]);
+
+  const syncSunShaderUniforms = useCallback((t: number, shader = NIGHT_SHADER) => {
+    const state = timeToSunAngles(t);
+
+    try {
+      shader.setUniform("u_sunAzimuth", state.azimuth * DEG2RAD);
+      shader.setUniform("u_sunElevation", state.elevation * DEG2RAD);
+      shader.setUniform("u_timeOfDay", state.blend);
+      shader.setUniform("u_tintR", state.colorTemp.r);
+      shader.setUniform("u_tintG", state.colorTemp.g);
+      shader.setUniform("u_tintB", state.colorTemp.b);
+    } catch {
+      // Shader may not be compiled yet — uniforms will take effect after first compile
+    }
+
+    return state;
+  }, []);
 
   const handleSunTime = useCallback(
     (t: number) => {
       setSunT(t);
-      const { azimuth, elevation, isNight, blend, colorTemp } = timeToSunAngles(t);
+      const { isNight } = syncSunShaderUniforms(t);
 
-      try {
-        NIGHT_SHADER.setUniform("u_sunAzimuth",   azimuth   * DEG2RAD);
-        NIGHT_SHADER.setUniform("u_sunElevation", elevation * DEG2RAD);
-        NIGHT_SHADER.setUniform("u_timeOfDay",    blend);
-        NIGHT_SHADER.setUniform("u_tintR",        colorTemp.r);
-        NIGHT_SHADER.setUniform("u_tintG",        colorTemp.g);
-        NIGHT_SHADER.setUniform("u_tintB",        colorTemp.b);
-      } catch {
-        // Shader may not be compiled yet — uniforms will take effect after first compile
-      }
-
-      // Phase 2+3: Drive Cesium clock → SunLight direction + sky atmosphere update
+      // Cesium clock still drives the sky/atmosphere even though the tiles
+      // rely on the custom shader for facade response.
       const viewer = viewerRef.current;
       if (viewer) {
         viewer.clock.currentTime = arcTToJulianDate(t);
-
-        // Enable shadows only when sun is meaningfully above the horizon (> 10°)
-        const shadowsEnabled = elevation > 10;
-        if (viewer.shadows !== shadowsEnabled) {
-          viewer.shadows = shadowsEnabled;
-        }
-
-        // Enable shadow casting/receiving on the tileset
-        const tileset = tilesetRef.current;
-        if (tileset) {
-          const mode = shadowsEnabled ? ShadowMode.ENABLED : ShadowMode.DISABLED;
-          if (tileset.shadows !== mode) {
-            tileset.shadows = mode;
-          }
-        }
       }
 
       // Guard: only toggle if the value actually changes to avoid triggering
-      // the isNightMode useEffect (shader rebuild + fetch) on every drag frame
+      // the shader attach effect on every drag frame.
       setSunArcNight((prev) => (prev === isNight ? prev : isNight));
     },
-    // NIGHT_SHADER is an ES module live binding (not React state) — stable reference,
-    // intentionally omitted from deps. setSunT / setSunArcNight are also stable setters.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
+    [syncSunShaderUniforms],
   );
 
   const parcelsBoundingSphereRef = useRef<BoundingSphere | null>(null);
@@ -999,11 +992,11 @@ export function CesiumPublicViewer() {
     const viewer = viewerRef.current;
     if (!viewer || viewer.isDestroyed()) return;
 
-    // Clean up previous night mode if active
+    // Clean up the previous shader application before re-attaching it.
     nightCleanupRef.current?.();
     nightCleanupRef.current = null;
 
-    if (isNightMode) {
+    if (isSunMode || isNightMode) {
       // Fetch exclusion zones, bake them into a fresh shader, then apply.
       // Creating a new CustomShader with the mask texture already set avoids
       // relying on setUniform for SAMPLER_2D after compilation (which Cesium
@@ -1029,6 +1022,9 @@ export function CesiumPublicViewer() {
 
         if (cancelled) return;
         const shader = recreateNightShader(maskPixels);
+        if (isSunMode) {
+          syncSunShaderUniforms(sunTRef.current, shader);
+        }
         nightCleanupRef.current = applyNightMode(viewer, tilesetRef, shader);
       })();
 
@@ -1038,7 +1034,7 @@ export function CesiumPublicViewer() {
         nightCleanupRef.current = null;
       };
     }
-  }, [isNightMode]);
+  }, [isNightMode, isSunMode, syncSunShaderUniforms]);
 
   useEffect(() => {
     if (prevIsSunModeRef.current && !isSunMode) {
@@ -1054,15 +1050,11 @@ export function CesiumPublicViewer() {
         // Shader not yet compiled — no-op
       }
 
-      // Disable shadows and restore Cesium clock to present
+      // Restore Cesium clock to present; tile shading is handled by the
+      // custom shader and does not use Cesium's shadow pipeline here.
       const viewer = viewerRef.current;
       if (viewer) {
-        viewer.shadows = false;
         viewer.clock.currentTime = JulianDate.now();
-      }
-      const tileset = tilesetRef.current;
-      if (tileset) {
-        tileset.shadows = ShadowMode.DISABLED;
       }
 
       // Reset sun arc night state so manual 🌙 toggle is unaffected
