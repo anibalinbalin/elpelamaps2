@@ -59,44 +59,44 @@ function ParcelMarker({
     <div className="relative flex flex-col items-center [transform:translateZ(0)]">
       <div
         className={`absolute top-full h-8 w-8 rounded-full blur-[14px] transition-all duration-300 ${
-          selected ? "bg-cyan-300/24" : "bg-emerald-300/12"
+          selected ? "bg-cyan-300/24 max-sm:bg-cyan-500/12" : "bg-emerald-300/12 max-sm:bg-emerald-500/8"
         }`}
       />
       <div
         className={`relative overflow-hidden rounded-[22px] border shadow-[0_18px_45px_rgba(5,17,28,0.24),0_6px_18px_rgba(5,17,28,0.14)] transition-[border-color,background-color,color,box-shadow,transform] duration-300 ${
           selected
-            ? "border-cyan-200/30 bg-[linear-gradient(180deg,rgba(26,48,61,0.94),rgba(14,28,38,0.9))] text-white"
-            : "border-white/10 bg-[linear-gradient(180deg,rgba(38,40,43,0.92),rgba(23,25,28,0.88))] text-white/88"
+            ? "border-cyan-200/30 bg-[linear-gradient(180deg,rgba(26,48,61,0.94),rgba(14,28,38,0.9))] text-white max-sm:border-cyan-600/20 max-sm:bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(240,248,255,0.93))] max-sm:text-slate-900 max-sm:shadow-[0_12px_36px_rgba(0,0,0,0.10),0_4px_12px_rgba(0,0,0,0.06)]"
+            : "border-white/10 bg-[linear-gradient(180deg,rgba(38,40,43,0.92),rgba(23,25,28,0.88))] text-white/88 max-sm:border-black/8 max-sm:bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(245,245,247,0.9))] max-sm:text-slate-800 max-sm:shadow-[0_12px_36px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)]"
         }`}
       >
         <div
           className={`absolute inset-0 ${
             selected
-              ? "bg-[linear-gradient(180deg,rgba(158,241,255,0.14),rgba(158,241,255,0.04)_42%,rgba(255,255,255,0)_100%)]"
-              : "bg-[linear-gradient(180deg,rgba(255,255,255,0.1),rgba(255,255,255,0.03)_42%,rgba(255,255,255,0)_100%)]"
+              ? "bg-[linear-gradient(180deg,rgba(158,241,255,0.14),rgba(158,241,255,0.04)_42%,rgba(255,255,255,0)_100%)] max-sm:bg-[linear-gradient(180deg,rgba(0,180,220,0.06),rgba(0,180,220,0.02)_42%,rgba(255,255,255,0)_100%)]"
+              : "bg-[linear-gradient(180deg,rgba(255,255,255,0.1),rgba(255,255,255,0.03)_42%,rgba(255,255,255,0)_100%)] max-sm:bg-[linear-gradient(180deg,rgba(255,255,255,0.5),rgba(255,255,255,0.1)_42%,rgba(255,255,255,0)_100%)]"
           }`}
         />
-        <div className="absolute inset-x-0 top-0 h-px bg-white/10" />
-        <div className="absolute inset-[1px] rounded-[21px] ring-1 ring-inset ring-white/4" />
+        <div className="absolute inset-x-0 top-0 h-px bg-white/10 max-sm:bg-white/60" />
+        <div className="absolute inset-[1px] rounded-[21px] ring-1 ring-inset ring-white/4 max-sm:ring-black/[0.03]" />
         <div
           className={`relative min-w-[96px] px-3.5 py-2.5 text-center ${
             selected ? "scale-100" : "scale-[0.98]"
           }`}
         >
-          <div className="text-[9px] font-semibold tracking-[0.28em] text-white/46">
+          <div className="text-[9px] font-semibold tracking-[0.28em] text-white/46 max-sm:text-slate-500">
             {pill.kicker}
           </div>
           <div
             className={`mt-1 font-semibold tracking-[0.08em] ${
               selected
-                ? "text-[16px] text-white"
-                : "text-[13px] text-white/86"
+                ? "text-[16px] text-white max-sm:text-slate-900"
+                : "text-[13px] text-white/86 max-sm:text-slate-700"
             }`}
           >
             {pill.value}
           </div>
           {selected && pill.meta ? (
-            <div className="mt-1 text-[10px] font-medium tracking-[0.08em] text-cyan-50/72">
+            <div className="mt-1 text-[10px] font-medium tracking-[0.08em] text-cyan-50/72 max-sm:text-cyan-700/70">
               {pill.meta}
             </div>
           ) : null}
@@ -105,15 +105,15 @@ function ParcelMarker({
       <div
         className={`h-4 w-px transition-all duration-300 ${
           selected
-            ? "bg-gradient-to-b from-white/42 to-cyan-200/0"
-            : "bg-gradient-to-b from-white/24 to-emerald-200/0"
+            ? "bg-gradient-to-b from-white/42 to-cyan-200/0 max-sm:from-slate-400/50 max-sm:to-cyan-600/0"
+            : "bg-gradient-to-b from-white/24 to-emerald-200/0 max-sm:from-slate-300/50 max-sm:to-emerald-600/0"
         }`}
       />
       <div
         className={`relative h-2.5 w-2.5 rounded-full border transition-all duration-300 ${
           selected
-            ? "border-cyan-100/55 bg-cyan-200/62"
-            : "border-emerald-100/28 bg-emerald-200/30"
+            ? "border-cyan-100/55 bg-cyan-200/62 max-sm:border-cyan-500/40 max-sm:bg-cyan-400/50"
+            : "border-emerald-100/28 bg-emerald-200/30 max-sm:border-emerald-500/25 max-sm:bg-emerald-400/28"
         }`}
       >
         <div
