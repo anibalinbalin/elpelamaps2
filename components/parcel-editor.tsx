@@ -8,6 +8,7 @@ import type Geometry from "ol/geom/Geometry";
 import MultiPoint from "ol/geom/MultiPoint";
 import Polygon from "ol/geom/Polygon";
 import { Draw, Modify, Select, Snap } from "ol/interaction";
+import { defaults as defaultControls } from "ol/control/defaults";
 import { defaults as defaultInteractions } from "ol/interaction/defaults";
 import Map from "ol/Map";
 import View from "ol/View";
@@ -362,6 +363,7 @@ export function ParcelEditor() {
       target: mapElementRef.current,
       layers: [baseLayer, vectorLayer],
       view,
+      controls: defaultControls({ attribution: false }),
       interactions: defaultInteractions({
         doubleClickZoom: false,
       }),
