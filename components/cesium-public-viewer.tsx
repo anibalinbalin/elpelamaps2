@@ -115,16 +115,14 @@ function ViewerControlsHint({ minimized = false }: { minimized?: boolean }) {
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-6 z-20 flex justify-center px-4">
       <div
-        className={`overflow-hidden rounded-[18px] border border-white/10 bg-[rgba(16,20,25,0.82)] text-center shadow-lg backdrop-blur-xl transition-[max-width,transform,opacity,padding] duration-300 ${
-          minimized
-            ? "max-w-[11rem] translate-y-2 px-4 py-2 opacity-70"
-            : "max-w-[min(100%,36rem)] px-5 py-3 opacity-100"
-        }`}
+        className={`overflow-hidden rounded-[18px] border border-white/10 bg-[rgba(16,20,25,0.82)] text-center shadow-lg backdrop-blur-xl transition-[max-width,transform,opacity,padding] duration-300 ${minimized
+          ? "max-w-[11rem] translate-y-2 px-4 py-2 opacity-70"
+          : "max-w-[min(100%,36rem)] px-5 py-3 opacity-100"
+          }`}
       >
         <div
-          className={`transition-[transform,opacity] duration-300 ${
-            minimized ? "translate-y-3 opacity-0" : "translate-y-0 opacity-100"
-          }`}
+          className={`transition-[transform,opacity] duration-300 ${minimized ? "translate-y-3 opacity-0" : "translate-y-0 opacity-100"
+            }`}
         >
           <span className="sm:hidden text-[12px] text-white/60">
             Drag to orbit. Use two fingers to zoom and tilt the view.
@@ -136,9 +134,8 @@ function ViewerControlsHint({ minimized = false }: { minimized?: boolean }) {
           </span>
         </div>
         <div
-          className={`absolute inset-x-0 top-1/2 -translate-y-1/2 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/42 transition-[transform,opacity] duration-300 ${
-            minimized ? "translate-y-0 opacity-100" : "-translate-y-3 opacity-0"
-          }`}
+          className={`absolute inset-x-0 top-1/2 -translate-y-1/2 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/42 transition-[transform,opacity] duration-300 ${minimized ? "translate-y-0 opacity-100" : "-translate-y-3 opacity-0"
+            }`}
         >
           Viewer controls
         </div>
@@ -204,9 +201,8 @@ function CompassButton({
   return (
     <button
       onClick={handleClick}
-      className={`fixed bottom-6 right-6 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-[rgba(20,26,32,0.72)] shadow-[0_8px_32px_rgba(0,0,0,0.3)] backdrop-blur-md transition-opacity duration-300 hover:border-white/25 hover:bg-[rgba(28,34,42,0.82)] ${
-        isNorth ? "pointer-events-none opacity-0" : "opacity-100"
-      }`}
+      className={`fixed bottom-6 right-6 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-[rgba(20,26,32,0.72)] shadow-[0_8px_32px_rgba(0,0,0,0.3)] backdrop-blur-md transition-opacity duration-300 hover:border-white/25 hover:bg-[rgba(28,34,42,0.82)] ${isNorth ? "pointer-events-none opacity-0" : "opacity-100"
+        }`}
       title="Reset to north"
     >
       <div
@@ -521,6 +517,9 @@ export function CesiumPublicViewer() {
   const [showSkeleton, setShowSkeleton] = useState(true);
   const [error, setError] = useState("");
   const cloudSwooshTimeoutRef = useRef<number | null>(null);
+  const cloudsClearedRef = useRef(false);
+  const cloudSwooshStartRef = useRef<number | null>(null);
+  const isNightModeRef = useRef(false);
   const hasMarkedSceneReadyRef = useRef(false);
   const [manualNightMode, setManualNightMode] = useState(false);
   const [sunArcNight, setSunArcNight] = useState(false);
@@ -533,50 +532,37 @@ export function CesiumPublicViewer() {
   const nightCleanupRef = useRef<(() => void) | null>(null);
   const prevIsSunModeRef = useRef(false);
 
-  const cloudDials = useDialKit("Clouds", {
-    windSpeed: [13, 0, 20],
-    noiseDetail: [32, 8, 64],
-    brightness: [1.0, 0.3, 1.0],
+  const cloudDials = {
+    windSpeed: 13,
+    noiseDetail: 1,
+    brightness: 1.0,
     show: true,
-    low: {
-      count: [18, 0, 30],
-      altMin: [280, 100, 800],
-      altMax: [490, 300, 1200],
-      scaleW: [1340, 200, 3000],
-      scaleH: [510, 80, 800],
-      maxX: [70, 30, 200],
-      maxY: [66, 15, 100],
-      maxZ: [28, 10, 60],
-    },
-    mid: {
-      count: [15, 0, 25],
-      altMin: [830, 500, 1500],
-      altMax: [1690, 800, 2500],
-      scaleW: [1590, 400, 4000],
-      scaleH: [350, 50, 500],
-      maxX: [140, 40, 250],
-      maxY: [60, 20, 120],
-      maxZ: [25, 8, 50],
-    },
-    high: {
-      count: [12, 0, 20],
-      altMin: [1750, 1000, 3000],
-      altMax: [2400, 1500, 4000],
-      scaleW: [2200, 600, 5000],
-      scaleH: [120, 30, 300],
-      maxX: [200, 50, 300],
-      maxY: [85, 25, 150],
-      maxZ: [18, 5, 40],
-    },
-  });
+    low: { count: 18, altMin: 280, altMax: 490, scaleW: 1340, scaleH: 510, maxX: 70, maxY: 66, maxZ: 28 },
+    mid: { count: 15, altMin: 830, altMax: 1690, scaleW: 1590, scaleH: 350, maxX: 140, maxY: 60, maxZ: 25 },
+    high: { count: 12, altMin: 1750, altMax: 2400, scaleW: 2200, scaleH: 120, maxX: 200, maxY: 85, maxZ: 18 },
+  };
   const cloudDialsRef = useRef(cloudDials);
   cloudDialsRef.current = cloudDials;
+
+  const nightCloudDials = useDialKit("Night Clouds", {
+    red: [0.24, 0, 1],
+    green: [0.33, 0, 1],
+    blue: [0.57, 0, 1],
+    brightness: [0.66, 0.01, 1],
+    opacity: [0.98, 0, 1],
+  });
+  const nightCloudDialsRef = useRef(nightCloudDials);
+  nightCloudDialsRef.current = nightCloudDials;
   const prevManualNightModeRef = useRef(false);
   const isSunArcInteractingRef = useRef(false);
 
   useEffect(() => {
     sunTRef.current = sunT;
   }, [sunT]);
+
+  useEffect(() => {
+    isNightModeRef.current = isNightMode;
+  }, [isNightMode]);
 
   useEffect(() => {
     isSunArcInteractingRef.current = isSunArcInteracting;
@@ -784,6 +770,8 @@ export function CesiumPublicViewer() {
       speedFrac: number;
       scaleFrac: number;
       baseLon: number;
+      /** 0-1 stagger delay for swoosh - based on position + randomness */
+      swooshDelay: number;
     }
 
     type LayerKey = "low" | "mid" | "high";
@@ -823,7 +811,11 @@ export function CesiumPublicViewer() {
             slice: -1,
           });
 
-          cloudInstances.push({ cloud, layer, latOffset: latOff, altFrac, speedFrac, scaleFrac, baseLon: centerLon + lonOff });
+          // Stagger: clouds on the left (upwind) catch the gust first, right-side clouds lag
+          // Normalized lonOff to 0-1 range, plus randomness for organic feel
+          const positionBias = (lonOff / spread + 1) / 2; // 0=left, 1=right
+          const swooshDelay = positionBias * 0.5 + seededRandom(seedBase + i * 11 + 31) * 0.35;
+          cloudInstances.push({ cloud, layer, latOffset: latOff, altFrac, speedFrac, scaleFrac, baseLon: centerLon + lonOff, swooshDelay });
         }
         seedBase += 100;
         lastLayerCounts[layer] = count;
@@ -831,16 +823,28 @@ export function CesiumPublicViewer() {
     }
 
     const WRAP_RANGE = 0.10;
+    const SWOOSH_WINDOW = 3.2; // max time any cloud takes to fully exit
     let lastCloudTime = performance.now();
+
+    // ease-out-quart: fast start, gentle settle - feels like a natural gust
+    function easeOutQuart(t: number) { return 1 - (1 - t) ** 4; }
+
     const removeCloudUpdate = viewer.scene.preUpdate.addEventListener(() => {
       const dials = cloudDialsRef.current;
-      cloudCollection.show = dials.show;
-      if (!dials.show) return;
+      if (!dials.show) { cloudCollection.show = false; return; }
 
-      // Update noise detail live
+      const swooshStart = cloudSwooshStartRef.current;
+      const globalElapsed = swooshStart != null ? (performance.now() - swooshStart) / 1000 : -1;
+
+      // Hide permanently once every cloud has finished
+      if (globalElapsed > SWOOSH_WINDOW + 1) {
+        cloudCollection.show = false;
+        return;
+      }
+      cloudCollection.show = true;
+
       cloudCollection.noiseDetail = dials.noiseDetail;
 
-      // Check if any layer count changed
       let needsRebuild = false;
       for (const layer of LAYER_KEYS) {
         if (Math.round(dials[layer].count) !== lastLayerCounts[layer]) {
@@ -855,24 +859,63 @@ export function CesiumPublicViewer() {
       lastCloudTime = now;
       const windDeg = dials.windSpeed * 0.00001;
 
+      const isSwooshing = globalElapsed >= 0;
+
       for (const inst of cloudInstances) {
         const ld = dials[inst.layer];
         const speedMult = LAYER_SPEED_MULT[inst.layer];
 
-        inst.baseLon += dt * windDeg * inst.speedFrac * speedMult;
-        const offset = inst.baseLon - centerLon;
-        if (offset > WRAP_RANGE) inst.baseLon -= WRAP_RANGE * 2;
-        else if (offset < -WRAP_RANGE) inst.baseLon += WRAP_RANGE * 2;
+        // Per-cloud staggered timing: each cloud has its own delay before the gust hits it
+        const cloudElapsed = isSwooshing ? Math.max(0, globalElapsed - inst.swooshDelay * 0.8) : 0;
+        const cloudDuration = 1.8 + inst.speedFrac * 0.6; // faster clouds clear quicker
+        const cloudT = isSwooshing ? Math.min(1, cloudElapsed / cloudDuration) : 0;
+        const eased = easeOutQuart(cloudT);
+
+        // Gust acceleration: starts strong then eases off (like a real gust)
+        const gustStrength = eased * speedMult * inst.speedFrac * 12;
+        const blowMult = isSwooshing ? gustStrength : 0;
+        inst.baseLon += dt * (windDeg * inst.speedFrac * speedMult + windDeg * blowMult);
+
+        // Slight lateral scatter so clouds don't all go in a straight line
+        const scatter = isSwooshing ? Math.sin(inst.altFrac * 17 + cloudElapsed * 2) * eased * 0.003 : 0;
+
+        if (!isSwooshing) {
+          const offset = inst.baseLon - centerLon;
+          if (offset > WRAP_RANGE) inst.baseLon -= WRAP_RANGE * 2;
+          else if (offset < -WRAP_RANGE) inst.baseLon += WRAP_RANGE * 2;
+        }
 
         const alt = ld.altMin + inst.altFrac * (ld.altMax - ld.altMin);
-        inst.cloud.position = Cartesian3.fromDegrees(inst.baseLon, centerLat + inst.latOffset, alt);
+        // Gentle lift as the gust catches them - higher layers lift more
+        const swooshLift = isSwooshing ? eased * 80 * speedMult * inst.altFrac : 0;
+
+        inst.cloud.position = Cartesian3.fromDegrees(
+          inst.baseLon, centerLat + inst.latOffset + scatter, alt + swooshLift,
+        );
         inst.cloud.scale = new Cartesian2(ld.scaleW * inst.scaleFrac, ld.scaleH * inst.scaleFrac);
         inst.cloud.maximumSize = new Cartesian3(
           ld.maxX * inst.scaleFrac,
           ld.maxY * inst.scaleFrac,
           ld.maxZ * inst.scaleFrac,
         );
-        inst.cloud.brightness = dials.brightness;
+
+        // Hide cloud before brightness gets low enough to render dark
+        // eased goes 0->1 via ease-out-quart; hide once past 55% progress
+        if (isSwooshing && eased > 0.55) {
+          inst.cloud.show = false;
+        } else {
+          inst.cloud.show = true;
+          const fadeBrightness = isSwooshing ? 1 - eased * 0.55 : 1;
+
+          // Night mode: tint and dim clouds via DialKit-tunable values
+          const night = isNightModeRef.current;
+          const nd = nightCloudDialsRef.current;
+          const baseBrightness = night ? nd.brightness : dials.brightness;
+          inst.cloud.brightness = baseBrightness * fadeBrightness;
+          inst.cloud.color = night
+            ? new Color(nd.red, nd.green, nd.blue, nd.opacity)
+            : Color.WHITE;
+        }
       }
     });
 
@@ -1026,7 +1069,7 @@ export function CesiumPublicViewer() {
       tilesetRef.current = null;
       parcelBundlesRef.current.clear();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- parcelsBoundingSphere accessed via ref to avoid viewer recreation
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- parcelsBoundingSphere accessed via ref to avoid viewer recreation
   }, [googleApiKey, hoverParcel, selectParcel, updatePillPositions]);
 
   useEffect(() => {
@@ -1158,6 +1201,8 @@ export function CesiumPublicViewer() {
     }
 
     setCloudsCleared(true);
+    cloudsClearedRef.current = true;
+    cloudSwooshStartRef.current = performance.now();
     setCloudSwooshTick((value) => value + 1);
     setIsCloudSwooshing(true);
 
@@ -1225,12 +1270,12 @@ export function CesiumPublicViewer() {
     if (prevIsSunModeRef.current && !isSunMode) {
       // Restore default night shader uniforms when sun mode is dismissed
       try {
-        NIGHT_SHADER.setUniform("u_sunAzimuth",   0.0);
+        NIGHT_SHADER.setUniform("u_sunAzimuth", 0.0);
         NIGHT_SHADER.setUniform("u_sunElevation", 1.309);
-        NIGHT_SHADER.setUniform("u_timeOfDay",    1.0);
-        NIGHT_SHADER.setUniform("u_tintR",        0.040);
-        NIGHT_SHADER.setUniform("u_tintG",        0.110);
-        NIGHT_SHADER.setUniform("u_tintB",        0.680);
+        NIGHT_SHADER.setUniform("u_timeOfDay", 1.0);
+        NIGHT_SHADER.setUniform("u_tintR", 0.040);
+        NIGHT_SHADER.setUniform("u_tintG", 0.110);
+        NIGHT_SHADER.setUniform("u_tintB", 0.680);
       } catch {
         // Shader not yet compiled — no-op
       }
@@ -1280,9 +1325,8 @@ export function CesiumPublicViewer() {
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-[#111820]">
       <div
-        className={`absolute inset-0 transition-opacity duration-500 ${
-          isSceneReady ? "opacity-100" : "opacity-0"
-        }`}
+        className={`absolute inset-0 transition-opacity duration-500 ${isSceneReady ? "opacity-100" : "opacity-0"
+          }`}
       >
         <div ref={containerRef} className="absolute inset-0 touch-none" />
         {!isNightMode && <VignetteOverlay />}
@@ -1302,9 +1346,8 @@ export function CesiumPublicViewer() {
         )}
       </div>
       <div
-        className={`pointer-events-none absolute inset-0 transition-opacity duration-500 ${
-          isSceneReady ? "opacity-100" : "opacity-0"
-        }`}
+        className={`pointer-events-none absolute inset-0 transition-opacity duration-500 ${isSceneReady ? "opacity-100" : "opacity-0"
+          }`}
       >
         <TopBar
           drawMode={false}
@@ -1325,9 +1368,8 @@ export function CesiumPublicViewer() {
       </div>
       {(showSkeleton || !isSceneReady) && !error ? (
         <div
-          className={`transition-opacity duration-700 ${
-            isSceneReady ? "pointer-events-none opacity-0" : "opacity-100"
-          }`}
+          className={`transition-opacity duration-700 ${isSceneReady ? "pointer-events-none opacity-0" : "opacity-100"
+            }`}
           onTransitionEnd={() => {
             if (isSceneReady) setShowSkeleton(false);
           }}
