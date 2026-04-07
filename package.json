@@ -28,6 +28,7 @@
     "3d-tiles-renderer": "^0.4.22",
     "agentation": "^3.0.2",
     "cesium": "^1.139.1",
+    "dialkit": "^1.2.0",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.1.7",
     "next": "^16.1.7",

@@ -27,26 +27,16 @@ import {
   type ViewerLightingDirectionId,
 } from "@/lib/constants";
 import { Color, Matrix4, Object3D } from "three";
-import {
-  DecorativeCloudLayer,
-  type CloudMotionPreset,
-} from "./decorative-cloud-layer";
 
 interface AtmosphereLayerProps {
   children: React.ReactNode;
   tilesRef?: React.RefObject<{ group?: Object3D | null } | null>;
-  cloudMotionPreset?: CloudMotionPreset;
-  cloudSwooshTick?: number;
-  cloudsCleared?: boolean;
   lightingDirection?: ViewerLightingDirectionId;
 }
 
 export function AtmosphereLayer({
   children,
   tilesRef,
-  cloudMotionPreset = "cinematic",
-  cloudSwooshTick = 0,
-  cloudsCleared = false,
   lightingDirection = "natural-depth",
 }: AtmosphereLayerProps) {
   const atmosphereRef = useRef<AtmosphereApi>(null);
@@ -106,11 +96,6 @@ export function AtmosphereLayer({
         groundAlbedo={groundAlbedo}
       />
       {children}
-      <DecorativeCloudLayer
-        motionPreset={cloudMotionPreset}
-        swooshTick={cloudSwooshTick}
-        cloudsCleared={cloudsCleared}
-      />
       <EffectComposer enableNormalPass multisampling={0}>
         <N8AO
           aoRadius={lightingPreset.ambientOcclusion.aoRadius}

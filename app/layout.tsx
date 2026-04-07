@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DevTools } from "@/components/dev-tools";
+import { DialKitProvider } from "@/components/dialkit-provider";
 import { VersionBadge } from "@/components/version-badge";
 import "./globals.css";
 
@@ -17,6 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="antialiased">
         {children}
         <VersionBadge />
+        <DialKitProvider />
         {process.env.NODE_ENV === "development" && <DevTools />}
       </body>
     </html>

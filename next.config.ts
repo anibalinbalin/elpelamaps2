@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
     "@takram/three-atmosphere",
     "@takram/three-geospatial",
     "@takram/three-geospatial-effects",
+    "@takram/three-clouds",
     "postprocessing",
   ],
 };

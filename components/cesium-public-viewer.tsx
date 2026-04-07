@@ -24,6 +24,8 @@ import {
   type Cesium3DTileset,
   type Entity,
 } from "cesium";
+import { CloudCollection } from "@/lib/cesium-clouds";
+import { useDialKit } from "dialkit";
 import { applyNightMode, recreateNightShader, getMaskPixels, MASK_BOUNDS_LON_LAT, MASK_SIZE, NIGHT_SHADER } from "@/lib/night-mode";
 import { SunArcDrawer } from "@/components/sun-arc-drawer";
 import { timeToSunAngles } from "@/lib/sun-position";
@@ -97,165 +99,7 @@ const INITIAL_CAMERA_OFFSET = new HeadingPitchRange(
 const SELECTED_CAMERA_PITCH = CesiumMath.toRadians(-52);
 const SUN_ARC_NIGHT_ENTER_ELEVATION = -1.5;
 const SUN_ARC_NIGHT_EXIT_ELEVATION = 2.5;
-const CLOUD_SCRUB_OFFSET_LIMIT = 1.2;
 const DEFAULT_VIEWER_SKY_T = 0.42;
-
-interface CloudScrubMotion {
-  velocity: number;
-  energy: number;
-  lift: number;
-}
-
-interface CloudVeilLayer {
-  id: string;
-  className: string;
-  speed: number;
-  phase: number;
-  travelPx: number;
-  driftY: number;
-  scaleBase: number;
-  scaleSwing: number;
-  opacityBase: number;
-  scrubWeight: number;
-  depth: number;
-}
-
-const CLOUD_VEIL_LAYERS: CloudVeilLayer[] = [
-  {
-    id: "layer-a",
-    className: "absolute inset-x-[-12%] top-[6%] h-[18%] bg-[radial-gradient(ellipse_at_50%_50%,rgba(255,255,255,0.42),rgba(255,255,255,0.22)_34%,rgba(255,255,255,0)_72%)] blur-[30px]",
-    speed: 1.08,
-    phase: 0.04,
-    travelPx: 320,
-    driftY: 12,
-    scaleBase: 1,
-    scaleSwing: 0.08,
-    opacityBase: 1,
-    scrubWeight: 0.84,
-    depth: 0.86,
-  },
-  {
-    id: "layer-b",
-    className: "absolute right-[-8%] top-[16%] h-[22%] w-[36%] bg-[radial-gradient(ellipse_at_50%_50%,rgba(255,255,255,0.26),rgba(255,255,255,0.12)_38%,rgba(255,255,255,0)_74%)] blur-[34px]",
-    speed: 1.56,
-    phase: 0.27,
-    travelPx: 290,
-    driftY: 8,
-    scaleBase: 0.96,
-    scaleSwing: 0.11,
-    opacityBase: 0.78,
-    scrubWeight: 1,
-    depth: 1.02,
-  },
-  {
-    id: "layer-c",
-    className: "absolute left-[-6%] top-[14%] h-[20%] w-[42%] bg-[radial-gradient(ellipse_at_50%_50%,rgba(255,255,255,0.24),rgba(255,255,255,0.1)_36%,rgba(255,255,255,0)_74%)] blur-[36px]",
-    speed: 1.32,
-    phase: 0.52,
-    travelPx: 340,
-    driftY: 14,
-    scaleBase: 0.98,
-    scaleSwing: 0.1,
-    opacityBase: 0.74,
-    scrubWeight: 0.9,
-    depth: 0.92,
-  },
-  {
-    id: "layer-d",
-    className: "absolute left-[24%] top-[10%] h-[16%] w-[28%] bg-[radial-gradient(ellipse_at_50%_50%,rgba(255,255,255,0.21),rgba(255,255,255,0.09)_34%,rgba(255,255,255,0)_74%)] blur-[28px]",
-    speed: 1.86,
-    phase: 0.81,
-    travelPx: 250,
-    driftY: 7,
-    scaleBase: 0.88,
-    scaleSwing: 0.08,
-    opacityBase: 0.62,
-    scrubWeight: 1.18,
-    depth: 1.22,
-  },
-  {
-    id: "layer-e",
-    className: "absolute left-[-14%] top-[18%] h-[24%] w-[48%] bg-[radial-gradient(ellipse_at_50%_50%,rgba(255,255,255,0.28),rgba(255,255,255,0.12)_36%,rgba(255,255,255,0)_76%)] blur-[42px]",
-    speed: 0.94,
-    phase: 0.18,
-    travelPx: 380,
-    driftY: 16,
-    scaleBase: 1.08,
-    scaleSwing: 0.09,
-    opacityBase: 0.58,
-    scrubWeight: 0.78,
-    depth: 0.74,
-  },
-  {
-    id: "layer-f",
-    className: "absolute right-[-10%] top-[4%] h-[19%] w-[33%] bg-[radial-gradient(ellipse_at_50%_50%,rgba(255,255,255,0.24),rgba(255,255,255,0.1)_34%,rgba(255,255,255,0)_74%)] blur-[32px]",
-    speed: 2.12,
-    phase: 0.63,
-    travelPx: 230,
-    driftY: 10,
-    scaleBase: 0.9,
-    scaleSwing: 0.1,
-    opacityBase: 0.5,
-    scrubWeight: 1.12,
-    depth: 1.16,
-  },
-  {
-    id: "layer-g",
-    className: "absolute inset-x-[-20%] top-[2%] h-[24%] bg-[radial-gradient(ellipse_at_50%_50%,rgba(255,255,255,0.32),rgba(255,255,255,0.14)_30%,rgba(255,255,255,0)_72%)] blur-[48px]",
-    speed: 0.74,
-    phase: 0.39,
-    travelPx: 440,
-    driftY: 18,
-    scaleBase: 1.12,
-    scaleSwing: 0.08,
-    opacityBase: 0.46,
-    scrubWeight: 0.66,
-    depth: 0.58,
-  },
-  {
-    id: "layer-h",
-    className: "absolute left-[10%] top-[8%] h-[17%] w-[34%] bg-[radial-gradient(ellipse_at_50%_50%,rgba(255,255,255,0.28),rgba(255,255,255,0.12)_34%,rgba(255,255,255,0)_76%)] blur-[26px]",
-    speed: 2.36,
-    phase: 0.11,
-    travelPx: 310,
-    driftY: 9,
-    scaleBase: 0.9,
-    scaleSwing: 0.12,
-    opacityBase: 0.52,
-    scrubWeight: 1.32,
-    depth: 1.3,
-  },
-  {
-    id: "layer-i",
-    className: "absolute right-[4%] top-[20%] h-[18%] w-[30%] bg-[radial-gradient(ellipse_at_50%_50%,rgba(255,255,255,0.22),rgba(255,255,255,0.08)_34%,rgba(255,255,255,0)_76%)] blur-[24px]",
-    speed: 2.64,
-    phase: 0.58,
-    travelPx: 260,
-    driftY: 6,
-    scaleBase: 0.84,
-    scaleSwing: 0.11,
-    opacityBase: 0.44,
-    scrubWeight: 1.48,
-    depth: 1.42,
-  },
-];
-
-function clamp01(value: number) {
-  return Math.max(0, Math.min(1, value));
-}
-
-function smoothstep(edge0: number, edge1: number, x: number) {
-  const t = clamp01((x - edge0) / (edge1 - edge0));
-  return t * t * (3 - 2 * t);
-}
-
-function wrap01(value: number) {
-  return value - Math.floor(value);
-}
-
-function wrapCentered(value: number, span: number) {
-  return ((((value % span) + span) % span) - span / 2);
-}
 
 function VignetteOverlay() {
   return (
@@ -266,83 +110,6 @@ function VignetteOverlay() {
   );
 }
 
-function CloudVeilOverlay({
-  active,
-  cleared,
-  sunT,
-  scrubMotion,
-}: {
-  active: boolean;
-  cleared: boolean;
-  sunT: number;
-  scrubMotion: CloudScrubMotion;
-}) {
-  const cloudLayers = useMemo(() => {
-    return CLOUD_VEIL_LAYERS.flatMap((layer, index) => {
-      const panoramicTime = sunT * (1.45 + layer.depth * 0.95) + scrubMotion.velocity * (0.2 + layer.depth * 0.08);
-      const stride = 460 + layer.depth * 180 + index * 18;
-      const pan = wrapCentered(panoramicTime * layer.travelPx * 4.8, stride);
-      const densityBoost = 1 + scrubMotion.energy * (0.28 + layer.depth * 0.04);
-      const lift = scrubMotion.lift * (8 + layer.depth * 7);
-
-      return [-1, 0, 1, 2].map((copy, copyIndex) => {
-        const copyPhase = panoramicTime + layer.phase + copy * 0.18;
-        const bob = Math.sin(copyPhase * Math.PI * 2 + index * 0.7);
-        const swell = (Math.cos(copyPhase * Math.PI * 2.2 + copyIndex * 0.9) + 1) * 0.5;
-        const localSweep = Math.sin(copyPhase * Math.PI * 1.2 + copy * 0.4) * (18 + layer.depth * 12);
-        const xOffset = pan + copy * stride + localSweep + scrubMotion.velocity * layer.scrubWeight * 180;
-        const yOffset =
-          bob * (layer.driftY + copyIndex * 1.8) +
-          Math.cos(copyPhase * Math.PI * 2.8 + index * 0.35) * (3 + layer.depth * 2.6) -
-          lift * (0.45 + copyIndex * 0.08);
-        const scale =
-          layer.scaleBase +
-          (copyIndex - 1) * 0.032 +
-          swell * (0.08 + layer.depth * 0.025) +
-          scrubMotion.energy * (0.075 + layer.depth * 0.018);
-        const opacity = Math.max(
-          0.16,
-          layer.opacityBase *
-            (0.82 - copyIndex * 0.1) *
-            (0.78 + swell * 0.24) *
-            densityBoost,
-        );
-
-        return {
-          ...layer,
-          id: `${layer.id}-band-${copyIndex}`,
-          xOffset,
-          yOffset,
-          scale,
-          opacity,
-        };
-      });
-    });
-  }, [scrubMotion.energy, scrubMotion.lift, scrubMotion.velocity, sunT]);
-
-  return (
-    <div
-      className={`pointer-events-none absolute inset-0 z-[2] transition-opacity duration-700 ${
-        cleared ? "opacity-0" : active ? "opacity-35" : "opacity-100"
-      }`}
-    >
-      {cloudLayers.map((layer) => {
-        return (
-          <div
-            key={layer.id}
-            className={`${layer.className} transition-opacity duration-200 ease-linear`}
-            style={{
-              opacity: layer.opacity,
-              transform: `translate3d(${layer.xOffset}px, ${layer.yOffset}px, 0) scale(${layer.scale})`,
-              transformOrigin: "50% 50%",
-              willChange: "transform, opacity",
-            }}
-          />
-        );
-      })}
-    </div>
-  );
-}
 
 function ViewerControlsHint({ minimized = false }: { minimized?: boolean }) {
   return (
@@ -750,11 +517,6 @@ export function CesiumPublicViewer() {
   const [cloudSwooshTick, setCloudSwooshTick] = useState(0);
   const [cloudsCleared, setCloudsCleared] = useState(false);
   const [isCloudSwooshing, setIsCloudSwooshing] = useState(false);
-  const [cloudScrubMotion, setCloudScrubMotion] = useState<CloudScrubMotion>({
-    velocity: 0,
-    energy: 0,
-    lift: 0,
-  });
   const [isSceneReady, setIsSceneReady] = useState(false);
   const [showSkeleton, setShowSkeleton] = useState(true);
   const [error, setError] = useState("");
@@ -770,9 +532,47 @@ export function CesiumPublicViewer() {
   const sunTRef = useRef(0.5);
   const nightCleanupRef = useRef<(() => void) | null>(null);
   const prevIsSunModeRef = useRef(false);
+
+  const cloudDials = useDialKit("Clouds", {
+    windSpeed: [13, 0, 20],
+    noiseDetail: [32, 8, 64],
+    brightness: [1.0, 0.3, 1.0],
+    show: true,
+    low: {
+      count: [18, 0, 30],
+      altMin: [280, 100, 800],
+      altMax: [490, 300, 1200],
+      scaleW: [1340, 200, 3000],
+      scaleH: [510, 80, 800],
+      maxX: [70, 30, 200],
+      maxY: [66, 15, 100],
+      maxZ: [28, 10, 60],
+    },
+    mid: {
+      count: [15, 0, 25],
+      altMin: [830, 500, 1500],
+      altMax: [1690, 800, 2500],
+      scaleW: [1590, 400, 4000],
+      scaleH: [350, 50, 500],
+      maxX: [140, 40, 250],
+      maxY: [60, 20, 120],
+      maxZ: [25, 8, 50],
+    },
+    high: {
+      count: [12, 0, 20],
+      altMin: [1750, 1000, 3000],
+      altMax: [2400, 1500, 4000],
+      scaleW: [2200, 600, 5000],
+      scaleH: [120, 30, 300],
+      maxX: [200, 50, 300],
+      maxY: [85, 25, 150],
+      maxZ: [18, 5, 40],
+    },
+  });
+  const cloudDialsRef = useRef(cloudDials);
+  cloudDialsRef.current = cloudDials;
   const prevManualNightModeRef = useRef(false);
   const isSunArcInteractingRef = useRef(false);
-  const cloudScrubResetTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     sunTRef.current = sunT;
@@ -801,27 +601,7 @@ export function CesiumPublicViewer() {
 
   const handleSunTime = useCallback(
     (t: number) => {
-      const delta = t - sunTRef.current;
       setSunT(t);
-
-      if (isSunArcInteractingRef.current && Math.abs(delta) > 0.0005) {
-        const deltaAbs = Math.abs(delta);
-
-        if (cloudScrubResetTimeoutRef.current != null) {
-          window.clearTimeout(cloudScrubResetTimeoutRef.current);
-        }
-
-        setCloudScrubMotion((prev) => ({
-          velocity: CesiumMath.clamp(prev.velocity * 0.22 + delta * 42, -CLOUD_SCRUB_OFFSET_LIMIT, CLOUD_SCRUB_OFFSET_LIMIT),
-          energy: CesiumMath.clamp(prev.energy * 0.4 + deltaAbs * 30, 0, 1),
-          lift: CesiumMath.clamp(prev.lift * 0.38 + deltaAbs * 22, 0, 1),
-        }));
-
-        cloudScrubResetTimeoutRef.current = window.setTimeout(() => {
-          setCloudScrubMotion({ velocity: 0, energy: 0, lift: 0 });
-          cloudScrubResetTimeoutRef.current = null;
-        }, 260);
-      }
 
       if (manualNightMode) {
         return;
@@ -879,9 +659,6 @@ export function CesiumPublicViewer() {
     return () => {
       if (cloudSwooshTimeoutRef.current != null) {
         window.clearTimeout(cloudSwooshTimeoutRef.current);
-      }
-      if (cloudScrubResetTimeoutRef.current != null) {
-        window.clearTimeout(cloudScrubResetTimeoutRef.current);
       }
     };
   }, []);
@@ -978,9 +755,128 @@ export function CesiumPublicViewer() {
     );
 
     viewerRef.current = viewer;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).__cesiumViewer = viewer;
 
     // Google Earth-style wheel/right-drag zoom + auto-tilt
     cleanupZoomRef.current = setupGoogleEarthNavigation(viewer, isFlyingRef);
+
+    // 3D cumulus clouds in layers around Jose Ignacio
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cloudCollection = new (CloudCollection as any)();
+    cloudCollection.noiseDetail = cloudDialsRef.current.noiseDetail;
+    viewer.scene.primitives.add(cloudCollection);
+
+    const centerLon = JOSE_IGNACIO_CENTER.lon;
+    const centerLat = JOSE_IGNACIO_CENTER.lat;
+
+    function seededRandom(seed: number) {
+      const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+      return x - Math.floor(x);
+    }
+
+    interface CloudInst {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      cloud: any;
+      layer: "low" | "mid" | "high";
+      latOffset: number;
+      altFrac: number;
+      speedFrac: number;
+      scaleFrac: number;
+      baseLon: number;
+    }
+
+    type LayerKey = "low" | "mid" | "high";
+    const LAYER_KEYS: LayerKey[] = ["low", "mid", "high"];
+    // Higher layers drift faster, wider spread
+    const LAYER_SPREAD: Record<LayerKey, number> = { low: 0.03, mid: 0.045, high: 0.06 };
+    const LAYER_SPEED_MULT: Record<LayerKey, number> = { low: 1, mid: 1.4, high: 2.2 };
+
+    let cloudInstances: CloudInst[] = [];
+    let lastLayerCounts = { low: 0, mid: 0, high: 0 };
+
+    function rebuildClouds() {
+      cloudCollection.removeAll();
+      cloudInstances = [];
+      const dials = cloudDialsRef.current;
+      let seedBase = 0;
+
+      for (const layer of LAYER_KEYS) {
+        const ld = dials[layer];
+        const count = Math.round(ld.count);
+        const spread = LAYER_SPREAD[layer];
+
+        for (let i = 0; i < count; i++) {
+          const lonOff = (seededRandom(seedBase + i * 2) - 0.5) * spread * 2;
+          const latOff = (seededRandom(seedBase + i * 2 + 1) - 0.5) * spread * 2;
+          const altFrac = seededRandom(seedBase + i * 3 + 7);
+          const speedFrac = 0.6 + seededRandom(seedBase + i * 5 + 13) * 0.8;
+          const scaleFrac = 0.7 + seededRandom(seedBase + i * 7 + 17) * 0.6;
+          const alt = ld.altMin + altFrac * (ld.altMax - ld.altMin);
+
+          const cloud = cloudCollection.add({
+            position: Cartesian3.fromDegrees(centerLon + lonOff, centerLat + latOff, alt),
+            scale: new Cartesian2(ld.scaleW * scaleFrac, ld.scaleH * scaleFrac),
+            maximumSize: new Cartesian3(ld.maxX * scaleFrac, ld.maxY * scaleFrac, ld.maxZ * scaleFrac),
+            color: Color.WHITE,
+            brightness: dials.brightness,
+            slice: -1,
+          });
+
+          cloudInstances.push({ cloud, layer, latOffset: latOff, altFrac, speedFrac, scaleFrac, baseLon: centerLon + lonOff });
+        }
+        seedBase += 100;
+        lastLayerCounts[layer] = count;
+      }
+    }
+
+    const WRAP_RANGE = 0.10;
+    let lastCloudTime = performance.now();
+    const removeCloudUpdate = viewer.scene.preUpdate.addEventListener(() => {
+      const dials = cloudDialsRef.current;
+      cloudCollection.show = dials.show;
+      if (!dials.show) return;
+
+      // Update noise detail live
+      cloudCollection.noiseDetail = dials.noiseDetail;
+
+      // Check if any layer count changed
+      let needsRebuild = false;
+      for (const layer of LAYER_KEYS) {
+        if (Math.round(dials[layer].count) !== lastLayerCounts[layer]) {
+          needsRebuild = true;
+          break;
+        }
+      }
+      if (needsRebuild) rebuildClouds();
+
+      const now = performance.now();
+      const dt = (now - lastCloudTime) / 1000;
+      lastCloudTime = now;
+      const windDeg = dials.windSpeed * 0.00001;
+
+      for (const inst of cloudInstances) {
+        const ld = dials[inst.layer];
+        const speedMult = LAYER_SPEED_MULT[inst.layer];
+
+        inst.baseLon += dt * windDeg * inst.speedFrac * speedMult;
+        const offset = inst.baseLon - centerLon;
+        if (offset > WRAP_RANGE) inst.baseLon -= WRAP_RANGE * 2;
+        else if (offset < -WRAP_RANGE) inst.baseLon += WRAP_RANGE * 2;
+
+        const alt = ld.altMin + inst.altFrac * (ld.altMax - ld.altMin);
+        inst.cloud.position = Cartesian3.fromDegrees(inst.baseLon, centerLat + inst.latOffset, alt);
+        inst.cloud.scale = new Cartesian2(ld.scaleW * inst.scaleFrac, ld.scaleH * inst.scaleFrac);
+        inst.cloud.maximumSize = new Cartesian3(
+          ld.maxX * inst.scaleFrac,
+          ld.maxY * inst.scaleFrac,
+          ld.maxZ * inst.scaleFrac,
+        );
+        inst.cloud.brightness = dials.brightness;
+      }
+    });
+
+    rebuildClouds();
 
     const updateOverlayPositionsFromScene = () => {
       updateOverlayPositions(
@@ -1115,6 +1011,7 @@ export function CesiumPublicViewer() {
         window.cancelAnimationFrame(loadTilesetFrameId);
       }
       removeInitialTilesLoadedListener?.();
+      removeCloudUpdate?.();
       hoverParcel(null);
       selectParcel(null);
       updatePillPositions([], null);
@@ -1389,14 +1286,7 @@ export function CesiumPublicViewer() {
       >
         <div ref={containerRef} className="absolute inset-0 touch-none" />
         {!isNightMode && <VignetteOverlay />}
-        {!isNightMode && (
-          <CloudVeilOverlay
-            active={isCloudSwooshing}
-            cleared={cloudsCleared}
-            sunT={sunT}
-            scrubMotion={cloudScrubMotion}
-          />
-        )}
+        {/* Cesium CloudCollection - tuned via DialKit panel */}
         {sunDimOpacity > 0 && (
           <div
             className="pointer-events-none absolute inset-0 bg-black"
