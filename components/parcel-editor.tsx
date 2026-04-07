@@ -194,7 +194,7 @@ export function ParcelEditor() {
     view.fit(extent, {
       padding: [72, 72, 72, 408],
       duration: 360,
-      maxZoom: 19.5,
+      maxZoom: 18,
     });
   }, []);
 
@@ -355,7 +355,7 @@ export function ParcelEditor() {
       center: fromLonLat([JOSE_IGNACIO_CENTER.lon, JOSE_IGNACIO_CENTER.lat]),
       zoom: 17.2,
       minZoom: 13,
-      maxZoom: 22,
+      maxZoom: 19,
     });
 
     const map = new Map({
