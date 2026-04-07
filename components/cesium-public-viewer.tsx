@@ -1338,6 +1338,7 @@ export function CesiumPublicViewer() {
             sunT={sunT}
             onSunT={handleSunTime}
             onInteractionChange={setIsSunArcInteracting}
+            isNight={sunArcNight}
           />
         )}
       </div>

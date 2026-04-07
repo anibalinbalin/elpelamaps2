@@ -38,27 +38,24 @@ function tToTimeString(t: number): string {
   return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
-// t ≥ DUSK_T → show moon, activate night shader
-// t where sun reaches horizon: (SUNSET_HOUR=20.25 - 6) / 18 ≈ 0.792
-const DUSK_T = 0.79; // moon appears as sun dips below the horizon
-
 export interface SunArcDrawerProps {
   sunT: number;
   onSunT: (t: number) => void;
   onInteractionChange?: (interacting: boolean) => void;
+  /** When true the drawer shows the moon icon; driven by the viewer's hysteresis logic */
+  isNight?: boolean;
 }
 
 export function SunArcDrawer({
   sunT,
   onSunT,
   onInteractionChange,
+  isNight = false,
 }: SunArcDrawerProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const draggingRef = useRef(false);
   const [hintSeen, setHintSeen] = useState(false);
   const uid = useId().replace(/:/g, "");
-
-  const isNight = sunT >= DUSK_T;
   const [bx, by] = bezierPoint(sunT);
 
   const handlePointerDown = useCallback(
