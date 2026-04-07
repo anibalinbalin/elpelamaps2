@@ -52,6 +52,7 @@ const CLOUD_MOTION_PRESETS: Record<
 };
 
 const CLOUD_BANKS: CloudBankSpec[] = [
+  // Large sprawling cumulus
   {
     position: [-260, 900, -340],
     drift: [90, 55],
@@ -60,12 +61,14 @@ const CLOUD_BANKS: CloudBankSpec[] = [
     speed: 0.045,
     phase: 0.2,
     sprites: [
-      { offset: [0, 0, 0], scale: [1380, 740], opacity: 0.28 },
-      { offset: [-280, -40, 90], scale: [920, 540], opacity: 0.21 },
-      { offset: [260, 50, -120], scale: [1020, 560], opacity: 0.19 },
-      { offset: [70, 120, 120], scale: [760, 440], opacity: 0.16 },
+      { offset: [0, 0, 0], scale: [1680, 880], opacity: 0.3 },
+      { offset: [-340, -50, 110], scale: [1120, 640], opacity: 0.22 },
+      { offset: [300, 60, -140], scale: [1260, 680], opacity: 0.2 },
+      { offset: [80, 140, 140], scale: [920, 520], opacity: 0.17 },
+      { offset: [-140, 100, -60], scale: [740, 400], opacity: 0.13 },
     ],
   },
+  // Small tight puff
   {
     position: [360, 860, 180],
     drift: [70, 95],
@@ -74,12 +77,12 @@ const CLOUD_BANKS: CloudBankSpec[] = [
     speed: 0.037,
     phase: 1.1,
     sprites: [
-      { offset: [0, 0, 0], scale: [1160, 640], opacity: 0.24 },
-      { offset: [-240, 40, -100], scale: [820, 470], opacity: 0.18 },
-      { offset: [280, -60, 120], scale: [940, 540], opacity: 0.19 },
-      { offset: [120, 110, -80], scale: [660, 380], opacity: 0.14 },
+      { offset: [0, 0, 0], scale: [680, 380], opacity: 0.22 },
+      { offset: [-120, 30, -50], scale: [480, 280], opacity: 0.16 },
+      { offset: [140, -30, 60], scale: [540, 320], opacity: 0.17 },
     ],
   },
+  // Medium elongated wisp
   {
     position: [980, 960, -520],
     drift: [110, 70],
@@ -88,12 +91,13 @@ const CLOUD_BANKS: CloudBankSpec[] = [
     speed: 0.032,
     phase: 2.4,
     sprites: [
-      { offset: [0, 0, 0], scale: [1420, 760], opacity: 0.25 },
-      { offset: [-340, 60, 120], scale: [940, 530], opacity: 0.18 },
-      { offset: [310, -20, -90], scale: [1020, 560], opacity: 0.19 },
-      { offset: [90, 130, 110], scale: [780, 430], opacity: 0.14 },
+      { offset: [0, 0, 0], scale: [1820, 540], opacity: 0.2 },
+      { offset: [-420, 40, 100], scale: [1200, 380], opacity: 0.15 },
+      { offset: [380, -20, -80], scale: [1340, 420], opacity: 0.16 },
+      { offset: [100, 80, 90], scale: [900, 320], opacity: 0.11 },
     ],
   },
+  // Tiny distant wisp
   {
     position: [-1080, 830, 620],
     drift: [60, 90],
@@ -102,10 +106,8 @@ const CLOUD_BANKS: CloudBankSpec[] = [
     speed: 0.041,
     phase: 3.3,
     sprites: [
-      { offset: [0, 0, 0], scale: [1100, 620], opacity: 0.22 },
-      { offset: [240, 40, -110], scale: [820, 450], opacity: 0.16 },
-      { offset: [-260, -30, 90], scale: [780, 440], opacity: 0.16 },
-      { offset: [40, 110, 130], scale: [600, 350], opacity: 0.12 },
+      { offset: [0, 0, 0], scale: [520, 300], opacity: 0.18 },
+      { offset: [160, 20, -60], scale: [380, 220], opacity: 0.13 },
     ],
   },
 ];
