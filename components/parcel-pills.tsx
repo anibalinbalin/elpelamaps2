@@ -65,19 +65,19 @@ function ParcelMarker({
       <div
         className={`relative overflow-hidden rounded-[22px] border shadow-[0_18px_45px_rgba(5,17,28,0.24),0_6px_18px_rgba(5,17,28,0.14)] transition-[border-color,background-color,color,box-shadow,transform] duration-300 ${
           selected
-            ? "border-cyan-200/30 bg-[linear-gradient(180deg,rgba(26,48,61,0.94),rgba(14,28,38,0.9))] text-white max-sm:border-cyan-600/20 max-sm:bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(240,248,255,0.93))] max-sm:text-slate-900 max-sm:shadow-[0_12px_36px_rgba(0,0,0,0.10),0_4px_12px_rgba(0,0,0,0.06)]"
-            : "border-white/10 bg-[linear-gradient(180deg,rgba(38,40,43,0.92),rgba(23,25,28,0.88))] text-white/88 max-sm:border-black/8 max-sm:bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(245,245,247,0.9))] max-sm:text-slate-800 max-sm:shadow-[0_12px_36px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)]"
+            ? "border-cyan-200/30 bg-[linear-gradient(180deg,rgba(26,48,61,0.94),rgba(14,28,38,0.9))] text-white max-sm:border-slate-400/25 max-sm:bg-[linear-gradient(180deg,rgba(215,218,224,0.94),rgba(195,200,210,0.9))] max-sm:text-slate-900 max-sm:shadow-[0_12px_36px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.07)]"
+            : "border-white/10 bg-[linear-gradient(180deg,rgba(38,40,43,0.92),rgba(23,25,28,0.88))] text-white/88 max-sm:border-slate-400/18 max-sm:bg-[linear-gradient(180deg,rgba(210,212,218,0.92),rgba(190,194,204,0.88))] max-sm:text-slate-800 max-sm:shadow-[0_12px_36px_rgba(0,0,0,0.10),0_4px_12px_rgba(0,0,0,0.05)]"
         }`}
       >
         <div
           className={`absolute inset-0 ${
             selected
-              ? "bg-[linear-gradient(180deg,rgba(158,241,255,0.14),rgba(158,241,255,0.04)_42%,rgba(255,255,255,0)_100%)] max-sm:bg-[linear-gradient(180deg,rgba(0,180,220,0.06),rgba(0,180,220,0.02)_42%,rgba(255,255,255,0)_100%)]"
-              : "bg-[linear-gradient(180deg,rgba(255,255,255,0.1),rgba(255,255,255,0.03)_42%,rgba(255,255,255,0)_100%)] max-sm:bg-[linear-gradient(180deg,rgba(255,255,255,0.5),rgba(255,255,255,0.1)_42%,rgba(255,255,255,0)_100%)]"
+              ? "bg-[linear-gradient(180deg,rgba(158,241,255,0.14),rgba(158,241,255,0.04)_42%,rgba(255,255,255,0)_100%)] max-sm:bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.06)_42%,rgba(255,255,255,0)_100%)]"
+              : "bg-[linear-gradient(180deg,rgba(255,255,255,0.1),rgba(255,255,255,0.03)_42%,rgba(255,255,255,0)_100%)] max-sm:bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.06)_42%,rgba(255,255,255,0)_100%)]"
           }`}
         />
-        <div className="absolute inset-x-0 top-0 h-px bg-white/10 max-sm:bg-white/60" />
-        <div className="absolute inset-[1px] rounded-[21px] ring-1 ring-inset ring-white/4 max-sm:ring-black/[0.03]" />
+        <div className="absolute inset-x-0 top-0 h-px bg-white/10 max-sm:bg-white/30" />
+        <div className="absolute inset-[1px] rounded-[21px] ring-1 ring-inset ring-white/4 max-sm:ring-white/10" />
         <div
           className={`relative min-w-[96px] px-3.5 py-2.5 text-center ${
             selected ? "scale-100" : "scale-[0.98]"
