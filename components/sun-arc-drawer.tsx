@@ -19,10 +19,13 @@ function bezierPoint(t: number): [number, number] {
   ];
 }
 
-/** Convert clientX drag position to arc t value [0,1] */
+/** Convert clientX drag position to arc t value, clamped to usable range */
+const T_MIN = 0.02;
+const T_MAX = 0.98;
 function clientXToT(clientX: number, svgEl: SVGSVGElement): number {
   const rect = svgEl.getBoundingClientRect();
-  return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  const raw = (clientX - rect.left) / rect.width;
+  return Math.max(T_MIN, Math.min(T_MAX, raw));
 }
 
 /** Format arc t value as a locale time string (6:00 AM → 12:00 AM) */

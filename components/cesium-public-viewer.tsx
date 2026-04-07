@@ -25,7 +25,6 @@ import {
   type Entity,
 } from "cesium";
 import { CloudCollection } from "@/lib/cesium-clouds";
-import { useDialKit } from "dialkit";
 import { applyNightMode, recreateNightShader, getMaskPixels, MASK_BOUNDS_LON_LAT, MASK_SIZE, NIGHT_SHADER } from "@/lib/night-mode";
 import { SunArcDrawer } from "@/components/sun-arc-drawer";
 import { timeToSunAngles } from "@/lib/sun-position";
@@ -544,13 +543,7 @@ export function CesiumPublicViewer() {
   const cloudDialsRef = useRef(cloudDials);
   cloudDialsRef.current = cloudDials;
 
-  const nightCloudDials = useDialKit("Night Clouds", {
-    red: [0.24, 0, 1],
-    green: [0.33, 0, 1],
-    blue: [0.57, 0, 1],
-    brightness: [0.66, 0.01, 1],
-    opacity: [0.98, 0, 1],
-  });
+  const nightCloudDials = { red: 0.24, green: 0.33, blue: 0.57, brightness: 0.66, opacity: 0.98 };
   const nightCloudDialsRef = useRef(nightCloudDials);
   nightCloudDialsRef.current = nightCloudDials;
   const prevManualNightModeRef = useRef(false);
@@ -907,7 +900,7 @@ export function CesiumPublicViewer() {
           inst.cloud.show = true;
           const fadeBrightness = isSwooshing ? 1 - eased * 0.55 : 1;
 
-          // Night mode: tint and dim clouds via DialKit-tunable values
+          // Night mode: tint and dim clouds
           const night = isNightModeRef.current;
           const nd = nightCloudDialsRef.current;
           const baseBrightness = night ? nd.brightness : dials.brightness;
@@ -1268,6 +1261,11 @@ export function CesiumPublicViewer() {
 
   useEffect(() => {
     if (prevIsSunModeRef.current && !isSunMode) {
+      // Closing sun mode while arc is at night: preserve night via manual toggle
+      if (sunArcNight) {
+        setManualNightMode(true);
+      }
+
       // Restore default night shader uniforms when sun mode is dismissed
       try {
         NIGHT_SHADER.setUniform("u_sunAzimuth", 0.0);
@@ -1287,7 +1285,6 @@ export function CesiumPublicViewer() {
         viewer.clock.currentTime = arcTToJulianDate(DEFAULT_VIEWER_SKY_T);
       }
 
-      // Reset sun arc night state so manual 🌙 toggle is unaffected
       setSunArcNight(false);
     }
 
@@ -1330,7 +1327,6 @@ export function CesiumPublicViewer() {
       >
         <div ref={containerRef} className="absolute inset-0 touch-none" />
         {!isNightMode && <VignetteOverlay />}
-        {/* Cesium CloudCollection - tuned via DialKit panel */}
         {sunDimOpacity > 0 && (
           <div
             className="pointer-events-none absolute inset-0 bg-black"
@@ -1359,7 +1355,17 @@ export function CesiumPublicViewer() {
           isNightMode={isNightMode}
           onToggleNightMode={() => setManualNightMode((v) => !v)}
           isSunMode={isSunMode}
-          onToggleSunMode={() => setIsSunMode((v) => !v)}
+          onToggleSunMode={() => {
+            const turningOn = !isSunMode;
+            if (turningOn && manualNightMode) {
+              // Entering sun mode from night: position arc at night, let arc drive
+              const nightT = 0.88;
+              setSunT(nightT);
+              sunTRef.current = nightT;
+              setManualNightMode(false);
+            }
+            setIsSunMode(turningOn);
+          }}
         />
         <ParcelPillsOverlay positions={pillPositions} />
         <ParcelSidebar />
