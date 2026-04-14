@@ -533,7 +533,7 @@ export function CesiumPublicViewer() {
 
   const cloudDials = {
     windSpeed: 13,
-    noiseDetail: 1,
+    noiseDetail: 10,
     brightness: 1.0,
     show: true,
     low: { count: 18, altMin: 280, altMax: 490, scaleW: 1340, scaleH: 510, maxX: 70, maxY: 66, maxZ: 28 },
