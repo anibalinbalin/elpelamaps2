@@ -153,20 +153,9 @@ export function ParcelEditor() {
       const source = sourceRef.current;
       if (!source) return;
 
-      const seen = new Set<Feature<Geometry>>();
-      const allFeatures: Feature<Geometry>[] = [];
-      for (const feature of source.getFeatures()) {
-        if (seen.has(feature)) continue;
-        seen.add(feature);
-        allFeatures.push(feature);
-      }
-      if (extraFeatures) {
-        for (const feature of extraFeatures) {
-          if (seen.has(feature)) continue;
-          seen.add(feature);
-          allFeatures.push(feature);
-        }
-      }
+      const allFeatures = Array.from(
+        new Set<Feature<Geometry>>([...source.getFeatures(), ...(extraFeatures ?? [])]),
+      );
       const collection = serializeFeatures(allFeatures, geoJsonRef.current);
       setParcelCollection(collection);
 
@@ -271,7 +260,7 @@ export function ParcelEditor() {
   }, []);
 
   const handleDone = useCallback(() => {
-    if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+    if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
     applyEditorMode("select");
