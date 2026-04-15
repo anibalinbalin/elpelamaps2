@@ -94,6 +94,8 @@ export function ParcelEditor() {
 
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
+  const parcelItemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
   const selectedParcel = useMemo(
     () =>
       selectedId
@@ -129,7 +131,13 @@ export function ParcelEditor() {
       return;
     }
 
-    if (pendingNameFocusIdRef.current !== selectedParcel.properties.id) {
+    const id = selectedParcel.properties.id;
+    const listItem = parcelItemRefs.current[id];
+    if (listItem) {
+      listItem.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+
+    if (pendingNameFocusIdRef.current !== id) {
       return;
     }
 
@@ -145,9 +153,20 @@ export function ParcelEditor() {
       const source = sourceRef.current;
       if (!source) return;
 
-      const allFeatures = extraFeatures
-        ? [...source.getFeatures(), ...extraFeatures]
-        : source.getFeatures();
+      const seen = new Set<Feature<Geometry>>();
+      const allFeatures: Feature<Geometry>[] = [];
+      for (const feature of source.getFeatures()) {
+        if (seen.has(feature)) continue;
+        seen.add(feature);
+        allFeatures.push(feature);
+      }
+      if (extraFeatures) {
+        for (const feature of extraFeatures) {
+          if (seen.has(feature)) continue;
+          seen.add(feature);
+          allFeatures.push(feature);
+        }
+      }
       const collection = serializeFeatures(allFeatures, geoJsonRef.current);
       setParcelCollection(collection);
 
@@ -250,6 +269,14 @@ export function ParcelEditor() {
       }
     }
   }, []);
+
+  const handleDone = useCallback(() => {
+    if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    applyEditorMode("select");
+    void saveParcels("Saved parcel changes.");
+  }, [applyEditorMode, saveParcels]);
 
   const loadParcels = useCallback(async (keepSelection = false) => {
     const source = sourceRef.current;
@@ -607,6 +634,16 @@ export function ParcelEditor() {
           >
             Reset
           </button>
+          {dirty && (
+            <button
+              type="button"
+              onClick={handleDone}
+              disabled={saveState === "saving"}
+              className="ml-auto rounded-[18px] bg-[#38e7be] px-4 py-2 text-[13px] font-semibold text-[#0b1015] shadow-[0_12px_28px_rgba(56,231,190,0.28)] transition-colors duration-200 hover:bg-[#5cf0cd] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {saveState === "saving" ? "Saving..." : "Done"}
+            </button>
+          )}
         </div>
 
         <div className="mt-3 rounded-[22px] border border-white/8 bg-white/[0.04] px-4 py-3 text-[12px] leading-5 text-white/68">
@@ -652,12 +689,20 @@ export function ParcelEditor() {
 
                 {parcelList.map((feature) => {
                   const active = feature.properties.id === selectedId;
+                  const parcelId = feature.properties.id;
 
                   return (
-                    <div key={feature.properties.id} className="flex items-stretch gap-2">
+                    <div key={parcelId} className="flex items-stretch gap-2">
                       <button
                         type="button"
-                        onClick={() => selectParcelById(feature.properties.id)}
+                        ref={(node) => {
+                          if (node) {
+                            parcelItemRefs.current[parcelId] = node;
+                          } else {
+                            delete parcelItemRefs.current[parcelId];
+                          }
+                        }}
+                        onClick={() => selectParcelById(parcelId)}
                         className={`block min-w-0 flex-1 rounded-[18px] border px-4 py-3 text-left transition-colors duration-200 ${
                           active
                             ? "border-[#38e7be]/38 bg-[#38e7be]/12 text-white"
