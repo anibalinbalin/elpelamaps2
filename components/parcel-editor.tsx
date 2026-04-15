@@ -2,6 +2,14 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  ArrowLeft01Icon,
+  Delete02Icon,
+  Maximize01Icon,
+  ReloadIcon,
+  Tick02Icon,
+} from "@hugeicons/core-free-icons";
 import type Feature from "ol/Feature";
 import GeoJSON from "ol/format/GeoJSON";
 import type Geometry from "ol/geom/Geometry";
@@ -596,66 +604,85 @@ export function ParcelEditor() {
         </div>
       </div>
 
-      <aside className="pointer-events-auto absolute inset-y-4 left-4 z-20 flex w-[380px] flex-col rounded-[30px] border border-white/10 bg-[rgba(16,20,25,0.92)] p-4 shadow-[0_32px_90px_rgba(3,10,16,0.42)] backdrop-blur-xl">
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => applyEditorMode("draw")}
-            className={`rounded-[18px] px-4 py-2 text-[13px] font-semibold transition-colors duration-200 ${
-              editorMode === "draw"
-                ? "bg-[#2a8f74] text-white"
-                : "border border-white/10 bg-white/[0.04] text-white/78 hover:border-white/16 hover:bg-white/[0.08] hover:text-white"
-            }`}
-          >
-            New Parcel
-          </button>
-          <button
-            type="button"
-            onClick={() => applyEditorMode("select")}
-            className={`rounded-[18px] px-4 py-2 text-[13px] font-semibold transition-colors duration-200 ${
-              editorMode === "select"
-                ? "bg-white/[0.14] text-white"
-                : "border border-white/10 bg-white/[0.04] text-white/78 hover:border-white/16 hover:bg-white/[0.08] hover:text-white"
-            }`}
-          >
-            Select
-          </button>
+      <aside
+        data-focused={selectedId ? "true" : "false"}
+        className="pointer-events-auto absolute inset-y-4 left-4 z-20 flex w-[408px] flex-col rounded-[16px] bg-[#0f1218]/94 p-[18px] shadow-[0_24px_64px_-12px_rgba(0,0,0,0.55)] backdrop-blur-2xl"
+      >
+        {/* Command strip */}
+        <div className="flex h-[44px] items-center gap-2">
+          <div className="relative flex h-full items-center rounded-full bg-[#161b23] p-1">
+            <div
+              aria-hidden
+              className="absolute left-1 top-1 bottom-1 w-[84px] rounded-full bg-[#38e7be] transition-transform duration-[180ms] ease-out"
+              style={{
+                transform: editorMode === "draw" ? "translateX(0)" : "translateX(84px)",
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => applyEditorMode("draw")}
+              className={`relative z-10 h-full w-[84px] rounded-full text-[13px] font-semibold transition-colors duration-[160ms] ease-out active:scale-[0.97] ${
+                editorMode === "draw" ? "text-[#0b1015]" : "text-white/72 hover:text-white"
+              }`}
+            >
+              Draw
+            </button>
+            <button
+              type="button"
+              onClick={() => applyEditorMode("select")}
+              className={`relative z-10 h-full w-[84px] rounded-full text-[13px] font-semibold transition-colors duration-[160ms] ease-out active:scale-[0.97] ${
+                editorMode === "select" ? "text-[#0b1015]" : "text-white/72 hover:text-white"
+              }`}
+            >
+              Select
+            </button>
+          </div>
+
           <button
             type="button"
             onClick={() => fitToFeatures(Boolean(selectedId))}
-            className="rounded-[18px] border border-white/10 bg-white/[0.04] px-4 py-2 text-[13px] font-semibold text-white/78 transition-colors duration-200 hover:border-white/16 hover:bg-white/[0.08] hover:text-white"
+            title={selectedId ? "Fit selected" : "Fit parcels"}
+            className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#161b23] text-white/72 transition-colors duration-[160ms] ease-out hover:bg-[#1d2530] hover:text-white active:scale-[0.97]"
           >
-            {selectedId ? "Fit Selected" : "Fit Parcels"}
+            <HugeiconsIcon icon={Maximize01Icon} size={16} strokeWidth={1.8} />
           </button>
           <button
             type="button"
             onClick={() => loadParcels(false)}
-            className="rounded-[18px] border border-white/10 bg-white/[0.04] px-4 py-2 text-[13px] font-semibold text-white/78 transition-colors duration-200 hover:border-white/16 hover:bg-white/[0.08] hover:text-white"
+            title="Reset"
+            className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#161b23] text-white/72 transition-colors duration-[160ms] ease-out hover:bg-[#1d2530] hover:text-white active:scale-[0.97]"
           >
-            Reset
+            <HugeiconsIcon icon={ReloadIcon} size={16} strokeWidth={1.8} />
           </button>
-          {dirty && (
-            <button
-              type="button"
-              onClick={handleDone}
-              disabled={saveState === "saving"}
-              className="ml-auto rounded-[18px] bg-[#38e7be] px-4 py-2 text-[13px] font-semibold text-[#0b1015] shadow-[0_12px_28px_rgba(56,231,190,0.28)] transition-colors duration-200 hover:bg-[#5cf0cd] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {saveState === "saving" ? "Saving..." : "Done"}
-            </button>
-          )}
-        </div>
+          <Link
+            href="/viewer"
+            title="Back to Viewer"
+            className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#161b23] text-white/72 transition-colors duration-[160ms] ease-out hover:bg-[#1d2530] hover:text-white active:scale-[0.97]"
+          >
+            <HugeiconsIcon icon={ArrowLeft01Icon} size={16} strokeWidth={1.8} />
+          </Link>
 
-        <div className="mt-3 rounded-[22px] border border-white/8 bg-white/[0.04] px-4 py-3 text-[12px] leading-5 text-white/68">
-          Click a parcel to edit it, drag vertices for geometry changes, and use New Parcel for new boundaries. Changes save automatically when you leave a parcel. Snapping is active against all parcel edges.
+          <div className="ml-auto flex items-center">
+            {dirty && (
+              <button
+                type="button"
+                onClick={handleDone}
+                disabled={saveState === "saving"}
+                className="editor-field-in flex h-9 items-center gap-1.5 rounded-[10px] bg-[#38e7be] px-3.5 text-[13px] font-semibold text-[#0b1015] transition-colors duration-[160ms] ease-out hover:bg-[#5cf0cd] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <HugeiconsIcon icon={Tick02Icon} size={14} strokeWidth={2.2} />
+                {saveState === "saving" ? "Saving" : "Done"}
+              </button>
+            )}
+          </div>
         </div>
 
         {saveMessage && (
           <div
-            className={`mt-3 rounded-[18px] px-4 py-3 text-[12px] ${
+            className={`mt-[14px] rounded-[10px] px-3 py-2.5 text-[12px] ${
               saveState === "error"
-                ? "border border-red-400/30 bg-red-400/[0.08] text-red-200"
-                : "border border-white/8 bg-white/[0.04] text-white/70"
+                ? "bg-red-500/10 text-red-200"
+                : "bg-[#161b23] text-white/72"
             }`}
           >
             {saveMessage}
@@ -663,207 +690,261 @@ export function ParcelEditor() {
         )}
 
         {error && (
-          <div className="mt-3 rounded-[18px] border border-red-400/30 bg-red-400/[0.08] px-4 py-3 text-[12px] text-red-200">
+          <div className="mt-[14px] rounded-[10px] bg-red-500/10 px-3 py-2.5 text-[12px] text-red-200">
             {error}
           </div>
         )}
 
-        <div className="mt-4 flex min-h-0 flex-1 gap-4">
-          <div className="flex min-h-0 w-[156px] flex-col">
-            <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">
-              Parcels
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-              <div className="space-y-2">
-                {loading && parcelList.length === 0 && (
-                  <div className="rounded-[18px] border border-white/8 bg-white/[0.03] px-4 py-4 text-[12px] text-white/52">
-                    Loading parcel data...
-                  </div>
-                )}
+        {/* Section label */}
+        <div className="mt-[18px] mb-2 flex items-baseline justify-between">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/48">
+            Parcels
+          </span>
+          <span className="text-[11px] tabular-nums text-white/32">
+            {parcelList.length}
+          </span>
+        </div>
 
-                {!loading && parcelList.length === 0 && (
-                  <div className="rounded-[18px] border border-white/8 bg-white/[0.03] px-4 py-4 text-[12px] text-white/52">
-                    No parcels loaded.
-                  </div>
-                )}
-
-                {parcelList.map((feature) => {
-                  const active = feature.properties.id === selectedId;
-                  const parcelId = feature.properties.id;
-
-                  return (
-                    <div key={parcelId} className="flex items-stretch gap-2">
-                      <button
-                        type="button"
-                        ref={(node) => {
-                          if (node) {
-                            parcelItemRefs.current[parcelId] = node;
-                          } else {
-                            delete parcelItemRefs.current[parcelId];
-                          }
-                        }}
-                        onClick={() => selectParcelById(parcelId)}
-                        className={`block min-w-0 flex-1 rounded-[18px] border px-4 py-3 text-left transition-colors duration-200 ${
-                          active
-                            ? "border-[#38e7be]/38 bg-[#38e7be]/12 text-white"
-                            : "border-white/8 bg-white/[0.03] text-white/70 hover:border-white/14 hover:bg-white/[0.06] hover:text-white"
-                        }`}
-                      >
-                        <div className="truncate text-[12px] font-semibold tracking-[-0.01em]">
-                          {feature.properties.name}
-                        </div>
-                        <div className="mt-1 text-[10px] uppercase tracking-[0.18em] text-white/40">
-                          {feature.properties.id}
-                        </div>
-                        <div className="mt-2 text-[11px] text-white/56">
-                          {formatAreaCompact(feature.properties.areaSqMeters)}
-                        </div>
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`Delete ${feature.properties.name}`}
-                        title={`Delete ${feature.properties.name}`}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          deleteParcelById(feature.properties.id);
-                        }}
-                        className={`flex w-11 shrink-0 items-center justify-center rounded-[16px] border transition-colors duration-200 ${
-                          active
-                            ? "border-[#38e7be]/26 bg-[#38e7be]/10 text-[#c7fff1] hover:bg-[#38e7be]/16"
-                            : "border-white/8 bg-white/[0.03] text-white/48 hover:border-white/14 hover:bg-white/[0.06] hover:text-white/78"
-                        }`}
-                      >
-                        <TrashCanIcon />
-                      </button>
-                    </div>
-                  );
-                })}
+        {/* List zone */}
+        <div
+          className={`overflow-y-auto pr-1 transition-[max-height] duration-[280ms] ease-[cubic-bezier(0.2,0.9,0.3,1)] ${
+            selectedId
+              ? "max-h-[220px] flex-none"
+              : "min-h-0 max-h-[9999px] flex-1"
+          }`}
+        >
+          <div className="space-y-1.5">
+            {loading && parcelList.length === 0 && (
+              <div className="rounded-[10px] bg-[#161b23] px-3 py-3 text-[12px] text-white/48">
+                Loading parcel data…
               </div>
-            </div>
-          </div>
+            )}
 
-          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-            <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">
-              Selection
-            </div>
-
-            {!selectedParcel ? (
-              <div className="rounded-[22px] border border-dashed border-white/10 bg-white/[0.03] px-5 py-6 text-[13px] leading-6 text-white/54">
-                Select a parcel to adjust its geometry and metadata. New parcels land here immediately after drawing.
+            {!loading && parcelList.length === 0 && (
+              <div className="rounded-[10px] bg-[#161b23] px-3 py-3 text-[12px] text-white/48">
+                No parcels loaded.
               </div>
-            ) : (
-              <div className="space-y-3 rounded-[24px] border border-white/8 bg-white/[0.035] p-4">
-                <div className="rounded-[18px] border border-white/8 bg-white/[0.03] px-4 py-3">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/38">
-                    Area
-                  </div>
-                  <div className="mt-1 text-[15px] font-semibold tracking-[-0.02em] text-white">
-                    {formatArea(selectedParcel.properties.areaSqMeters)}
-                  </div>
-                </div>
+            )}
 
-                <label className="block">
-                  <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.22em] text-white/38">
-                    Name
-                  </span>
-                  <input
-                    ref={nameInputRef}
-                    value={selectedParcel.properties.name}
-                    onChange={(event) => updateSelectedParcelProperty("name", event.target.value)}
-                    placeholder="Parcel name"
-                    className="w-full rounded-[18px] border border-white/10 bg-white/[0.05] px-4 py-3 text-[14px] text-white outline-none transition-colors duration-200 focus:border-white/18 focus:bg-white/[0.08]"
-                  />
-                </label>
+            {parcelList.map((feature) => {
+              const active = feature.properties.id === selectedId;
+              const dimmed = Boolean(selectedId) && !active;
+              const parcelId = feature.properties.id;
 
-                <label className="block">
-                  <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.22em] text-white/38">
-                    Status
-                  </span>
-                  <select
-                    value={selectedParcel.properties.status ?? "for-sale"}
-                    onChange={(event) =>
-                      updateSelectedParcelProperty(
-                        "status",
-                        event.target.value as ParcelProperties["status"],
-                      )
-                    }
-                    className="w-full rounded-[18px] border border-white/10 bg-white/[0.05] px-4 py-3 text-[14px] text-white outline-none transition-colors duration-200 focus:border-white/18 focus:bg-white/[0.08]"
+              return (
+                <div
+                  key={parcelId}
+                  className={`group relative flex items-center transition-opacity duration-[220ms] ease-out ${
+                    dimmed ? "opacity-[0.38]" : "opacity-100"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    ref={(node) => {
+                      if (node) {
+                        parcelItemRefs.current[parcelId] = node;
+                      } else {
+                        delete parcelItemRefs.current[parcelId];
+                      }
+                    }}
+                    onClick={() => selectParcelById(parcelId)}
+                    className={`relative flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-left transition-colors duration-[160ms] ease-out active:scale-[0.99] ${
+                      active
+                        ? "bg-[#1d2530] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                        : "bg-[#161b23] text-white/72 hover:bg-[#1d2530] hover:text-white"
+                    }`}
                   >
-                    <option value="for-sale">For Sale</option>
-                    <option value="reserved">Reserved</option>
-                    <option value="sold">Sold</option>
-                  </select>
-                </label>
+                    {active && (
+                      <span
+                        aria-hidden
+                        className="absolute left-0 top-2 bottom-2 w-[2px] rounded-full bg-[#38e7be]"
+                      />
+                    )}
+                    <span className="min-w-0 flex-1 truncate text-[14px] font-medium">
+                      {feature.properties.name}
+                    </span>
+                    <span className="shrink-0 text-[12px] tabular-nums text-white/48">
+                      {formatAreaCompact(feature.properties.areaSqMeters)}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Delete ${feature.properties.name}`}
+                    title={`Delete ${feature.properties.name}`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      deleteParcelById(feature.properties.id);
+                    }}
+                    className="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-white/32 opacity-0 transition-all duration-[160ms] ease-out hover:bg-[#1d2530] hover:text-white/72 focus-visible:opacity-100 group-hover:opacity-100 active:scale-[0.92]"
+                  >
+                    <HugeiconsIcon icon={Delete02Icon} size={15} strokeWidth={1.8} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
-                <label className="block">
-                  <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.22em] text-white/38">
+        {/* Inspector zone */}
+        <div
+          className={`mt-[14px] ${
+            selectedId ? "min-h-0 flex-1 overflow-y-auto pr-1" : "flex-none"
+          }`}
+        >
+          {!selectedParcel ? (
+            <div className="rounded-[10px] bg-[#161b23] px-3 py-3 text-[12px] leading-5 text-white/48">
+              Select a parcel to edit its metadata, or draw a new one.
+            </div>
+          ) : (
+            <div key={selectedParcel.properties.id} className="space-y-4">
+              {/* Hero: name + area + status */}
+              <div
+                className="editor-field-in space-y-2"
+                style={{ animationDelay: "40ms" }}
+              >
+                <input
+                  ref={nameInputRef}
+                  value={selectedParcel.properties.name}
+                  onChange={(event) =>
+                    updateSelectedParcelProperty("name", event.target.value)
+                  }
+                  placeholder="Untitled parcel"
+                  className="w-full bg-transparent text-[18px] font-semibold tracking-[-0.01em] text-white outline-none placeholder:text-white/32"
+                />
+                <div className="flex items-baseline gap-3">
+                  <span className="text-[26px] font-semibold tracking-[-0.02em] tabular-nums text-white">
+                    {formatArea(selectedParcel.properties.areaSqMeters)}
+                  </span>
+                </div>
+                <div className="flex rounded-full bg-[#161b23] p-1">
+                  {(["for-sale", "reserved", "sold"] as const).map((status) => {
+                    const current =
+                      (selectedParcel.properties.status ?? "for-sale") === status;
+                    const label =
+                      status === "for-sale"
+                        ? "For Sale"
+                        : status === "reserved"
+                          ? "Reserved"
+                          : "Sold";
+                    return (
+                      <button
+                        key={status}
+                        type="button"
+                        onClick={() =>
+                          updateSelectedParcelProperty("status", status)
+                        }
+                        className={`flex-1 rounded-full py-1.5 text-[12px] font-medium transition-colors duration-[160ms] ease-out active:scale-[0.97] ${
+                          current
+                            ? "bg-[#1d2530] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                            : "text-white/48 hover:text-white/72"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Field grid */}
+              <div className="space-y-3">
+                <label
+                  className="editor-field-in block"
+                  style={{ animationDelay: "80ms" }}
+                >
+                  <span className="mb-1 block text-[11px] text-white/48">
                     Price USD
                   </span>
-                  <input
-                    type="number"
-                    value={selectedParcel.properties.priceUSD ?? ""}
-                    onChange={(event) =>
-                      updateSelectedParcelProperty(
-                        "priceUSD",
-                        event.target.value === "" ? undefined : Number(event.target.value),
-                      )
-                    }
-                    className="w-full rounded-[18px] border border-white/10 bg-white/[0.05] px-4 py-3 text-[14px] text-white outline-none transition-colors duration-200 focus:border-white/18 focus:bg-white/[0.08]"
-                  />
+                  <div className="flex items-center rounded-[10px] bg-[#161b23] transition-colors duration-[160ms] focus-within:bg-[#1d2530] focus-within:ring-1 focus-within:ring-[#38e7be]/40">
+                    <span className="pl-3 text-[14px] text-white/48">$</span>
+                    <input
+                      type="number"
+                      value={selectedParcel.properties.priceUSD ?? ""}
+                      onChange={(event) =>
+                        updateSelectedParcelProperty(
+                          "priceUSD",
+                          event.target.value === ""
+                            ? undefined
+                            : Number(event.target.value),
+                        )
+                      }
+                      placeholder="0"
+                      className="w-full bg-transparent px-2 py-2.5 text-[14px] tabular-nums text-white outline-none placeholder:text-white/32"
+                    />
+                  </div>
                 </label>
 
-                <label className="block">
-                  <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.22em] text-white/38">
+                <label
+                  className="editor-field-in block"
+                  style={{ animationDelay: "120ms" }}
+                >
+                  <span className="mb-1 block text-[11px] text-white/48">
                     Zoning
                   </span>
                   <input
                     value={selectedParcel.properties.zoning ?? ""}
-                    onChange={(event) => updateSelectedParcelProperty("zoning", event.target.value || undefined)}
-                    className="w-full rounded-[18px] border border-white/10 bg-white/[0.05] px-4 py-3 text-[14px] text-white outline-none transition-colors duration-200 focus:border-white/18 focus:bg-white/[0.08]"
+                    onChange={(event) =>
+                      updateSelectedParcelProperty(
+                        "zoning",
+                        event.target.value || undefined,
+                      )
+                    }
+                    placeholder="Residential"
+                    className="w-full rounded-[10px] bg-[#161b23] px-3 py-2.5 text-[14px] text-white outline-none transition-colors duration-[160ms] placeholder:text-white/32 focus:bg-[#1d2530] focus:ring-1 focus:ring-[#38e7be]/40"
                   />
                 </label>
 
-                <label className="block">
-                  <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.22em] text-white/38">
+                <label
+                  className="editor-field-in block"
+                  style={{ animationDelay: "160ms" }}
+                >
+                  <span className="mb-1 block text-[11px] text-white/48">
                     Contact URL
                   </span>
                   <input
                     value={selectedParcel.properties.contactUrl ?? ""}
                     onChange={(event) =>
-                      updateSelectedParcelProperty("contactUrl", event.target.value || undefined)
+                      updateSelectedParcelProperty(
+                        "contactUrl",
+                        event.target.value || undefined,
+                      )
                     }
-                    className="w-full rounded-[18px] border border-white/10 bg-white/[0.05] px-4 py-3 text-[14px] text-white outline-none transition-colors duration-200 focus:border-white/18 focus:bg-white/[0.08]"
+                    placeholder="wa.me/…"
+                    className="w-full rounded-[10px] bg-[#161b23] px-3 py-2.5 text-[14px] text-white outline-none transition-colors duration-[160ms] placeholder:text-white/32 focus:bg-[#1d2530] focus:ring-1 focus:ring-[#38e7be]/40"
                   />
                 </label>
 
-                <label className="block">
-                  <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.22em] text-white/38">
+                <label
+                  className="editor-field-in block"
+                  style={{ animationDelay: "200ms" }}
+                >
+                  <span className="mb-1 block text-[11px] text-white/48">
                     Description
                   </span>
                   <textarea
                     value={selectedParcel.properties.description ?? ""}
                     onChange={(event) =>
-                      updateSelectedParcelProperty("description", event.target.value || undefined)
+                      updateSelectedParcelProperty(
+                        "description",
+                        event.target.value || undefined,
+                      )
                     }
-                    rows={5}
-                    className="w-full resize-none rounded-[18px] border border-white/10 bg-white/[0.05] px-4 py-3 text-[14px] text-white outline-none transition-colors duration-200 focus:border-white/18 focus:bg-white/[0.08]"
+                    rows={3}
+                    placeholder="Notes, highlights, access details…"
+                    className="w-full resize-none rounded-[10px] bg-[#161b23] px-3 py-2.5 text-[14px] leading-5 text-white outline-none transition-colors duration-[160ms] placeholder:text-white/32 focus:bg-[#1d2530] focus:ring-1 focus:ring-[#38e7be]/40"
                   />
                 </label>
-
-                <div className="rounded-[18px] border border-white/8 bg-white/[0.03] px-4 py-3 text-[11px] leading-5 text-white/54">
-                  Parcel ID remains stable after creation so external references do not break. Geometry edits automatically recalculate area before save.
-                </div>
               </div>
-            )}
-          </div>
-        </div>
 
-        <a
-          href="/viewer"
-          className="mt-3 flex items-center justify-center rounded-[18px] border border-white/10 bg-white/[0.04] px-4 py-3 text-[13px] font-semibold text-white/68 transition-colors duration-200 hover:border-white/16 hover:bg-white/[0.08] hover:text-white"
-        >
-          Back to Viewer
-        </a>
+              <div
+                className="editor-field-in text-[11px] text-white/32"
+                style={{ animationDelay: "240ms" }}
+              >
+                Saves automatically · ID is permanent
+              </div>
+            </div>
+          )}
+        </div>
       </aside>
     </div>
   );
@@ -984,25 +1065,4 @@ function closeRing(ring: [number, number][]): [number, number][] {
 
 function getFeatureId(feature: Feature<Geometry>): string {
   return String(feature.get("id") ?? feature.getId() ?? "");
-}
-
-function TrashCanIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className="h-[18px] w-[18px]"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M4 7h16" />
-      <path d="M9 3h6" />
-      <path d="M7 7l1 12h8l1-12" />
-      <path d="M10 11v5" />
-      <path d="M14 11v5" />
-    </svg>
-  );
 }

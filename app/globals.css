@@ -5,12 +5,12 @@ html,
 body {
   height: 100%;
   margin: 0;
-  overflow: hidden;
   background: #0a0a0a;
 }
 
 body {
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 .cloud-swoosh-icon {
@@ -104,6 +104,21 @@ body {
   animation: sun-arc-enter 220ms cubic-bezier(0.215, 0.61, 0.355, 1) both;
 }
 
+@keyframes editor-field-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.editor-field-in {
+  animation: editor-field-in 200ms ease-out both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cloud-swoosh-icon {
     animation: none !important;
@@ -112,6 +127,10 @@ body {
   }
 
   .sun-arc-enter {
+    animation: none;
+  }
+
+  .editor-field-in {
     animation: none;
   }
 }
