@@ -1,25 +1,47 @@
 import type { Metadata } from "next";
+import localFont from "next/font/local";
 import { DevTools } from "@/components/dev-tools";
 
 import { VersionBadge } from "@/components/version-badge";
 import "./globals.css";
 
+const baselClassic = localFont({
+  src: "./fonts/Basel-Classic-Bold-Italic.woff2",
+  variable: "--font-display",
+  weight: "635",
+  style: "italic",
+  display: "swap",
+});
+
+const baselGrotesk = localFont({
+  src: "./fonts/Basel-Grotesk-Book.woff2",
+  variable: "--font-sans",
+  weight: "485",
+  style: "normal",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: {
-    default: "José Ignacio Lotes Demo",
-    template: "%s | José Ignacio Lotes Demo",
+    default: "Elpela",
+    template: "%s | Elpela",
   },
-  description: "Explore premium land parcels in José Ignacio, Uruguay in immersive 3D.",
+  description:
+    "Elpela helps buyers choose premium land with more clarity, confidence, and emotional precision.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es">
+    <html lang="en" className={`${baselClassic.variable} ${baselGrotesk.variable}`}>
       <body className="antialiased">
         {children}
-        <VersionBadge />
 
-        {process.env.NODE_ENV === "development" && <DevTools />}
+        {process.env.NODE_ENV === "development" && (
+          <>
+            <VersionBadge />
+            <DevTools />
+          </>
+        )}
       </body>
     </html>
   );
