@@ -1,6 +1,6 @@
 {
   "name": "elpela2",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "description": "",
   "private": true,
   "scripts": {
@@ -25,6 +25,7 @@
     "@types/node": "^25.5.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@upstash/redis": "^1.37.0",
     "3d-tiles-renderer": "^0.4.22",
     "agentation": "^3.0.2",
     "cesium": "^1.139.1",

@@ -1,31 +1,26 @@
-import { readFile, rename, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { NextResponse } from "next/server";
+import { isStoreConfigured, readBinary, writeBinary } from "@/lib/upstash-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MASK_FILE_PATH = path.join(process.cwd(), "data", "living-world-mask.png");
+const REDIS_KEY = "mapsmaps:living-world-mask";
+const SEED_FILE = "data/living-world-mask.png";
+
+const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const EMPTY_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "base64",
+);
 
 export async function GET() {
-  try {
-    const buf = await readFile(MASK_FILE_PATH);
-    return new NextResponse(buf, {
-      headers: {
-        "Content-Type": "image/png",
-        "Cache-Control": "no-store",
-      },
-    });
-  } catch {
-    // Return a 1x1 transparent PNG if file doesn't exist yet
-    const EMPTY_PNG = Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
-      "base64",
-    );
-    return new NextResponse(EMPTY_PNG, {
-      headers: { "Content-Type": "image/png" },
-    });
-  }
+  const buf = (await readBinary(REDIS_KEY, SEED_FILE)) ?? EMPTY_PNG;
+  return new NextResponse(new Uint8Array(buf), {
+    headers: {
+      "Content-Type": "image/png",
+      "Cache-Control": "no-store",
+    },
+  });
 }
 
 export async function PUT(request: Request) {
@@ -35,16 +30,18 @@ export async function PUT(request: Request) {
   }
 
   const buf = Buffer.from(body);
-
-  // Verify PNG magic bytes
-  const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   if (buf.compare(PNG_MAGIC, 0, 8, 0, 8) !== 0) {
     return NextResponse.json({ error: "Not a valid PNG file" }, { status: 400 });
   }
 
-  const tempPath = `${MASK_FILE_PATH}.tmp`;
-  await writeFile(tempPath, buf);
-  await rename(tempPath, MASK_FILE_PATH);
+  if (!isStoreConfigured()) {
+    return NextResponse.json(
+      { error: "Persistence is not configured on this deployment." },
+      { status: 503 },
+    );
+  }
+
+  await writeBinary(REDIS_KEY, buf);
 
   return NextResponse.json({ ok: true, size: buf.byteLength });
 }

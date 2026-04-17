@@ -1,12 +1,12 @@
-import { readFile, rename, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { NextResponse } from "next/server";
 import type { NightZoneCollection, NightZoneFeature } from "@/lib/night-zones";
+import { isStoreConfigured, readJson, writeJson } from "@/lib/upstash-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ZONES_FILE_PATH = path.join(process.cwd(), "data", "night-zones.json");
+const REDIS_KEY = "mapsmaps:night-zones";
+const SEED_FILE = "data/night-zones.json";
 
 function isZoneFeature(value: unknown): value is NightZoneFeature {
   if (!value || typeof value !== "object") return false;
@@ -34,19 +34,17 @@ function parseCollection(value: unknown): NightZoneCollection | null {
   return c;
 }
 
-async function readZonesFromDisk(): Promise<NightZoneCollection> {
+async function readZones(): Promise<NightZoneCollection> {
   try {
-    const raw = await readFile(ZONES_FILE_PATH, "utf8");
-    const parsed = parseCollection(JSON.parse(raw));
-    if (!parsed) throw new Error("Invalid night-zones.json");
-    return parsed;
+    const raw = await readJson<unknown>(REDIS_KEY, SEED_FILE);
+    return parseCollection(raw) ?? { type: "FeatureCollection", features: [] };
   } catch {
     return { type: "FeatureCollection", features: [] };
   }
 }
 
 export async function GET() {
-  return NextResponse.json(await readZonesFromDisk());
+  return NextResponse.json(await readZones());
 }
 
 export async function PUT(request: Request) {
@@ -60,9 +58,14 @@ export async function PUT(request: Request) {
     );
   }
 
-  const tempPath = `${ZONES_FILE_PATH}.tmp`;
-  await writeFile(tempPath, `${JSON.stringify(incoming, null, 2)}\n`, "utf8");
-  await rename(tempPath, ZONES_FILE_PATH);
+  if (!isStoreConfigured()) {
+    return NextResponse.json(
+      { error: "Persistence is not configured on this deployment." },
+      { status: 503 },
+    );
+  }
+
+  await writeJson(REDIS_KEY, incoming);
 
   return NextResponse.json({
     ok: true,

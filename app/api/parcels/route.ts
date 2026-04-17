@@ -1,13 +1,13 @@
-import { readFile, rename, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { NextResponse } from "next/server";
 import type { ParcelCollection, ParcelFeature } from "@/lib/parcels";
 import { mergeParcelCollections } from "@/lib/parcels";
+import { isStoreConfigured, readJson, writeJson } from "@/lib/upstash-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const PARCELS_FILE_PATH = path.join(process.cwd(), "data", "parcels.json");
+const REDIS_KEY = "mapsmaps:parcels";
+const SEED_FILE = "data/parcels.json";
 
 function isParcelFeature(value: unknown): value is ParcelFeature {
   if (!value || typeof value !== "object") return false;
@@ -39,8 +39,17 @@ function parseCollection(value: unknown): ParcelCollection | null {
   return collection;
 }
 
+async function readParcelCollection(): Promise<ParcelCollection> {
+  const raw = await readJson<unknown>(REDIS_KEY, SEED_FILE);
+  const parsed = parseCollection(raw);
+  if (!parsed) {
+    throw new Error("Stored parcels data is not a valid ParcelCollection.");
+  }
+  return parsed;
+}
+
 export async function GET() {
-  return NextResponse.json(await readParcelCollectionFromDisk());
+  return NextResponse.json(await readParcelCollection());
 }
 
 export async function PUT(request: Request) {
@@ -55,13 +64,18 @@ export async function PUT(request: Request) {
     );
   }
 
+  if (!isStoreConfigured()) {
+    return NextResponse.json(
+      { error: "Persistence is not configured on this deployment." },
+      { status: 503 },
+    );
+  }
+
   const merged = mode === "replace"
     ? incoming
-    : mergeParcelCollections(await readParcelCollectionFromDisk(), incoming);
-  const tempPath = `${PARCELS_FILE_PATH}.tmp`;
+    : mergeParcelCollections(await readParcelCollection(), incoming);
 
-  await writeFile(tempPath, `${JSON.stringify(merged, null, 2)}\n`, "utf8");
-  await rename(tempPath, PARCELS_FILE_PATH);
+  await writeJson(REDIS_KEY, merged);
 
   return NextResponse.json({
     ok: true,
@@ -71,15 +85,4 @@ export async function PUT(request: Request) {
       name: feature.properties.name,
     })),
   });
-}
-
-async function readParcelCollectionFromDisk(): Promise<ParcelCollection> {
-  const raw = await readFile(PARCELS_FILE_PATH, "utf8");
-  const parsed = parseCollection(JSON.parse(raw));
-
-  if (!parsed) {
-    throw new Error("data/parcels.json is not a valid ParcelCollection.");
-  }
-
-  return parsed;
 }
