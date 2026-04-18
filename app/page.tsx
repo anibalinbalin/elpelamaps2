@@ -126,7 +126,7 @@ export default function HomePage() {
               <span>request a private demonstration</span>
             </a>
             <Link
-              href="/viewer"
+              href="/viewer-v2"
               className="inline-flex items-center gap-2 rounded-full px-4 py-2 no-underline"
               style={{ background: "#EDEADF", color: "rgba(0,0,0,1)" }}
             >
@@ -285,7 +285,7 @@ export default function HomePage() {
             <span>discuss a project</span>
           </a>
           <Link
-            href="/viewer"
+            href="/viewer-v2"
             className="inline-flex items-center gap-2 rounded-full px-4 py-2 no-underline"
             style={{ background: "#EDEADF", color: "rgba(0,0,0,1)" }}
           >
