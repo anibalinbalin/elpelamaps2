@@ -1,9 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import type { RefObject } from "react";
-import { Matrix4, Vector3 } from "three";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import {
+  BufferGeometry,
+  DoubleSide,
+  Float32BufferAttribute,
+  Line,
+  LineBasicMaterial,
+  Vector3,
+} from "three";
+import { Canvas, useThree } from "@react-three/fiber";
 import { EffectComposer, ToneMapping } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
 import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
@@ -29,6 +36,8 @@ import { Clouds } from "@takram/three-clouds/r3f";
 import { Dithering, LensFlare } from "@takram/three-geospatial-effects/r3f";
 
 import { GOOGLE_MAPS_API_KEY } from "@/lib/constants";
+import type { ParcelCollection, ParcelFeature } from "@/lib/parcels";
+import { formatAreaCompact, formatPrice } from "@/lib/geo-utils";
 
 const DEG2RAD = Math.PI / 180;
 
@@ -89,7 +98,6 @@ function CameraFrame({
   exposure: number;
 }) {
   const { camera, gl } = useThree();
-  const tilesReadyRef = useRef(false);
 
   useEffect(() => {
     gl.toneMappingExposure = exposure;
@@ -114,15 +122,9 @@ function CameraFrame({
       return true;
     };
 
-    if (apply()) {
-      tilesReadyRef.current = true;
-      return;
-    }
+    if (apply()) return;
     const interval = setInterval(() => {
-      if (apply()) {
-        tilesReadyRef.current = true;
-        clearInterval(interval);
-      }
+      if (apply()) clearInterval(interval);
     }, 100);
     return () => clearInterval(interval);
   }, [camera, tilesRef, pose]);
@@ -131,115 +133,223 @@ function CameraFrame({
 }
 
 function hourUTCToTimestamp(hourUTC: number) {
-  return Date.UTC(REFERENCE_YEAR, REFERENCE_MONTH, REFERENCE_DAY) +
-    hourUTC * 3600000;
+  return (
+    Date.UTC(REFERENCE_YEAR, REFERENCE_MONTH, REFERENCE_DAY) + hourUTC * 3600000
+  );
 }
 
-interface CameraReadoutState {
-  lat: number;
-  lon: number;
-  alt: number;
-  heading: number;
-  pitch: number;
+interface ParcelRender {
+  feature: ParcelFeature;
+  line: Line;
+  meshGeom: BufferGeometry;
 }
 
-function CameraReadout({
+function ParcelLayer({
   tilesRef,
-  readoutRef,
+  selectedId,
+  onSelect,
 }: {
   tilesRef: RefObject<TilesRendererImpl | null>;
-  readoutRef: RefObject<CameraReadoutState>;
+  selectedId: string | null;
+  onSelect: (f: ParcelFeature | null) => void;
 }) {
-  const { camera } = useThree();
-  const enuRef = useRef(new Matrix4());
-  const enuInvRef = useRef(new Matrix4());
-  const forwardRef = useRef(new Vector3());
-  const cartRef = useRef({ lat: 0, lon: 0, height: 0 });
-
-  useFrame(() => {
-    const tiles = tilesRef.current;
-    if (!tiles?.ellipsoid) return;
-
-    tiles.ellipsoid.getPositionToCartographic(camera.position, cartRef.current);
-    const { lat, lon, height } = cartRef.current;
-
-    tiles.ellipsoid.getEastNorthUpFrame(lat, lon, 0, enuRef.current);
-    enuInvRef.current.copy(enuRef.current).invert();
-    forwardRef.current.set(0, 0, -1).applyQuaternion(camera.quaternion);
-    forwardRef.current.transformDirection(enuInvRef.current);
-    const fx = forwardRef.current.x;
-    const fy = forwardRef.current.y;
-    const fz = forwardRef.current.z;
-    const horiz = Math.hypot(fx, fy);
-    const headingRad = Math.atan2(fx, fy);
-    const pitchRad = Math.atan2(fz, horiz);
-
-    readoutRef.current = {
-      lat: lat / DEG2RAD,
-      lon: lon / DEG2RAD,
-      alt: height,
-      heading: ((headingRad / DEG2RAD) + 360) % 360,
-      pitch: pitchRad / DEG2RAD,
-    };
-  });
-
-  return null;
-}
-
-function CameraReadoutPanel({
-  readoutRef,
-}: {
-  readoutRef: RefObject<CameraReadoutState>;
-}) {
-  const [state, setState] = useState<CameraReadoutState>(readoutRef.current);
-  const [copied, setCopied] = useState(false);
+  const parcelsRef = useRef<ParcelCollection | null>(null);
+  const [renders, setRenders] = useState<ParcelRender[]>([]);
 
   useEffect(() => {
-    const id = window.setInterval(() => setState({ ...readoutRef.current }), 200);
-    return () => window.clearInterval(id);
-  }, [readoutRef]);
+    fetch("/api/parcels", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data: ParcelCollection) => {
+        parcelsRef.current = data;
+      })
+      .catch(() => {});
+
+    const pos = new Vector3();
+    const interval = setInterval(() => {
+      const tiles = tilesRef.current;
+      const data = parcelsRef.current;
+      if (!tiles?.ellipsoid || !data) return;
+      clearInterval(interval);
+
+      const built: ParcelRender[] = data.features.map((feature) => {
+        const ring = feature.geometry.coordinates[0];
+
+        // Line positions (visual outline — ring is already closed)
+        const linePositions: number[] = [];
+        for (const [lon, lat] of ring) {
+          tiles.ellipsoid.getCartographicToPosition(lat * DEG2RAD, lon * DEG2RAD, 5, pos);
+          linePositions.push(pos.x, pos.y, pos.z);
+        }
+        const lineGeom = new BufferGeometry();
+        lineGeom.setAttribute("position", new Float32BufferAttribute(linePositions, 3));
+        const line = new Line(lineGeom, new LineBasicMaterial({
+          color: 0xfff9e8,
+          opacity: 0.82,
+          transparent: true,
+          depthWrite: false,
+          depthTest: false,
+        }));
+        line.renderOrder = 999;
+
+        // Mesh positions — fan triangulation from vertex 0, skipping closing duplicate
+        const n = ring.length - 1;
+        const verts: Vector3[] = [];
+        for (let i = 0; i < n; i++) {
+          const [lon, lat] = ring[i];
+          const v = new Vector3();
+          tiles.ellipsoid.getCartographicToPosition(lat * DEG2RAD, lon * DEG2RAD, 5, v);
+          verts.push(v);
+        }
+        const meshPos: number[] = [];
+        for (let i = 1; i < n - 1; i++) {
+          meshPos.push(verts[0].x, verts[0].y, verts[0].z);
+          meshPos.push(verts[i].x, verts[i].y, verts[i].z);
+          meshPos.push(verts[i + 1].x, verts[i + 1].y, verts[i + 1].z);
+        }
+        const meshGeom = new BufferGeometry();
+        meshGeom.setAttribute("position", new Float32BufferAttribute(meshPos, 3));
+
+        return { feature, line, meshGeom };
+      });
+
+      setRenders(built);
+    }, 200);
+
+    return () => clearInterval(interval);
+  }, [tilesRef]);
+
+  // Update line color when selection changes
+  useEffect(() => {
+    renders.forEach(({ feature, line }) => {
+      const mat = line.material as LineBasicMaterial;
+      const selected = feature.properties.id === selectedId;
+      mat.color.setHex(selected ? 0xffc96b : 0xfff9e8);
+      mat.opacity = selected ? 1 : 0.82;
+    });
+  }, [renders, selectedId]);
+
+  // Dispose on unmount / re-build
+  useEffect(() => {
+    return () => {
+      renders.forEach(({ line, meshGeom }) => {
+        line.geometry.dispose();
+        (line.material as LineBasicMaterial).dispose();
+        meshGeom.dispose();
+      });
+    };
+  }, [renders]);
 
   return (
-    <div className="pointer-events-auto absolute left-4 top-4 z-20 w-[260px] rounded-2xl border border-white/10 bg-black/55 px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-white/70 shadow-[0_18px_48px_rgba(0,0,0,0.45)] backdrop-blur-xl">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="font-semibold text-white/80">camera</span>
+    <>
+      {renders.map(({ feature, line, meshGeom }) => (
+        <group key={feature.properties.id}>
+          <primitive object={line} />
+          <mesh
+            geometry={meshGeom}
+            renderOrder={999}
+            onPointerEnter={() => { document.body.style.cursor = "pointer"; }}
+            onPointerLeave={() => { document.body.style.cursor = ""; }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect(feature);
+            }}
+          >
+            <meshBasicMaterial
+              transparent
+              opacity={0.001}
+              side={DoubleSide}
+              depthWrite={false}
+              depthTest={false}
+            />
+          </mesh>
+        </group>
+      ))}
+    </>
+  );
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  "for-sale": "text-emerald-400",
+  reserved: "text-amber-400",
+  sold: "text-white/40",
+};
+
+function ParcelCard({
+  parcel,
+  onClose,
+}: {
+  parcel: ParcelFeature;
+  onClose: () => void;
+}) {
+  const p = parcel.properties;
+  return (
+    <div className="pointer-events-auto absolute bottom-4 right-4 z-20 w-72 rounded-2xl border border-white/10 bg-black/65 shadow-[0_18px_48px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+      <div className="flex items-start justify-between px-4 pt-4 pb-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] uppercase tracking-[0.2em] text-white/35">
+              parcel
+            </span>
+            {p.status && (
+              <span
+                className={`text-[9px] uppercase tracking-[0.18em] ${STATUS_COLORS[p.status] ?? "text-white/40"}`}
+              >
+                {p.status}
+              </span>
+            )}
+          </div>
+          <h2 className="mt-1 text-[17px] font-semibold tracking-[-0.01em] text-white">
+            {p.name}
+          </h2>
+        </div>
         <button
           type="button"
-          onClick={() => {
-            const payload = {
-              lat: Number(state.lat.toFixed(6)),
-              lon: Number(state.lon.toFixed(6)),
-              alt: Number(state.alt.toFixed(1)),
-              heading: Number(state.heading.toFixed(2)),
-              pitch: Number(state.pitch.toFixed(2)),
-            };
-            navigator.clipboard
-              .writeText(JSON.stringify(payload, null, 2))
-              .then(() => {
-                setCopied(true);
-                window.setTimeout(() => setCopied(false), 1200);
-              })
-              .catch(() => {});
-          }}
-          className="rounded-full border border-white/15 px-2 py-0.5 text-[9px] tracking-[0.2em] text-white/75 transition-colors hover:border-white/40 hover:text-white"
+          onClick={onClose}
+          className="ml-3 mt-0.5 shrink-0 text-[18px] leading-none text-white/30 transition-colors hover:text-white/70"
         >
-          {copied ? "copied" : "copy"}
+          ×
         </button>
       </div>
-      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-white/85">
-        <dt className="text-white/45">lat</dt>
-        <dd className="text-right tabular-nums">{state.lat.toFixed(6)}</dd>
-        <dt className="text-white/45">lon</dt>
-        <dd className="text-right tabular-nums">{state.lon.toFixed(6)}</dd>
-        <dt className="text-white/45">alt</dt>
-        <dd className="text-right tabular-nums">{state.alt.toFixed(1)}m</dd>
-        <dt className="text-white/45">heading</dt>
-        <dd className="text-right tabular-nums">
-          {state.heading.toFixed(2)}°
-        </dd>
-        <dt className="text-white/45">pitch</dt>
-        <dd className="text-right tabular-nums">{state.pitch.toFixed(2)}°</dd>
-      </dl>
+
+      <div className="border-t border-white/8 px-4 py-3 text-[12px] text-white/60">
+        <div className="flex justify-between">
+          <span className="text-white/35 uppercase tracking-[0.14em] text-[9px]">area</span>
+          <span className="tabular-nums">{formatAreaCompact(p.areaSqMeters)}</span>
+        </div>
+        {p.priceUSD ? (
+          <div className="mt-1.5 flex justify-between">
+            <span className="text-white/35 uppercase tracking-[0.14em] text-[9px]">price</span>
+            <span className="tabular-nums text-white/85 text-[13px] font-medium">
+              {formatPrice(p.priceUSD)}
+            </span>
+          </div>
+        ) : null}
+        {p.zoning ? (
+          <div className="mt-1.5 flex justify-between">
+            <span className="text-white/35 uppercase tracking-[0.14em] text-[9px]">zoning</span>
+            <span>{p.zoning}</span>
+          </div>
+        ) : null}
+      </div>
+
+      {p.description ? (
+        <div className="border-t border-white/8 px-4 py-3">
+          <p className="text-[11px] leading-[1.6] text-white/50">{p.description}</p>
+        </div>
+      ) : null}
+
+      {p.contactUrl ? (
+        <div className="border-t border-white/8 px-4 py-3">
+          <a
+            href={p.contactUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block rounded-lg border border-white/15 py-2 text-center text-[10px] uppercase tracking-[0.18em] text-white/65 transition-colors hover:border-white/30 hover:text-white"
+          >
+            contact
+          </a>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -253,7 +363,9 @@ interface SceneProps {
   shadowFarScale: number;
   shadowSplitLambda: number;
   shadowMapSize: number;
-  readoutRef: RefObject<CameraReadoutState>;
+  showParcels: boolean;
+  selectedParcelId: string | null;
+  onParcelSelect: (f: ParcelFeature | null) => void;
 }
 
 function Scene({
@@ -265,7 +377,9 @@ function Scene({
   shadowFarScale,
   shadowSplitLambda,
   shadowMapSize,
-  readoutRef,
+  showParcels,
+  selectedParcelId,
+  onParcelSelect,
 }: SceneProps) {
   const tilesRef = useRef<TilesRendererImpl | null>(null);
   const timestamp = hourUTCToTimestamp(hourUTC);
@@ -273,7 +387,13 @@ function Scene({
   return (
     <>
       <CameraFrame tilesRef={tilesRef} pose={cameraPose} exposure={exposure} />
-      <CameraReadout tilesRef={tilesRef} readoutRef={readoutRef} />
+      {showParcels && (
+        <ParcelLayer
+          tilesRef={tilesRef}
+          selectedId={selectedParcelId}
+          onSelect={onParcelSelect}
+        />
+      )}
 
       <TilesRenderer ref={tilesRef}>
         <TilesPlugin
@@ -315,126 +435,53 @@ function formatHourLabel(hourLocal: number) {
   return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
 }
 
-interface DialRowProps {
-  label: string;
-  min: number;
-  max: number;
-  step: number;
-  value: number;
-  format?: (v: number) => string;
-  onChange: (v: number) => void;
-  onDoubleClick?: () => void;
-}
-
-function DialRow({
-  label,
-  min,
-  max,
-  step,
-  value,
-  format,
-  onChange,
-  onDoubleClick,
-}: DialRowProps) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-
-  const commit = () => {
-    const parsed = parseFloat(draft);
-    if (!isNaN(parsed)) onChange(Math.min(max, Math.max(min, parsed)));
-    setEditing(false);
-  };
-
-  return (
-    <div className="flex items-center gap-3 text-[10px] uppercase tracking-[0.14em] text-white/65">
-      <span className="w-20 shrink-0">{label}</span>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
-        onDoubleClick={onDoubleClick}
-        className="h-1 flex-1 cursor-pointer appearance-none rounded-full bg-white/10 accent-white/90 outline-none"
-      />
-      {editing ? (
-        <input
-          type="text"
-          autoFocus
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") commit();
-            if (e.key === "Escape") setEditing(false);
-          }}
-          className="w-14 shrink-0 rounded bg-white/10 px-1 text-right tabular-nums text-white/90 outline-none"
-        />
-      ) : (
-        <button
-          type="button"
-          title="Click to enter exact value"
-          onClick={() => { setDraft(String(value)); setEditing(true); }}
-          className="w-14 shrink-0 cursor-text text-right tabular-nums text-white/85 hover:text-white"
-        >
-          {format ? format(value) : value.toFixed(2)}
-        </button>
-      )}
-    </div>
-  );
-}
-
 export function ViewerV2() {
   const [hourLocal, setHourLocal] = useState(DEFAULTS.hourLocal);
-  const [coverage, setCoverage] = useState(DEFAULTS.coverage);
-  const [windSpeed, setWindSpeed] = useState(DEFAULTS.windSpeed);
-  const [exposure, setExposure] = useState(DEFAULTS.exposure);
-  const [cameraPitch, setCameraPitch] = useState(DEFAULTS.cameraPitchDeg);
-  const [cameraAlt, setCameraAlt] = useState(DEFAULTS.cameraAltM);
-  const [cameraHeading, setCameraHeading] = useState(DEFAULTS.cameraHeadingDeg);
+  const [showParcels, setShowParcels] = useState(true);
+  const [selectedParcel, setSelectedParcel] = useState<ParcelFeature | null>(null);
+
   const cameraPose = useMemo<CameraPose>(
     () => ({
       lat: DEFAULTS.cameraLat,
       lon: DEFAULTS.cameraLon,
-      alt: cameraAlt,
-      headingDeg: cameraHeading,
-      pitchDeg: cameraPitch,
+      alt: DEFAULTS.cameraAltM,
+      headingDeg: DEFAULTS.cameraHeadingDeg,
+      pitchDeg: DEFAULTS.cameraPitchDeg,
     }),
-    [cameraAlt, cameraHeading, cameraPitch],
+    [],
   );
-  const [shadowFarScale, setShadowFarScale] = useState(DEFAULTS.shadowFarScale);
-  const [shadowSplitLambda, setShadowSplitLambda] = useState(
-    DEFAULTS.shadowSplitLambda,
-  );
-  const [shadowMapSize, setShadowMapSize] = useState(DEFAULTS.shadowMapSize);
-  const [panelOpen, setPanelOpen] = useState(true);
-  const readoutRef = useRef<CameraReadoutState>({
-    lat: 0,
-    lon: 0,
-    alt: 0,
-    heading: 0,
-    pitch: 0,
-  });
 
   const hourUTC = hourLocal - URUGUAY_UTC_OFFSET_HOURS;
   const timeLabel = formatHourLabel(hourLocal);
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-[#0b1016]">
-      <Canvas gl={{ depth: false }} camera={{ fov: 60, near: 10, far: 1e6 }}>
+      <Canvas
+        gl={{ depth: false }}
+        camera={{ fov: 60, near: 10, far: 1e6 }}
+        onPointerMissed={() => setSelectedParcel(null)}
+      >
         <Scene
           hourUTC={hourUTC}
-          coverage={coverage}
-          windSpeed={windSpeed}
-          exposure={exposure}
+          coverage={DEFAULTS.coverage}
+          windSpeed={DEFAULTS.windSpeed}
+          exposure={DEFAULTS.exposure}
           cameraPose={cameraPose}
-          shadowFarScale={shadowFarScale}
-          shadowSplitLambda={shadowSplitLambda}
-          shadowMapSize={shadowMapSize}
-          readoutRef={readoutRef}
+          shadowFarScale={DEFAULTS.shadowFarScale}
+          shadowSplitLambda={DEFAULTS.shadowSplitLambda}
+          shadowMapSize={DEFAULTS.shadowMapSize}
+          showParcels={showParcels}
+          selectedParcelId={selectedParcel?.properties.id ?? null}
+          onParcelSelect={setSelectedParcel}
         />
       </Canvas>
+
+      {selectedParcel && (
+        <ParcelCard
+          parcel={selectedParcel}
+          onClose={() => setSelectedParcel(null)}
+        />
+      )}
 
       <div className="pointer-events-none absolute inset-x-0 top-6 z-20 flex justify-center">
         <div className="pointer-events-auto flex items-center gap-4 rounded-full border border-white/10 bg-black/45 px-5 py-2 text-[11px] font-medium uppercase tracking-[0.18em] text-white/80 shadow-[0_8px_28px_rgba(0,0,0,0.35)] backdrop-blur-xl">
@@ -453,126 +500,34 @@ export function ViewerV2() {
           <span className="text-[9px] tracking-[0.18em] text-white/40">
             uruguay
           </span>
+          <div className="mx-1 h-3 w-px bg-white/15" />
+          <button
+            type="button"
+            onClick={() => setShowParcels((v) => !v)}
+            className={`rounded-full px-2.5 py-0.5 text-[9px] tracking-[0.18em] transition-colors ${
+              showParcels
+                ? "bg-white/15 text-white"
+                : "text-white/40 hover:text-white/65"
+            }`}
+          >
+            parcels
+          </button>
         </div>
       </div>
 
-      <div className="pointer-events-auto absolute bottom-4 right-4 z-20 w-[320px] overflow-hidden rounded-2xl border border-white/10 bg-black/55 text-white/85 shadow-[0_18px_48px_rgba(0,0,0,0.45)] backdrop-blur-xl">
-        <button
-          type="button"
-          onClick={() => setPanelOpen((v) => !v)}
-          className="flex w-full items-center justify-between px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/75 transition-colors hover:text-white"
+      <div className="pointer-events-none absolute bottom-4 left-4 z-20 flex items-center gap-3 text-[10px] uppercase tracking-[0.22em] text-white/45">
+        <span>
+          viewer v2 · takram atmosphere + clouds · google photorealistic 3d
+          tiles
+        </span>
+        <span className="text-white/20">·</span>
+        <a
+          href="/editor-v2"
+          className="pointer-events-auto text-white/35 transition-colors hover:text-white/60"
         >
-          <span>inspector</span>
-          <span className="text-white/45">{panelOpen ? "–" : "+"}</span>
-        </button>
-        {panelOpen ? (
-          <div className="flex flex-col gap-3 px-4 pb-4">
-            <DialRow
-              label="coverage"
-              min={0}
-              max={0.9}
-              step={0.01}
-              value={coverage}
-              onChange={setCoverage}
-              onDoubleClick={() => setCoverage(DEFAULTS.coverage)}
-              format={(v) => v.toFixed(2)}
-            />
-            <DialRow
-              label="wind"
-              min={0}
-              max={0.01}
-              step={0.0001}
-              value={windSpeed}
-              onChange={setWindSpeed}
-              onDoubleClick={() => setWindSpeed(DEFAULTS.windSpeed)}
-              format={(v) => (v * 1000).toFixed(2)}
-            />
-            <DialRow
-              label="exposure"
-              min={1}
-              max={20}
-              step={0.1}
-              value={exposure}
-              onChange={setExposure}
-              onDoubleClick={() => setExposure(DEFAULTS.exposure)}
-              format={(v) => v.toFixed(1)}
-            />
-            <DialRow
-              label="cam pitch"
-              min={-89}
-              max={-10}
-              step={0.5}
-              value={cameraPitch}
-              onChange={setCameraPitch}
-              onDoubleClick={() => setCameraPitch(DEFAULTS.cameraPitchDeg)}
-              format={(v) => `${v.toFixed(1)}°`}
-            />
-            <DialRow
-              label="cam alt"
-              min={200}
-              max={8000}
-              step={10}
-              value={cameraAlt}
-              onChange={setCameraAlt}
-              onDoubleClick={() => setCameraAlt(DEFAULTS.cameraAltM)}
-              format={(v) => `${v.toFixed(0)}m`}
-            />
-            <DialRow
-              label="cam heading"
-              min={0}
-              max={360}
-              step={1}
-              value={cameraHeading}
-              onChange={setCameraHeading}
-              onDoubleClick={() =>
-                setCameraHeading(DEFAULTS.cameraHeadingDeg)
-              }
-              format={(v) => `${v.toFixed(0)}°`}
-            />
-            <DialRow
-              label="shadow far"
-              min={0.05}
-              max={1}
-              step={0.01}
-              value={shadowFarScale}
-              onChange={setShadowFarScale}
-              onDoubleClick={() => setShadowFarScale(DEFAULTS.shadowFarScale)}
-              format={(v) => v.toFixed(2)}
-            />
-            <DialRow
-              label="split λ"
-              min={0}
-              max={1}
-              step={0.01}
-              value={shadowSplitLambda}
-              onChange={setShadowSplitLambda}
-              onDoubleClick={() =>
-                setShadowSplitLambda(DEFAULTS.shadowSplitLambda)
-              }
-              format={(v) => v.toFixed(2)}
-            />
-            <DialRow
-              label="shadow res"
-              min={128}
-              max={2048}
-              step={128}
-              value={shadowMapSize}
-              onChange={setShadowMapSize}
-              onDoubleClick={() => setShadowMapSize(DEFAULTS.shadowMapSize)}
-              format={(v) => `${v}px`}
-            />
-            <p className="pt-1 text-[9px] uppercase tracking-[0.18em] text-white/35">
-              double-click a dial to reset
-            </p>
-          </div>
-        ) : null}
+          editor
+        </a>
       </div>
-
-      <div className="pointer-events-none absolute bottom-4 left-4 z-20 text-[10px] uppercase tracking-[0.22em] text-white/45">
-        viewer v2 · takram atmosphere + clouds · google photorealistic 3d tiles
-      </div>
-
-      <CameraReadoutPanel readoutRef={readoutRef} />
     </div>
   );
 }
