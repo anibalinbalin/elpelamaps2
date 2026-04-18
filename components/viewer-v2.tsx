@@ -11,7 +11,7 @@ import {
   MeshBasicMaterial,
   Vector3,
 } from "three";
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import { EffectComposer, ToneMapping } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
@@ -179,6 +179,74 @@ const STATUS_PALETTE: Record<string, StatusPalette> = {
   },
 };
 
+const toHex = (n: number) => `#${n.toString(16).padStart(6, "0")}`;
+
+const BADGE_DIST_NEAR = 1500;
+const BADGE_DIST_FAR = 7000;
+
+function ParcelBadge({
+  centroid,
+  label,
+  ariaLabel,
+  status,
+  isSelected,
+  isHovered,
+}: {
+  centroid: Vector3;
+  label: string;
+  ariaLabel: string;
+  status: string;
+  isSelected: boolean;
+  isHovered: boolean;
+}) {
+  const divRef = useRef<HTMLDivElement>(null);
+  const pal = STATUS_PALETTE[status] ?? STATUS_PALETTE["for-sale"];
+  const ringHex = toHex(isSelected ? pal.lineSelected : pal.line);
+  const fillHex = toHex(pal.fillSelected);
+
+  useFrame(({ camera }) => {
+    const el = divRef.current;
+    if (!el) return;
+    const dist = camera.position.distanceTo(centroid);
+    const t = Math.min(
+      1,
+      Math.max(0, (BADGE_DIST_FAR - dist) / (BADGE_DIST_FAR - BADGE_DIST_NEAR))
+    );
+    const distScale = 0.55 + t * 0.45;
+    const stateScale = isSelected ? 1.08 : isHovered ? 1.04 : 1;
+    el.style.transform = `scale(${(distScale * stateScale).toFixed(3)})`;
+    el.style.opacity = t.toFixed(3);
+  });
+
+  const ringWidth = isSelected ? 2 : isHovered ? 1.5 : 1;
+  const background = isSelected
+    ? `${fillHex}d9` // ~85% alpha
+    : "rgba(10, 10, 10, 0.78)";
+  const boxShadow = `0 1px 6px rgba(0,0,0,0.45), inset 0 0 0 ${ringWidth}px ${ringHex}`;
+
+  return (
+    <Html
+      position={centroid}
+      center
+      zIndexRange={[100, 0]}
+      style={{ pointerEvents: "none", userSelect: "none" }}
+    >
+      <div
+        ref={divRef}
+        aria-label={ariaLabel}
+        className="flex size-11 items-center justify-center rounded-full text-sm font-semibold text-white tabular-nums backdrop-blur-sm transition-[background-color,box-shadow] duration-200 ease-out will-change-transform"
+        style={{
+          backgroundColor: background,
+          boxShadow,
+          transformOrigin: "center",
+        }}
+      >
+        {label}
+      </div>
+    </Html>
+  );
+}
+
 function ParcelLayer({
   tilesRef,
   selectedId,
@@ -313,7 +381,9 @@ function ParcelLayer({
   return (
     <>
       {renders.map(({ feature, line, fill, meshGeom, centroid }) => {
-        const label = feature.properties.name || feature.properties.id;
+        const rawName = feature.properties.name || feature.properties.id;
+        const shortLabel = rawName.replace(/^lote\s*/i, "").trim() || rawName;
+        const status = feature.properties.status ?? "for-sale";
         return (
           <group key={feature.properties.id}>
             <primitive object={line} />
@@ -334,16 +404,14 @@ function ParcelLayer({
                 onSelect(feature);
               }}
             />
-            <Html
-              position={centroid}
-              center
-              zIndexRange={[100, 0]}
-              style={{ pointerEvents: "none", userSelect: "none" }}
-            >
-              <div className="flex size-11 items-center justify-center rounded-full bg-white/95 text-xs font-semibold text-neutral-900 shadow-md ring-1 ring-black/10 tabular-nums">
-                {label}
-              </div>
-            </Html>
+            <ParcelBadge
+              centroid={centroid}
+              label={shortLabel}
+              ariaLabel={rawName}
+              status={status}
+              isSelected={feature.properties.id === selectedId}
+              isHovered={feature.properties.id === hoveredId}
+            />
           </group>
         );
       })}

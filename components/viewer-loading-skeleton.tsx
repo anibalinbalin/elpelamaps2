@@ -64,10 +64,10 @@ export function ViewerLoadingSkeleton({
         />
       </div>
 
-      {/* Parcel pill skeletons — staggered */}
-      <SkeletonPill className="left-[17%] top-[33%] w-28" delay={0.3} />
-      <SkeletonPill className="left-[51%] top-[38%] w-32" delay={0.5} />
-      <SkeletonPill className="left-[66%] top-[49%] w-[7.5rem] max-sm:hidden" delay={0.7} />
+      {/* Parcel badge skeletons — circular, staggered */}
+      <SkeletonBadge className="left-[40%] top-[40%]" delay={0.3} />
+      <SkeletonBadge className="left-[48%] top-[46%]" delay={0.5} />
+      <SkeletonBadge className="left-[44%] top-[52%]" delay={0.7} />
 
       {/* Bottom loader card */}
       <div className="absolute bottom-8 left-1/2 flex w-[min(92vw,440px)] -translate-x-1/2 flex-col items-center rounded-[30px] border border-white/10 bg-[rgba(21,26,32,0.74)] px-6 py-5 text-center shadow-[0_24px_80px_rgba(4,16,28,0.24)] backdrop-blur-xl">
@@ -170,7 +170,7 @@ function SkeletonBlock({
   );
 }
 
-function SkeletonPill({
+function SkeletonBadge({
   className = "",
   delay = 0,
 }: {
@@ -179,19 +179,20 @@ function SkeletonPill({
 }) {
   return (
     <div
-      className={`absolute h-14 rounded-[22px] border border-white/10 shadow-[0_18px_45px_rgba(5,17,28,0.18)] ${className}`}
+      className={`absolute size-11 -translate-x-1/2 -translate-y-1/2 rounded-full shadow-[0_1px_6px_rgba(0,0,0,0.45)] ${className}`}
       style={{
-        background:
-          "linear-gradient(180deg, rgba(38,40,43,0.82), rgba(23,25,28,0.76))",
+        backgroundColor: "rgba(10, 10, 10, 0.78)",
+        boxShadow:
+          "0 1px 6px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.12)",
         opacity: 0,
         animation: `skeleton-fade-in 0.5s ease-out ${delay}s forwards`,
       }}
     >
       <div
-        className="absolute inset-0 rounded-[22px]"
+        className="absolute inset-0 rounded-full"
         style={{
           background:
-            "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.04) 50%, transparent 100%)",
+            "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.05) 50%, transparent 100%)",
           backgroundSize: "200% 100%",
           animation: `skeleton-shimmer 1.8s ease-in-out ${delay}s infinite`,
         }}

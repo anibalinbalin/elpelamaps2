@@ -395,39 +395,45 @@ export function EditorV2() {
               no parcels · draw to add
             </div>
           ) : (
-            parcels.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => selectParcelById(p.id)}
-                className={`group flex w-full items-center justify-between px-4 py-2.5 text-left transition-colors ${
-                  p.id === selectedId
-                    ? "bg-[var(--color-ink-inset)] text-white"
-                    : "text-white/55 hover:bg-[var(--color-ink-inset)]/60 hover:text-white/85"
-                }`}
-              >
-                <div className="min-w-0">
-                  <div className="truncate text-[12px] font-medium">
-                    {p.name || p.id}
-                  </div>
-                  <div className="mt-0.5 font-mono tabular-nums text-[10px] uppercase tracking-[0.1em] text-white/40">
-                    {formatAreaCompact(p.areaSqMeters)}
-                    {p.status ? ` · ${p.status}` : ""}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteParcel(p.id);
-                  }}
-                  aria-label="Delete parcel"
-                  className="invisible ml-2 shrink-0 rounded px-1.5 py-0.5 text-[12px] leading-none text-white/30 transition-colors hover:bg-white/10 hover:text-white group-hover:visible"
+            parcels.map((p) => {
+              const isSelected = p.id === selectedId;
+              return (
+                <div
+                  key={p.id}
+                  className={`group flex w-full items-center transition-colors ${
+                    isSelected
+                      ? "bg-[var(--color-ink-inset)]"
+                      : "hover:bg-[var(--color-ink-inset)]/60"
+                  }`}
                 >
-                  ×
-                </button>
-              </button>
-            ))
+                  <button
+                    type="button"
+                    onClick={() => selectParcelById(p.id)}
+                    className={`flex min-w-0 flex-1 flex-col items-start px-4 py-2.5 text-left ${
+                      isSelected
+                        ? "text-white"
+                        : "text-white/55 group-hover:text-white/85"
+                    }`}
+                  >
+                    <div className="w-full truncate text-[12px] font-medium">
+                      {p.name || p.id}
+                    </div>
+                    <div className="mt-0.5 font-mono tabular-nums text-[10px] uppercase tracking-[0.1em] text-white/40">
+                      {formatAreaCompact(p.areaSqMeters)}
+                      {p.status ? ` · ${p.status}` : ""}
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteParcel(p.id)}
+                    aria-label="Delete parcel"
+                    className="invisible mr-2 shrink-0 rounded px-1.5 py-0.5 text-[12px] leading-none text-white/30 transition-colors hover:bg-white/10 hover:text-white group-hover:visible"
+                  >
+                    ×
+                  </button>
+                </div>
+              );
+            })
           )}
         </div>
 
