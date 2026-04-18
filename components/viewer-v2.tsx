@@ -12,6 +12,7 @@ import {
   Vector3,
 } from "three";
 import { Canvas, useThree } from "@react-three/fiber";
+import { Html } from "@react-three/drei";
 import { EffectComposer, ToneMapping } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
 import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
@@ -144,7 +145,38 @@ interface ParcelRender {
   line: Line;
   fill: MeshBasicMaterial;
   meshGeom: BufferGeometry;
+  centroid: Vector3;
 }
+
+interface StatusPalette {
+  line: number;
+  lineAlpha: number;
+  fill: number;
+  fillAlpha: number;
+  lineSelected: number;
+  fillSelected: number;
+}
+
+// For-sale: warm white (inviting). Reserved: amber (pending).
+// Sold: muted slate (taken). Selected state layers gold over for-sale;
+// reserved/sold keep their hue but brighten to signal focus.
+const STATUS_PALETTE: Record<string, StatusPalette> = {
+  "for-sale": {
+    line: 0x34d399, lineAlpha: 1,
+    fill: 0x10b981, fillAlpha: 0.12,
+    lineSelected: 0x6ee7b7, fillSelected: 0x34d399,
+  },
+  reserved: {
+    line: 0xfbbf24, lineAlpha: 1,
+    fill: 0xfbbf24, fillAlpha: 0.14,
+    lineSelected: 0xfcd34d, fillSelected: 0xfde68a,
+  },
+  sold: {
+    line: 0x60a5fa, lineAlpha: 0.85,
+    fill: 0x3b82f6, fillAlpha: 0.10,
+    lineSelected: 0x93c5fd, fillSelected: 0x60a5fa,
+  },
+};
 
 function ParcelLayer({
   tilesRef,
@@ -221,7 +253,12 @@ function ParcelLayer({
           depthTest: false,
         });
 
-        return { feature, line, fill, meshGeom };
+        // Centroid — mean of ring vertices (same 5m-above-terrain plane)
+        const centroid = new Vector3();
+        for (const v of verts) centroid.add(v);
+        centroid.divideScalar(verts.length || 1);
+
+        return { feature, line, fill, meshGeom, centroid };
       });
 
       setRenders(built);
@@ -236,22 +273,24 @@ function ParcelLayer({
       const mat = line.material as LineBasicMaterial;
       const isSelected = feature.properties.id === selectedId;
       const isHovered  = feature.properties.id === hoveredId;
+      const status = feature.properties.status ?? "for-sale";
+      const pal = STATUS_PALETTE[status] ?? STATUS_PALETTE["for-sale"];
 
       if (isSelected) {
-        mat.color.setHex(0xffc96b);
+        mat.color.setHex(pal.lineSelected);
         mat.opacity = 1;
-        fill.color.setHex(0xffe5aa);
-        fill.opacity = 0.28;
+        fill.color.setHex(pal.fillSelected);
+        fill.opacity = pal.fillAlpha + 0.18;
       } else if (isHovered) {
-        mat.color.setHex(0xfffdf8);
+        mat.color.setHex(pal.line);
         mat.opacity = 1;
-        fill.color.setHex(0xfff9e8);
-        fill.opacity = 0.18;
+        fill.color.setHex(pal.fill);
+        fill.opacity = pal.fillAlpha + 0.08;
       } else {
-        mat.color.setHex(0xfffdf8);
-        mat.opacity = 1;
-        fill.color.setHex(0xfff9e8);
-        fill.opacity = 0.10;
+        mat.color.setHex(pal.line);
+        mat.opacity = pal.lineAlpha;
+        fill.color.setHex(pal.fill);
+        fill.opacity = pal.fillAlpha;
       }
       mat.needsUpdate = true;
       fill.needsUpdate = true;
@@ -272,28 +311,69 @@ function ParcelLayer({
 
   return (
     <>
-      {renders.map(({ feature, line, fill, meshGeom }) => (
-        <group key={feature.properties.id}>
-          <primitive object={line} />
-          <mesh
-            geometry={meshGeom}
-            material={fill}
-            renderOrder={999}
-            onPointerEnter={() => {
-              document.body.style.cursor = "pointer";
-              setHoveredId(feature.properties.id);
-            }}
-            onPointerLeave={() => {
-              document.body.style.cursor = "";
-              setHoveredId(null);
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelect(feature);
-            }}
-          />
-        </group>
-      ))}
+      {renders.map(({ feature, line, fill, meshGeom, centroid }) => {
+        const label = feature.properties.name || feature.properties.id;
+        const status = feature.properties.status ?? "for-sale";
+        const statusFill =
+          status === "reserved" ? "bg-amber-400"
+          : status === "sold" ? "bg-blue-500"
+          : "bg-emerald-500";
+        const statusRing =
+          status === "reserved" ? "ring-amber-400"
+          : status === "sold" ? "ring-blue-400"
+          : "ring-emerald-400";
+        return (
+          <group key={feature.properties.id}>
+            <primitive object={line} />
+            <mesh
+              geometry={meshGeom}
+              material={fill}
+              renderOrder={999}
+              onPointerEnter={() => {
+                document.body.style.cursor = "pointer";
+                setHoveredId(feature.properties.id);
+              }}
+              onPointerLeave={() => {
+                document.body.style.cursor = "";
+                setHoveredId(null);
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect(feature);
+              }}
+            />
+            <Html
+              position={centroid}
+              center
+              zIndexRange={[100, 0]}
+              style={{ pointerEvents: "none", userSelect: "none" }}
+            >
+              <div data-uidotsh-pick="Circular pin" className="contents">
+                <div data-uidotsh-option="White pin (current)" className="contents">
+                  <div className="flex size-11 items-center justify-center rounded-full bg-white/95 text-xs font-semibold text-neutral-900 shadow-md ring-1 ring-black/10 tabular-nums">
+                    {label}
+                  </div>
+                </div>
+                <div data-uidotsh-option="Status-filled pin" className="contents" hidden>
+                  <div className={`flex size-11 items-center justify-center rounded-full ${statusFill} text-xs font-semibold text-white shadow-md ring-1 ring-white/30 tabular-nums`}>
+                    {label}
+                  </div>
+                </div>
+                <div data-uidotsh-option="Dark glass pin" className="contents" hidden>
+                  <div className="flex size-11 items-center justify-center rounded-full bg-black/55 text-xs font-semibold text-white shadow-md ring-1 ring-white/25 backdrop-blur-md tabular-nums">
+                    {label}
+                  </div>
+                </div>
+                <div data-uidotsh-option="White pin + status ring" className="contents" hidden>
+                  <div className={`flex size-12 items-center justify-center rounded-full bg-white/95 text-xs font-semibold text-neutral-900 shadow-md ring-2 ${statusRing} tabular-nums`}>
+                    {label}
+                  </div>
+                </div>
+              </div>
+            </Html>
+          </group>
+        );
+      })}
     </>
   );
 }
