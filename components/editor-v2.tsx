@@ -73,12 +73,12 @@ const defaultStyle = new Style({
 });
 
 const selectedStyle = new Style({
-  fill: new Fill({ color: "rgba(255, 201, 107, 0.18)" }),
-  stroke: new Stroke({ color: "rgba(255, 201, 107, 1)", width: 2.5 }),
+  fill: new Fill({ color: "rgba(255, 255, 255, 0.14)" }),
+  stroke: new Stroke({ color: "rgba(255, 255, 255, 1)", width: 2.5 }),
   image: new CircleStyle({
     radius: 5,
-    fill: new Fill({ color: "rgba(255, 201, 107, 0.9)" }),
-    stroke: new Stroke({ color: "rgba(20, 15, 5, 0.8)", width: 1.5 }),
+    fill: new Fill({ color: "rgba(255, 255, 255, 0.95)" }),
+    stroke: new Stroke({ color: "rgba(15, 20, 25, 0.75)", width: 1.5 }),
   }),
 });
 
@@ -422,7 +422,7 @@ export function EditorV2() {
                     deleteParcel(p.id);
                   }}
                   aria-label="Delete parcel"
-                  className="invisible ml-2 shrink-0 rounded px-1.5 py-0.5 text-[12px] leading-none text-white/30 transition-colors hover:bg-red-500/15 hover:text-red-400 group-hover:visible"
+                  className="invisible ml-2 shrink-0 rounded px-1.5 py-0.5 text-[12px] leading-none text-white/30 transition-colors hover:bg-white/10 hover:text-white group-hover:visible"
                 >
                   ×
                 </button>
@@ -567,7 +567,6 @@ export function EditorV2() {
             size="sm"
             onClick={save}
             disabled={saveState === "saving"}
-            className="uppercase tracking-[0.14em]"
           >
             {saveLabel}
           </Button>
