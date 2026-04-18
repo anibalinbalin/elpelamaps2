@@ -23,6 +23,7 @@ import { sphericalArea } from "@/lib/geo-area";
 import { formatAreaCompact } from "@/lib/geo-utils";
 import { JOSE_IGNACIO_CENTER } from "@/lib/constants";
 import type { ParcelCollection, ParcelFeature } from "@/lib/parcels";
+import { Input, Button } from "@/components/ui";
 
 type OLParcelFeature = OLFeature<OLPolygon>;
 type ParcelStatus = "for-sale" | "reserved" | "sold";
@@ -350,25 +351,25 @@ export function EditorV2() {
           : "save";
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#0a0f14]">
+    <div className="flex h-screen overflow-hidden bg-[var(--color-ink)]">
       {/* Map */}
       <div ref={mapDivRef} className="flex-1" />
 
       {/* Sidebar */}
-      <div className="flex w-80 shrink-0 flex-col border-l border-white/10 bg-black/60 backdrop-blur-xl">
+      <div className="flex w-80 shrink-0 flex-col border-l border-[var(--color-hairline-dark)] bg-[var(--color-ink-pane)]">
         {/* Header */}
-        <div className="flex items-center gap-3 border-b border-white/10 px-4 py-3">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/70">
+        <div className="flex items-center justify-between gap-3 border-b border-[var(--color-hairline-dark)] px-4 py-3">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/75">
             parcels
           </span>
-          <div className="flex overflow-hidden rounded-lg border border-white/10 text-[10px] uppercase tracking-[0.16em]">
+          <div className="flex overflow-hidden rounded-[var(--radius-md)] border border-[var(--color-hairline-dark)] text-[11px] uppercase tracking-[0.12em]">
             <button
               type="button"
               onClick={() => setMode("select")}
               className={`px-3 py-1.5 transition-colors ${
                 mode === "select"
                   ? "bg-white/12 text-white"
-                  : "text-white/40 hover:text-white/65"
+                  : "text-white/50 hover:bg-white/10 hover:text-white"
               }`}
             >
               select
@@ -379,7 +380,7 @@ export function EditorV2() {
               className={`px-3 py-1.5 transition-colors ${
                 mode === "draw"
                   ? "bg-white/12 text-white"
-                  : "text-white/40 hover:text-white/65"
+                  : "text-white/50 hover:bg-white/10 hover:text-white"
               }`}
             >
               draw
@@ -390,7 +391,7 @@ export function EditorV2() {
         {/* Parcel list */}
         <div className="min-h-0 flex-1 overflow-y-auto py-1">
           {parcels.length === 0 ? (
-            <div className="px-4 py-8 text-center text-[10px] uppercase tracking-[0.16em] text-white/20">
+            <div className="px-4 py-8 text-center text-[11px] uppercase tracking-[0.14em] text-white/25">
               no parcels · draw to add
             </div>
           ) : (
@@ -401,15 +402,15 @@ export function EditorV2() {
                 onClick={() => selectParcelById(p.id)}
                 className={`group flex w-full items-center justify-between px-4 py-2.5 text-left transition-colors ${
                   p.id === selectedId
-                    ? "bg-white/8 text-white"
-                    : "text-white/50 hover:bg-white/5 hover:text-white/75"
+                    ? "bg-[var(--color-ink-inset)] text-white"
+                    : "text-white/55 hover:bg-[var(--color-ink-inset)]/60 hover:text-white/85"
                 }`}
               >
                 <div className="min-w-0">
-                  <div className="truncate text-[11px] font-medium">
+                  <div className="truncate text-[12px] font-medium">
                     {p.name || p.id}
                   </div>
-                  <div className="mt-0.5 text-[9px] uppercase tracking-[0.14em] text-white/30">
+                  <div className="mt-0.5 font-mono tabular-nums text-[10px] uppercase tracking-[0.1em] text-white/40">
                     {formatAreaCompact(p.areaSqMeters)}
                     {p.status ? ` · ${p.status}` : ""}
                   </div>
@@ -420,7 +421,8 @@ export function EditorV2() {
                     e.stopPropagation();
                     deleteParcel(p.id);
                   }}
-                  className="invisible ml-2 shrink-0 rounded px-1.5 py-0.5 text-[11px] leading-none text-white/25 transition-colors hover:bg-red-500/15 hover:text-red-400 group-hover:visible"
+                  aria-label="Delete parcel"
+                  className="invisible ml-2 shrink-0 rounded px-1.5 py-0.5 text-[12px] leading-none text-white/30 transition-colors hover:bg-red-500/15 hover:text-red-400 group-hover:visible"
                 >
                   ×
                 </button>
@@ -431,57 +433,60 @@ export function EditorV2() {
 
         {/* Inspector */}
         {inspectorDraft && (
-          <div className="border-t border-white/10 px-4 py-4">
-            <div className="mb-3 text-[9px] uppercase tracking-[0.2em] text-white/30">
+          <div className="border-t border-[var(--color-hairline-dark)] px-4 py-4">
+            <div className="mb-3 text-[10px] uppercase tracking-[0.18em] text-white/40">
               inspector
             </div>
             <div className="flex flex-col gap-3">
               <div>
-                <label className="mb-1 block text-[9px] uppercase tracking-[0.16em] text-white/40">
+                <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">
                   name
                 </label>
-                <input
+                <Input
                   type="text"
                   value={inspectorDraft.name}
                   onChange={(e) =>
                     updateFeatureProps(inspectorDraft.id, { name: e.target.value })
                   }
-                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] text-white outline-none focus:border-white/25 focus:bg-white/8"
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-[9px] uppercase tracking-[0.16em] text-white/40">
+                <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">
                   status
                 </label>
                 <div className="flex gap-1.5">
                   {(["for-sale", "reserved", "sold"] as ParcelStatus[]).map(
-                    (s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() =>
-                          updateFeatureProps(inspectorDraft.id, { status: s })
-                        }
-                        className={`flex-1 rounded-lg border py-1.5 text-[9px] uppercase tracking-[0.12em] transition-colors ${
-                          inspectorDraft.status === s
-                            ? "border-white/25 bg-white/12 text-white"
-                            : "border-white/8 text-white/30 hover:border-white/15 hover:text-white/55"
-                        }`}
-                      >
-                        {s === "for-sale" ? "sale" : s}
-                      </button>
-                    ),
+                    (s) => {
+                      const active = inspectorDraft.status === s;
+                      return (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() =>
+                            updateFeatureProps(inspectorDraft.id, { status: s })
+                          }
+                          className={`flex-1 rounded-[var(--radius-md)] border py-1.5 text-[10px] uppercase tracking-[0.1em] transition-colors ${
+                            active
+                              ? "border-[var(--color-hairline-strong)] bg-white/12 text-white"
+                              : "border-[var(--color-hairline-dark)] text-white/45 hover:bg-white/5 hover:text-white/80"
+                          }`}
+                        >
+                          {s === "for-sale" ? "sale" : s}
+                        </button>
+                      );
+                    },
                   )}
                 </div>
               </div>
 
               <div>
-                <label className="mb-1 block text-[9px] uppercase tracking-[0.16em] text-white/40">
+                <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">
                   price usd
                 </label>
-                <input
+                <Input
                   type="number"
+                  mono
                   value={inspectorDraft.priceUSD ?? ""}
                   onChange={(e) =>
                     updateFeatureProps(inspectorDraft.id, {
@@ -489,32 +494,14 @@ export function EditorV2() {
                     })
                   }
                   placeholder="—"
-                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] text-white outline-none placeholder:text-white/20 focus:border-white/25"
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-[9px] uppercase tracking-[0.16em] text-white/40">
-                  zoning
-                </label>
-                <input
-                  type="text"
-                  value={inspectorDraft.zoning ?? ""}
-                  onChange={(e) =>
-                    updateFeatureProps(inspectorDraft.id, {
-                      zoning: e.target.value || undefined,
-                    })
-                  }
-                  placeholder="Residential"
-                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] text-white outline-none placeholder:text-white/20 focus:border-white/25"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-[9px] uppercase tracking-[0.16em] text-white/40">
+                <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">
                   contact url
                 </label>
-                <input
+                <Input
                   type="text"
                   value={inspectorDraft.contactUrl ?? ""}
                   onChange={(e) =>
@@ -523,12 +510,11 @@ export function EditorV2() {
                     })
                   }
                   placeholder="wa.me/…"
-                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] text-white outline-none placeholder:text-white/20 focus:border-white/25"
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-[9px] uppercase tracking-[0.16em] text-white/40">
+                <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">
                   description
                 </label>
                 <textarea
@@ -540,44 +526,51 @@ export function EditorV2() {
                   }
                   rows={3}
                   placeholder="Notes, highlights, access details…"
-                  className="w-full resize-none rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] leading-5 text-white outline-none placeholder:text-white/20 focus:border-white/25"
+                  className="w-full resize-none rounded-[var(--radius-md)] border border-[var(--color-hairline-dark)] bg-white/[0.04] px-3 py-2 text-[13px] leading-5 text-white outline-none placeholder:text-white/30 focus:bg-white/10 focus:border-white/25"
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-[9px] uppercase tracking-[0.16em] text-white/40">
-                  area
+                <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">
+                  area (m²)
                 </label>
-                <div className="px-3 py-1.5 text-[12px] text-white/45">
-                  {formatAreaCompact(inspectorDraft.areaSqMeters)}
-                </div>
+                <Input
+                  type="number"
+                  mono
+                  step={1}
+                  value={
+                    Number.isFinite(inspectorDraft.areaSqMeters)
+                      ? Math.round(inspectorDraft.areaSqMeters)
+                      : ""
+                  }
+                  onChange={(e) => {
+                    const next = e.target.value === "" ? 0 : Number(e.target.value);
+                    updateFeatureProps(inspectorDraft.id, { areaSqMeters: next });
+                  }}
+                  placeholder="0"
+                />
               </div>
             </div>
           </div>
         )}
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-white/10 px-4 py-3">
+        <div className="flex items-center justify-between border-t border-[var(--color-hairline-dark)] px-4 py-3">
           <a
             href="/viewer-v2"
-            className="text-[10px] uppercase tracking-[0.16em] text-white/30 transition-colors hover:text-white/55"
+            className="text-[11px] uppercase tracking-[0.14em] text-white/40 transition-colors hover:text-white"
           >
             ← viewer
           </a>
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="sm"
             onClick={save}
             disabled={saveState === "saving"}
-            className={`rounded-lg border px-4 py-1.5 text-[10px] uppercase tracking-[0.16em] transition-colors ${
-              saveState === "saved"
-                ? "border-green-500/30 bg-green-500/10 text-green-400"
-                : saveState === "error"
-                  ? "border-red-500/30 bg-red-500/10 text-red-400"
-                  : "border-white/15 bg-white/8 text-white/75 hover:border-white/25 hover:text-white disabled:opacity-50"
-            }`}
+            className="uppercase tracking-[0.14em]"
           >
             {saveLabel}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

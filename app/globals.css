@@ -1,6 +1,43 @@
 @import "tailwindcss";
 @import "ol/ol.css";
 
+/* ── Design tokens — ui.sh-inspired system for tool surfaces ──
+   Landing page (`/`) opts back into Basel via inline var(--font-sans/-display).
+   All other surfaces inherit Inter via body default below. */
+@theme {
+  --font-ui: var(--font-inter), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
+
+  --color-ink: #0a0a0a;
+  --color-ink-soft: #111114;
+  --color-ink-pane: #141418;
+  --color-ink-inset: #1a1a1f;
+  --color-paper: #ffffff;
+
+  /* Floating panels — match ui.sh picker palette exactly */
+  --color-surface-glass: rgba(10, 10, 10, 0.8);
+  --color-surface-glass-hover: rgba(255, 255, 255, 0.1);
+  --color-surface-glass-active: rgba(255, 255, 255, 0.12);
+
+  --color-hairline-light: rgba(0, 0, 0, 0.10);
+  --color-hairline-dark: rgba(255, 255, 255, 0.10);
+  --color-hairline-strong: rgba(255, 255, 255, 0.16);
+
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+
+  --shadow-cta: 0 6px 18px rgba(0, 0, 0, 0.24);
+
+  /* Floating-panel elevation — outer dark ring + inner light hairline + soft drop.
+     The double ring is what gives ui.sh its "two-layer" look. */
+  --shadow-glass:
+    0 0 0 1px rgba(0, 0, 0, 0.9),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
 html,
 body {
   height: 100%;
@@ -11,6 +48,27 @@ body {
 body {
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+  font-family: var(--font-ui);
+  color: rgba(255, 255, 255, 0.82);
+}
+
+@layer components {
+  .panel {
+    background: var(--color-ink-pane);
+    border: 1px solid var(--color-hairline-dark);
+    border-radius: var(--radius-xl);
+    color: rgba(255, 255, 255, 0.82);
+  }
+
+  .panel-inset {
+    background: var(--color-ink-inset);
+    border: 1px solid var(--color-hairline-dark);
+    border-radius: var(--radius-md);
+  }
+
+  .hairline {
+    border: 1px solid var(--color-hairline-dark);
+  }
 }
 
 .cloud-swoosh-icon {

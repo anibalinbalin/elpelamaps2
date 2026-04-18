@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { Inter, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import { DevTools } from "@/components/dev-tools";
 
@@ -22,6 +23,18 @@ const baselGrotesk = localFont({
   display: "swap",
 });
 
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  variable: "--font-geist-mono",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: {
     default: "Elpela",
@@ -33,7 +46,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${baselClassic.variable} ${baselGrotesk.variable}`}>
+    <html
+      lang="en"
+      className={`${baselClassic.variable} ${baselGrotesk.variable} ${inter.variable} ${geistMono.variable}`}
+    >
       <body className="antialiased">
         {children}
 

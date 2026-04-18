@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { EDITOR_PIN } from "@/lib/editor-access";
+import { Panel, Button } from "@/components/ui";
 
 export function EditorAccessDialog({
   onSuccess,
@@ -107,16 +108,13 @@ export function EditorAccessDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[30dvh]">
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={onCancel}
-      />
-      <div className="relative w-full max-w-[340px] rounded-2xl border border-white/12 bg-[rgba(18,24,32,0.92)] p-6 shadow-[0_32px_80px_rgba(4,16,28,0.4)] backdrop-blur-xl">
+      <div className="absolute inset-0 bg-black/50" onClick={onCancel} />
+      <Panel className="relative w-full max-w-[340px] p-6">
         <div className="mb-6 text-center">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/42">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/50">
             Editor Access
           </div>
-          <div className="mt-1.5 text-[15px] font-semibold tracking-[-0.02em] text-white">
+          <div className="mt-1.5 text-[15px] font-semibold tracking-[-0.012em] text-white">
             Enter PIN
           </div>
         </div>
@@ -125,19 +123,21 @@ export function EditorAccessDialog({
           {digits.map((digit, index) => (
             <input
               key={index}
-              ref={(element) => { inputRefs.current[index] = element; }}
+              ref={(element) => {
+                inputRefs.current[index] = element;
+              }}
               type="text"
               inputMode="numeric"
               maxLength={1}
               value={digit}
               onChange={(event) => handleChange(index, event.target.value)}
               onKeyDown={(event) => handleKeyDown(index, event)}
-              className={`h-14 w-12 rounded-xl border bg-white/[0.04] text-center font-mono text-xl font-semibold text-white outline-none transition-all duration-200 ${
+              className={`h-14 w-12 rounded-[var(--radius-md)] border bg-white/[0.04] text-center font-mono tabular-nums text-xl font-semibold text-white outline-none transition-colors duration-150 ${
                 error
-                  ? "animate-[shake_0.4s_ease-in-out] border-red-400/50 bg-red-400/[0.06]"
+                  ? "animate-[shake_0.4s_ease-in-out] border-red-400/50 bg-red-500/10"
                   : digit
-                    ? "border-white/22 bg-white/[0.08]"
-                    : "border-white/10 focus:border-white/30 focus:bg-white/[0.06]"
+                    ? "border-[var(--color-hairline-strong)] bg-white/10"
+                    : "border-[var(--color-hairline-dark)] focus:border-white/25 focus:bg-white/10"
               }`}
               style={{ caretColor: "transparent" }}
             />
@@ -151,15 +151,11 @@ export function EditorAccessDialog({
         )}
 
         <div className="mt-5 flex justify-center">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-xl border border-white/8 bg-white/[0.03] px-6 py-2.5 text-[13px] font-semibold text-white/68 transition-colors duration-200 hover:border-white/14 hover:bg-white/[0.06] hover:text-white"
-          >
+          <Button variant="ghost" size="md" onClick={onCancel}>
             Cancel
-          </button>
+          </Button>
         </div>
-      </div>
+      </Panel>
     </div>
   );
 }

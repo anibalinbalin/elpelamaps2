@@ -40,6 +40,7 @@ import { Dithering, LensFlare } from "@takram/three-geospatial-effects/r3f";
 import { GOOGLE_MAPS_API_KEY } from "@/lib/constants";
 import type { ParcelCollection, ParcelFeature } from "@/lib/parcels";
 import { formatAreaCompact, formatPrice } from "@/lib/geo-utils";
+import { Panel, Badge } from "@/components/ui";
 
 const DEG2RAD = Math.PI / 180;
 
@@ -313,15 +314,6 @@ function ParcelLayer({
     <>
       {renders.map(({ feature, line, fill, meshGeom, centroid }) => {
         const label = feature.properties.name || feature.properties.id;
-        const status = feature.properties.status ?? "for-sale";
-        const statusFill =
-          status === "reserved" ? "bg-amber-400"
-          : status === "sold" ? "bg-blue-500"
-          : "bg-emerald-500";
-        const statusRing =
-          status === "reserved" ? "ring-amber-400"
-          : status === "sold" ? "ring-blue-400"
-          : "ring-emerald-400";
         return (
           <group key={feature.properties.id}>
             <primitive object={line} />
@@ -348,27 +340,8 @@ function ParcelLayer({
               zIndexRange={[100, 0]}
               style={{ pointerEvents: "none", userSelect: "none" }}
             >
-              <div data-uidotsh-pick="Circular pin" className="contents">
-                <div data-uidotsh-option="White pin (current)" className="contents">
-                  <div className="flex size-11 items-center justify-center rounded-full bg-white/95 text-xs font-semibold text-neutral-900 shadow-md ring-1 ring-black/10 tabular-nums">
-                    {label}
-                  </div>
-                </div>
-                <div data-uidotsh-option="Status-filled pin" className="contents" hidden>
-                  <div className={`flex size-11 items-center justify-center rounded-full ${statusFill} text-xs font-semibold text-white shadow-md ring-1 ring-white/30 tabular-nums`}>
-                    {label}
-                  </div>
-                </div>
-                <div data-uidotsh-option="Dark glass pin" className="contents" hidden>
-                  <div className="flex size-11 items-center justify-center rounded-full bg-black/55 text-xs font-semibold text-white shadow-md ring-1 ring-white/25 backdrop-blur-md tabular-nums">
-                    {label}
-                  </div>
-                </div>
-                <div data-uidotsh-option="White pin + status ring" className="contents" hidden>
-                  <div className={`flex size-12 items-center justify-center rounded-full bg-white/95 text-xs font-semibold text-neutral-900 shadow-md ring-2 ${statusRing} tabular-nums`}>
-                    {label}
-                  </div>
-                </div>
+              <div className="flex size-11 items-center justify-center rounded-full bg-white/95 text-xs font-semibold text-neutral-900 shadow-md ring-1 ring-black/10 tabular-nums">
+                {label}
               </div>
             </Html>
           </group>
@@ -378,10 +351,10 @@ function ParcelLayer({
   );
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  "for-sale": "text-emerald-400",
-  reserved: "text-amber-400",
-  sold: "text-white/40",
+const STATUS_TONE: Record<string, "emerald" | "amber" | "neutral"> = {
+  "for-sale": "emerald",
+  reserved: "amber",
+  sold: "neutral",
 };
 
 function ParcelCard({
@@ -393,74 +366,81 @@ function ParcelCard({
 }) {
   const p = parcel.properties;
   return (
-    <div className="pointer-events-auto absolute bottom-4 right-4 z-20 w-72 rounded-2xl border border-white/10 bg-black/65 shadow-[0_18px_48px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+    <Panel className="pointer-events-auto absolute bottom-4 right-4 z-20 w-72">
       <div className="flex items-start justify-between px-4 pt-4 pb-3">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-[9px] uppercase tracking-[0.2em] text-white/35">
+            <span className="text-[10px] uppercase tracking-[0.18em] text-white/45">
               parcel
             </span>
             {p.status && (
-              <span
-                className={`text-[9px] uppercase tracking-[0.18em] ${STATUS_COLORS[p.status] ?? "text-white/40"}`}
-              >
-                {p.status}
-              </span>
+              <Badge tone={STATUS_TONE[p.status] ?? "neutral"}>{p.status}</Badge>
             )}
           </div>
-          <h2 className="mt-1 text-[17px] font-semibold tracking-[-0.01em] text-white">
+          <h2 className="mt-1 text-[17px] font-semibold tracking-[-0.012em] text-white">
             {p.name}
           </h2>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="ml-3 mt-0.5 shrink-0 text-[18px] leading-none text-white/30 transition-colors hover:text-white/70"
+          aria-label="Close"
+          className="ml-3 mt-0.5 shrink-0 text-[18px] leading-none text-white/40 transition-colors hover:text-white/80"
         >
           ×
         </button>
       </div>
 
-      <div className="border-t border-white/8 px-4 py-3 text-[12px] text-white/60">
+      <div className="border-t border-[var(--color-hairline-dark)] px-4 py-3 text-[12px] text-white/65">
         <div className="flex justify-between">
-          <span className="text-white/35 uppercase tracking-[0.14em] text-[9px]">area</span>
-          <span className="tabular-nums">{formatAreaCompact(p.areaSqMeters)}</span>
+          <span className="text-white/40 uppercase tracking-[0.14em] text-[10px]">
+            area
+          </span>
+          <span className="font-mono tabular-nums">
+            {formatAreaCompact(p.areaSqMeters)}
+          </span>
         </div>
         {p.priceUSD ? (
           <div className="mt-1.5 flex justify-between">
-            <span className="text-white/35 uppercase tracking-[0.14em] text-[9px]">price</span>
-            <span className="tabular-nums text-white/85 text-[13px] font-medium">
+            <span className="text-white/40 uppercase tracking-[0.14em] text-[10px]">
+              price
+            </span>
+            <span className="font-mono tabular-nums text-white/90 text-[13px] font-medium">
               {formatPrice(p.priceUSD)}
             </span>
           </div>
         ) : null}
         {p.zoning ? (
           <div className="mt-1.5 flex justify-between">
-            <span className="text-white/35 uppercase tracking-[0.14em] text-[9px]">zoning</span>
+            <span className="text-white/40 uppercase tracking-[0.14em] text-[10px]">
+              zoning
+            </span>
             <span>{p.zoning}</span>
           </div>
         ) : null}
       </div>
 
       {p.description ? (
-        <div className="border-t border-white/8 px-4 py-3">
-          <p className="text-[11px] leading-[1.6] text-white/50">{p.description}</p>
+        <div className="border-t border-[var(--color-hairline-dark)] px-4 py-3">
+          <p className="text-[11px] leading-[1.6] text-white/55">
+            {p.description}
+          </p>
         </div>
       ) : null}
 
       {p.contactUrl ? (
-        <div className="border-t border-white/8 px-4 py-3">
+        <div className="border-t border-[var(--color-hairline-dark)] px-4 py-3">
           <a
             href={p.contactUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="block rounded-lg border border-white/15 py-2 text-center text-[10px] uppercase tracking-[0.18em] text-white/65 transition-colors hover:border-white/30 hover:text-white"
+            className="block rounded-[var(--radius-md)] border border-[var(--color-hairline-dark)] py-2 text-center text-[12px] text-white/70 transition-colors hover:bg-white/10 hover:text-white"
           >
             contact
           </a>
         </div>
       ) : null}
-    </div>
+    </Panel>
   );
 }
 
@@ -594,8 +574,8 @@ export function ViewerV2() {
       )}
 
       <div className="pointer-events-none absolute inset-x-0 top-6 z-20 flex justify-center">
-        <div className="pointer-events-auto flex items-center gap-4 rounded-full border border-white/10 bg-black/45 px-5 py-2 text-[11px] font-medium uppercase tracking-[0.18em] text-white/80 shadow-[0_8px_28px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-          <span className="text-white/55">time</span>
+        <Panel className="pointer-events-auto flex items-center gap-2 px-2 py-1 text-[13px] font-medium">
+          <span className="px-2 text-white/60">Time</span>
           <input
             type="range"
             min={0}
@@ -603,37 +583,36 @@ export function ViewerV2() {
             step={0.01}
             value={hourLocal}
             onChange={(e) => setHourLocal(parseFloat(e.target.value))}
-            className="h-1.5 w-72 cursor-pointer appearance-none rounded-full bg-white/15 accent-white/90 outline-none"
+            className="h-1.5 w-72 cursor-pointer appearance-none rounded-full bg-white/10 accent-white outline-none"
             aria-label="Time of day (Uruguay, UTC-3)"
           />
-          <span className="tabular-nums text-white/85">{timeLabel}</span>
-          <span className="text-[9px] tracking-[0.18em] text-white/40">
-            uruguay
+          <span className="font-mono tabular-nums text-white px-1">
+            {timeLabel}
           </span>
-          <div className="mx-1 h-3 w-px bg-white/15" />
+          <span className="font-mono text-[12px] text-white/50 px-1">UY</span>
           <button
             type="button"
             onClick={() => setShowParcels((v) => !v)}
-            className={`rounded-full px-2.5 py-0.5 text-[9px] tracking-[0.18em] transition-colors ${
+            className={`h-8 px-3 rounded-[var(--radius-md)] text-[12px] font-medium transition-colors ${
               showParcels
-                ? "bg-white/15 text-white"
-                : "text-white/40 hover:text-white/65"
+                ? "bg-white/12 text-white"
+                : "text-white/60 hover:bg-white/10 hover:text-white"
             }`}
           >
             parcels
           </button>
-        </div>
+        </Panel>
       </div>
 
-      <div className="pointer-events-none absolute bottom-4 left-4 z-20 flex items-center gap-3 text-[10px] uppercase tracking-[0.22em] text-white/45">
+      <div className="pointer-events-none absolute bottom-4 left-4 z-20 flex items-center gap-3 text-[10px] uppercase tracking-[0.22em] text-white/50">
         <span>
           viewer v2 · takram atmosphere + clouds · google photorealistic 3d
           tiles
         </span>
-        <span className="text-white/20">·</span>
+        <span className="text-white/25">·</span>
         <a
           href="/editor-v2"
-          className="pointer-events-auto text-white/35 transition-colors hover:text-white/60"
+          className="pointer-events-auto text-white/40 transition-colors hover:text-white"
         >
           editor
         </a>
