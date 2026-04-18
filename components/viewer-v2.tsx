@@ -8,6 +8,7 @@ import {
   Float32BufferAttribute,
   Line,
   LineBasicMaterial,
+  MeshBasicMaterial,
   Vector3,
 } from "three";
 import { Canvas, useThree } from "@react-three/fiber";
@@ -141,6 +142,7 @@ function hourUTCToTimestamp(hourUTC: number) {
 interface ParcelRender {
   feature: ParcelFeature;
   line: Line;
+  fill: MeshBasicMaterial;
   meshGeom: BufferGeometry;
 }
 
@@ -155,6 +157,7 @@ function ParcelLayer({
 }) {
   const parcelsRef = useRef<ParcelCollection | null>(null);
   const [renders, setRenders] = useState<ParcelRender[]>([]);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/parcels", { cache: "no-store" })
@@ -209,7 +212,16 @@ function ParcelLayer({
         const meshGeom = new BufferGeometry();
         meshGeom.setAttribute("position", new Float32BufferAttribute(meshPos, 3));
 
-        return { feature, line, meshGeom };
+        const fill = new MeshBasicMaterial({
+          color: 0xfff9e8,
+          transparent: true,
+          opacity: 0.10,
+          side: DoubleSide,
+          depthWrite: false,
+          depthTest: false,
+        });
+
+        return { feature, line, fill, meshGeom };
       });
 
       setRenders(built);
@@ -218,22 +230,41 @@ function ParcelLayer({
     return () => clearInterval(interval);
   }, [tilesRef]);
 
-  // Update line color when selection changes
+  // Update line + fill colors when selection or hover changes
   useEffect(() => {
-    renders.forEach(({ feature, line }) => {
+    renders.forEach(({ feature, line, fill }) => {
       const mat = line.material as LineBasicMaterial;
-      const selected = feature.properties.id === selectedId;
-      mat.color.setHex(selected ? 0xffc96b : 0xfff9e8);
-      mat.opacity = selected ? 1 : 0.82;
+      const isSelected = feature.properties.id === selectedId;
+      const isHovered  = feature.properties.id === hoveredId;
+
+      if (isSelected) {
+        mat.color.setHex(0xffc96b);
+        mat.opacity = 1;
+        fill.color.setHex(0xffe5aa);
+        fill.opacity = 0.28;
+      } else if (isHovered) {
+        mat.color.setHex(0xfffdf8);
+        mat.opacity = 1;
+        fill.color.setHex(0xfff9e8);
+        fill.opacity = 0.18;
+      } else {
+        mat.color.setHex(0xfffdf8);
+        mat.opacity = 1;
+        fill.color.setHex(0xfff9e8);
+        fill.opacity = 0.10;
+      }
+      mat.needsUpdate = true;
+      fill.needsUpdate = true;
     });
-  }, [renders, selectedId]);
+  }, [renders, selectedId, hoveredId]);
 
   // Dispose on unmount / re-build
   useEffect(() => {
     return () => {
-      renders.forEach(({ line, meshGeom }) => {
+      renders.forEach(({ line, fill, meshGeom }) => {
         line.geometry.dispose();
         (line.material as LineBasicMaterial).dispose();
+        fill.dispose();
         meshGeom.dispose();
       });
     };
@@ -241,27 +272,26 @@ function ParcelLayer({
 
   return (
     <>
-      {renders.map(({ feature, line, meshGeom }) => (
+      {renders.map(({ feature, line, fill, meshGeom }) => (
         <group key={feature.properties.id}>
           <primitive object={line} />
           <mesh
             geometry={meshGeom}
+            material={fill}
             renderOrder={999}
-            onPointerEnter={() => { document.body.style.cursor = "pointer"; }}
-            onPointerLeave={() => { document.body.style.cursor = ""; }}
+            onPointerEnter={() => {
+              document.body.style.cursor = "pointer";
+              setHoveredId(feature.properties.id);
+            }}
+            onPointerLeave={() => {
+              document.body.style.cursor = "";
+              setHoveredId(null);
+            }}
             onClick={(e) => {
               e.stopPropagation();
               onSelect(feature);
             }}
-          >
-            <meshBasicMaterial
-              transparent
-              opacity={0.001}
-              side={DoubleSide}
-              depthWrite={false}
-              depthTest={false}
-            />
-          </mesh>
+          />
         </group>
       ))}
     </>
