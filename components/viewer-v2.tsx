@@ -434,7 +434,7 @@ function ParcelCard({
 }) {
   const p = parcel.properties;
   return (
-    <Panel className="pointer-events-auto absolute bottom-4 right-4 z-20 w-72">
+    <Panel className="pointer-events-auto absolute z-20 inset-x-0 bottom-0 mx-0 rounded-b-none pb-[env(safe-area-inset-bottom)] md:inset-x-auto md:bottom-4 md:right-[max(1rem,env(safe-area-inset-right))] md:mx-0 md:w-72 md:rounded-b-[var(--radius-xl)] md:pb-0">
       <div className="flex items-start justify-between px-4 pt-4 pb-3">
         <div>
           <div className="flex items-center gap-2">
@@ -453,7 +453,7 @@ function ParcelCard({
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="ml-3 mt-0.5 shrink-0 text-[18px] leading-none text-white/40 transition-colors hover:text-white/80"
+          className="-mr-2 ml-3 flex size-9 shrink-0 items-center justify-center rounded-full text-[18px] leading-none text-white/40 transition-colors hover:bg-white/10 hover:text-white/80"
         >
           ×
         </button>
@@ -502,7 +502,7 @@ function ParcelCard({
             href={p.contactUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="block rounded-[var(--radius-md)] border border-[var(--color-hairline-dark)] py-2 text-center text-[12px] text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+            className="block rounded-[var(--radius-md)] border border-[var(--color-hairline-dark)] py-2.5 text-center text-[12px] text-white/70 transition-colors hover:bg-white/10 hover:text-white"
           >
             contact
           </a>
@@ -613,8 +613,9 @@ export function ViewerV2() {
   const timeLabel = formatHourLabel(hourLocal);
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-[#0b1016]">
+    <div className="relative h-dvh w-dvw touch-none overflow-hidden bg-[#0b1016]">
       <Canvas
+        dpr={[1, 2]}
         gl={{ depth: false }}
         camera={{ fov: 60, near: 10, far: 1e6 }}
         onPointerMissed={() => setSelectedParcel(null)}
@@ -641,9 +642,9 @@ export function ViewerV2() {
         />
       )}
 
-      <div className="pointer-events-none absolute inset-x-0 top-6 z-20 flex justify-center">
-        <Panel className="pointer-events-auto flex items-center gap-2 px-2 py-1 text-[13px] font-medium">
-          <span className="px-2 text-white/60">Time</span>
+      <div className="pointer-events-none absolute inset-x-0 top-[max(1.5rem,env(safe-area-inset-top))] z-20 flex justify-center px-4">
+        <Panel className="pointer-events-auto flex w-full max-w-sm items-center gap-2 px-2 py-1.5 text-[13px] font-medium">
+          <span className="shrink-0 px-1 text-white/60 max-sm:hidden">Time</span>
           <input
             type="range"
             min={0}
@@ -651,28 +652,30 @@ export function ViewerV2() {
             step={0.01}
             value={hourLocal}
             onChange={(e) => setHourLocal(parseFloat(e.target.value))}
-            className="h-1.5 w-72 cursor-pointer appearance-none rounded-full bg-white/10 accent-white outline-none"
+            className="h-1.5 min-w-0 flex-1 cursor-pointer appearance-none rounded-full bg-white/10 accent-white outline-none [&::-webkit-slider-thumb]:size-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
             aria-label="Time of day (Uruguay, UTC-3)"
           />
-          <span className="font-mono tabular-nums text-white px-1">
+          <span className="shrink-0 font-mono tabular-nums text-white px-1">
             {timeLabel}
           </span>
-          <span className="font-mono text-[12px] text-white/50 px-1">UY</span>
+          <span className="shrink-0 font-mono text-[12px] text-white/50 px-1 max-sm:hidden">UY</span>
           <button
             type="button"
             onClick={() => setShowParcels((v) => !v)}
-            className={`h-8 px-3 rounded-[var(--radius-md)] text-[12px] font-medium transition-colors ${
+            className={`size-9 shrink-0 rounded-[var(--radius-md)] text-[12px] font-medium transition-colors sm:h-8 sm:w-auto sm:px-3 ${
               showParcels
                 ? "bg-white/12 text-white"
                 : "text-white/60 hover:bg-white/10 hover:text-white"
             }`}
+            aria-label="Toggle parcels"
           >
-            parcels
+            <span className="max-sm:hidden">parcels</span>
+            <span className="sm:hidden text-[16px]">◆</span>
           </button>
         </Panel>
       </div>
 
-      <div className="pointer-events-none absolute bottom-4 left-4 z-20 flex items-center gap-3 text-[10px] uppercase tracking-[0.22em] text-white/50">
+      <div className="pointer-events-none absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-[max(1rem,env(safe-area-inset-left))] z-20 flex items-center gap-3 text-[10px] uppercase tracking-[0.22em] text-white/50">
         <a
           href="/editor"
           className="pointer-events-auto text-white/40 transition-colors hover:text-white"

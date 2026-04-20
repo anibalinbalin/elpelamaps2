@@ -47,6 +47,7 @@ body {
 
 body {
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
   overflow-x: hidden;
   font-family: var(--font-ui);
   color: rgba(255, 255, 255, 0.82);
