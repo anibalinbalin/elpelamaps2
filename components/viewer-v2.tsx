@@ -433,9 +433,17 @@ function ParcelCard({
   onClose: () => void;
 }) {
   const p = parcel.properties;
+  const [expanded, setExpanded] = useState(false);
+  const hasDetails = !!(p.description || p.contactUrl || p.zoning);
+
   return (
     <Panel className="pointer-events-auto absolute z-20 inset-x-0 bottom-0 mx-0 rounded-b-none pb-[env(safe-area-inset-bottom)] md:inset-x-auto md:bottom-4 md:right-[max(1rem,env(safe-area-inset-right))] md:mx-0 md:w-72 md:rounded-b-[var(--radius-xl)] md:pb-0">
-      <div className="flex items-start justify-between px-4 pt-4 pb-3">
+      {/* Header — tappable on mobile to expand */}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex w-full items-start justify-between px-4 pt-4 pb-3 text-left md:pointer-events-none"
+      >
         <div>
           <div className="flex items-center gap-2">
             <span className="text-[10px] uppercase tracking-[0.18em] text-white/45">
@@ -449,16 +457,27 @@ function ParcelCard({
             {p.name}
           </h2>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="-mr-2 ml-3 flex size-9 shrink-0 items-center justify-center rounded-full text-[18px] leading-none text-white/40 transition-colors hover:bg-white/10 hover:text-white/80"
-        >
-          ×
-        </button>
-      </div>
+        <div className="ml-3 flex shrink-0 items-center gap-1">
+          {hasDetails && (
+            <span
+              className={`text-[14px] text-white/40 transition-transform duration-200 md:hidden ${expanded ? "rotate-180" : ""}`}
+              aria-hidden="true"
+            >
+              ▲
+            </span>
+          )}
+          <span
+            role="button"
+            aria-label="Close"
+            onClick={(e) => { e.stopPropagation(); onClose(); }}
+            className="flex size-9 items-center justify-center rounded-full text-[18px] leading-none text-white/40 md:hover:bg-white/10 md:hover:text-white/80"
+          >
+            ×
+          </span>
+        </div>
+      </button>
 
+      {/* Stats row — always visible */}
       <div className="border-t border-[var(--color-hairline-dark)] px-4 py-3 text-[12px] text-white/65">
         <div className="flex justify-between">
           <span className="text-white/40 uppercase tracking-[0.14em] text-[10px]">
@@ -478,36 +497,51 @@ function ParcelCard({
             </span>
           </div>
         ) : null}
-        {p.zoning ? (
-          <div className="mt-1.5 flex justify-between">
-            <span className="text-white/40 uppercase tracking-[0.14em] text-[10px]">
-              zoning
-            </span>
-            <span>{p.zoning}</span>
-          </div>
-        ) : null}
       </div>
 
-      {p.description ? (
-        <div className="border-t border-[var(--color-hairline-dark)] px-4 py-3">
-          <p className="text-[11px] leading-[1.6] text-white/55">
-            {p.description}
-          </p>
-        </div>
-      ) : null}
+      {/* Expandable details — hidden on mobile until tapped, always visible on md+ */}
+      <div className={`overflow-hidden transition-[grid-template-rows] duration-200 ease-out grid md:grid-rows-[1fr] ${expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr] max-md:invisible"}`}>
+        <div className="min-h-0">
+          {p.zoning ? (
+            <div className="border-t border-[var(--color-hairline-dark)] px-4 py-3 text-[12px] text-white/65">
+              <div className="flex justify-between">
+                <span className="text-white/40 uppercase tracking-[0.14em] text-[10px]">
+                  zoning
+                </span>
+                <span>{p.zoning}</span>
+              </div>
+            </div>
+          ) : null}
 
-      {p.contactUrl ? (
-        <div className="border-t border-[var(--color-hairline-dark)] px-4 py-3">
-          <a
-            href={p.contactUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block rounded-[var(--radius-md)] border border-[var(--color-hairline-dark)] py-2.5 text-center text-[12px] text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-          >
-            contact
-          </a>
+          {p.description ? (
+            <div className="border-t border-[var(--color-hairline-dark)] px-4 py-3">
+              <p className="text-[11px] leading-[1.6] text-white/55">
+                {p.description}
+              </p>
+            </div>
+          ) : null}
+
+          {p.contactUrl ? (
+            <div className="border-t border-[var(--color-hairline-dark)] px-4 py-3">
+              <a
+                href={p.contactUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block rounded-[var(--radius-md)] border border-[var(--color-hairline-dark)] py-2.5 text-center text-[12px] text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                contact
+              </a>
+            </div>
+          ) : null}
         </div>
-      ) : null}
+      </div>
+
+      {/* Tap hint — mobile only, when collapsed */}
+      {hasDetails && !expanded && (
+        <div className="border-t border-[var(--color-hairline-dark)] py-2 text-center text-[10px] text-white/30 md:hidden">
+          tap for details
+        </div>
+      )}
     </Panel>
   );
 }
