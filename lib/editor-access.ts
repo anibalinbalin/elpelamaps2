@@ -1,5 +1,5 @@
 export const EDITOR_PIN = "0020";
-export const EDITOR_ACCESS_STORAGE_KEY = "elpela-editor-access";
+export const EDITOR_ACCESS_STORAGE_KEY = "parcelpin-editor-access";
 
 export function hasEditorAccess() {
   if (typeof window === "undefined") {

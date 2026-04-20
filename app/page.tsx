@@ -3,7 +3,7 @@ import Link from "next/link";
 import { LandingImageMotion } from "@/components/landing-image-motion";
 
 export const metadata: Metadata = {
-  title: "Elpela",
+  title: "Parcel Pin",
   description:
     "A platform for choosing premium land with clarity.",
 };
@@ -29,10 +29,10 @@ export default function HomePage() {
           className="text-xl leading-none"
           style={{ fontFamily: "var(--font-display)", color: "rgba(0,0,0,1)" }}
         >
-          Elpela
+          Parcel Pin
         </span>
         <a
-          href="mailto:anibalin@gmail.com?subject=Elpela"
+          href="mailto:anibalin@gmail.com?subject=Parcel Pin"
           className="inline-flex items-center gap-2 rounded-full px-4 py-2 no-underline"
           style={{ background: "#EDEADF", color: "rgba(0,0,0,1)" }}
         >
@@ -113,20 +113,20 @@ export default function HomePage() {
               color: "rgba(0,0,0,0.6)",
             }}
           >
-            Elpela helps buyers see what static plans cannot: how orientation,
+            Parcel Pin helps buyers see what static plans cannot: how orientation,
             privacy, context, and atmosphere shape the parcel that truly fits.
           </p>
 
           <div className="mt-8 flex flex-wrap gap-3">
             <a
-              href="mailto:anibalin@gmail.com?subject=Elpela"
+              href="mailto:anibalin@gmail.com?subject=Parcel Pin"
               className="inline-flex items-center gap-2 rounded-full px-4 py-2 no-underline"
               style={{ background: "rgba(0,0,0,1)", color: "#F9F6EF" }}
             >
               <span>request a private demonstration</span>
             </a>
             <Link
-              href="/viewer-v2"
+              href="/viewer"
               className="inline-flex items-center gap-2 rounded-full px-4 py-2 no-underline"
               style={{ background: "#EDEADF", color: "rgba(0,0,0,1)" }}
             >
@@ -166,7 +166,7 @@ export default function HomePage() {
                 color: "rgba(0,0,0,1)",
               }}
             >
-              Elpela
+              Parcel Pin
             </span>.
           </p>
         </div>
@@ -196,7 +196,7 @@ export default function HomePage() {
         </Paragraph>
 
         <Paragraph>
-          <Lead>Elpela turns that decision from instinct alone into clarity.</Lead>{" "}
+          <Lead>Parcel Pin turns that decision from instinct alone into clarity.</Lead>{" "}
           It helps buyers move from broad attraction to a stronger, more
           confident shortlist.
         </Paragraph>
@@ -204,11 +204,11 @@ export default function HomePage() {
 
       {/* ── What it reveals ── */}
       <section
-        id="what-elpela-reveals"
-        aria-label="What Elpela reveals"
+        id="what-parcelpin-reveals"
+        aria-label="What Parcel Pin reveals"
         className="mx-auto max-w-[800px] px-5 pt-3"
       >
-        <SectionLabel>What Elpela reveals</SectionLabel>
+        <SectionLabel>What Parcel Pin reveals</SectionLabel>
 
         <RevealRow
           title="Orientation and light"
@@ -238,7 +238,7 @@ export default function HomePage() {
 
         <Paragraph>
           <Lead>A more discerning way to present a premium development.</Lead>{" "}
-          Elpela elevates project perception without becoming a brochure or a
+          Parcel Pin elevates project perception without becoming a brochure or a
           gimmick.
         </Paragraph>
 
@@ -255,7 +255,7 @@ export default function HomePage() {
       >
         <Paragraph>
           <Lead>Premium land should be chosen with more than instinct alone.</Lead>{" "}
-          Elpela brings atmosphere, discernment, and decision support into one
+          Parcel Pin brings atmosphere, discernment, and decision support into one
           experience.
         </Paragraph>
       </section>
@@ -278,14 +278,14 @@ export default function HomePage() {
         </span>
         <div className="flex gap-2">
           <a
-            href="mailto:anibalin@gmail.com?subject=Elpela"
+            href="mailto:anibalin@gmail.com?subject=Parcel Pin"
             className="inline-flex items-center gap-2 rounded-full px-4 py-2 no-underline"
             style={{ background: "rgba(0,0,0,1)", color: "#F9F6EF" }}
           >
             <span>discuss a project</span>
           </a>
           <Link
-            href="/viewer-v2"
+            href="/viewer"
             className="inline-flex items-center gap-2 rounded-full px-4 py-2 no-underline"
             style={{ background: "#EDEADF", color: "rgba(0,0,0,1)" }}
           >

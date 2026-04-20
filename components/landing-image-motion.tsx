@@ -119,7 +119,7 @@ export function LandingImageMotion() {
           <img
             ref={imgRef}
             src="https://i.postimg.cc/1ztkf4hX/moveimage.png"
-            alt="Elpela parcel experience"
+            alt="Parcel Pin experience"
             style={{
               display: "block",
               width: "100%",

@@ -37,11 +37,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Elpela",
-    template: "%s | Elpela",
+    default: "Parcel Pin",
+    template: "%s | Parcel Pin",
   },
   description:
-    "Elpela helps buyers choose premium land with more clarity, confidence, and emotional precision.",
+    "Parcel Pin helps buyers choose premium land with more clarity, confidence, and emotional precision.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

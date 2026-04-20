@@ -679,7 +679,7 @@ export function ViewerV2() {
         </span>
         <span className="text-white/25">·</span>
         <a
-          href="/editor-v2"
+          href="/editor"
           className="pointer-events-auto text-white/40 transition-colors hover:text-white"
         >
           editor

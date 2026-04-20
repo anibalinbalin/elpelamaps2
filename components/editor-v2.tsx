@@ -334,7 +334,7 @@ export function EditorV2() {
             setAccess(true);
           }}
           onCancel={() => {
-            window.location.href = "/viewer-v2";
+            window.location.href = "/viewer";
           }}
         />
       </div>
@@ -563,7 +563,7 @@ export function EditorV2() {
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-[var(--color-hairline-dark)] px-4 py-3">
           <a
-            href="/viewer-v2"
+            href="/viewer"
             className="text-[11px] uppercase tracking-[0.14em] text-white/40 transition-colors hover:text-white"
           >
             ← viewer
