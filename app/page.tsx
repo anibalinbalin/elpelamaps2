@@ -1,382 +1,316 @@
-import type { Metadata } from "next";
-import Link from "next/link";
-import { LandingImageMotion } from "@/components/landing-image-motion";
+"use client";
 
-export const metadata: Metadata = {
-  title: "Parcel Pin",
-  description:
-    "A platform for choosing premium land with clarity.",
+import Link from "next/link";
+import { motion } from "framer-motion";
+
+const elevation = {
+  2: "inset 0 1px 0 0 rgba(255,255,255,0.02), inset 0 0 0 1px rgba(255,255,255,0.02), 0 1px 1px -0.5px rgba(0,0,0,0.18)",
+  3: "inset 0 1px 0 0 rgba(255,255,255,0.05), inset 0 0 0 1px rgba(255,255,255,0.02), 0 0 0 1px rgba(0,0,0,0.12), 0 1px 1px -0.5px rgba(0,0,0,0.18), 0 3px 3px -1.5px rgba(0,0,0,0.18)",
+  4: "inset 0 1px 0 0 rgba(255,255,255,0.05), inset 0 0 0 1px rgba(255,255,255,0.04), 0 0 0 1px rgba(0,0,0,0.14), 0 1px 1px -0.5px rgba(0,0,0,0.18), 0 3px 3px -1.5px rgba(0,0,0,0.18), 0 6px 6px -3px rgba(0,0,0,0.18)",
 };
 
 export default function HomePage() {
   return (
-    <main
-      className="min-h-dvh"
-      style={{
-        background: "#F9F6EF",
-        fontFamily: "var(--font-sans)",
-      }}
-    >
-      <style>{`html,body{background:#F9F6EF;margin:0;}`}</style>
-
-      {/* ── Header ── */}
-      <header
-        id="site-header"
-        aria-label="Site header"
-        className="mx-auto flex max-w-[800px] items-center justify-between px-5 pt-[10vh] max-sm:pt-[5vh]"
-      >
+    <main className="min-h-dvh bg-[#1a1a1f]">
+      {/* Header */}
+      <header className="mx-auto flex max-w-[1200px] items-center justify-between px-6 pt-8 sm:px-10 sm:pt-12">
         <span
-          className="text-xl leading-none"
-          style={{ fontFamily: "var(--font-display)", color: "rgba(0,0,0,1)" }}
+          className="text-lg leading-none text-white"
+          style={{ fontFamily: "var(--font-display)" }}
         >
           Parcel Pin
         </span>
-        <a
-          href="mailto:anibalin@gmail.com?subject=Parcel Pin"
-          className="inline-flex items-center gap-2 rounded-full px-4 py-2 no-underline"
-          style={{ background: "#EDEADF", color: "rgba(0,0,0,1)" }}
-        >
-          <span>request a private demonstration</span>
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <rect x="2" y="4" width="20" height="16" rx="2" />
-            <path d="M22 7l-10 6L2 7" />
-          </svg>
-        </a>
+        <FluidButton href="mailto:anibalin@gmail.com?subject=Parcel Pin" size="sm">
+          Get in touch
+        </FluidButton>
       </header>
 
-      {/* ── Hero ── */}
-      <section id="hero" aria-label="Hero" className="py-10 sm:py-20">
-        <div className="mx-auto max-w-[800px] px-5">
-          <div
-            className="mb-6 text-sm uppercase"
-            style={{
-              color: "rgba(0,0,0,0.55)",
-              fontFamily: "var(--font-sans)",
-              letterSpacing: "0.08em",
-            }}
+      {/* Hero */}
+      <section className="mx-auto max-w-[1200px] px-6 pt-16 sm:px-10 sm:pt-24">
+        {/* Hero video */}
+        <div
+          className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl"
+          style={{ boxShadow: elevation[3] }}
+        >
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="none"
+            poster="/landing/hero-poster.jpg"
+            className="absolute inset-0 h-full w-full object-cover"
           >
-            Premium parcel selection for exceptional land
-          </div>
+            <source src="/landing/hero.mp4" type="video/mp4" />
+          </video>
+          <div className="absolute inset-0 bg-gradient-to-t from-[#1a1a1f]/60 via-transparent to-transparent" />
+        </div>
 
-          {/* Hero image — replace with aerial José Ignacio photograph */}
-          <div
-            className="flex w-full items-center justify-center overflow-hidden"
-            style={{
-              aspectRatio: "4 / 3",
-              background:
-                "linear-gradient(180deg, #C4BFB2 0%, #D8D4C8 50%, #F9F6EF 100%)",
-            }}
-          >
-            <span
-              className="text-xs uppercase tracking-[0.15em] select-none"
-              style={{ color: "rgba(0,0,0,0.10)" }}
-            >
-              josé ignacio
-            </span>
-          </div>
+        {/* Headline */}
+        <h1
+          className="mt-12 text-pretty sm:mt-16"
+          style={{
+            fontFamily: "var(--font-inter)",
+            fontSize: "clamp(2rem, 5vw, 3.5rem)",
+            fontWeight: 500,
+            lineHeight: 1.1,
+            letterSpacing: "-0.02em",
+            color: "#ffffff",
+          }}
+        >
+          Buyers arrive already knowing
+          <br className="hidden sm:block" />
+          {" "}which lot they want.
+        </h1>
 
-          {/* Wordmark — overlaps bottom of hero image */}
-          <h1
-            className="relative z-10 text-center"
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "clamp(5rem, 18vw, 11rem)",
-              fontWeight: 400,
-              lineHeight: 0.85,
-              letterSpacing: "-0.02em",
-              color: "rgba(0,0,0,1)",
-              marginTop: "-0.28em",
-            }}
-          >
-            Choose
-            <br />
-            land with clarity.
-          </h1>
+        {/* Value prop */}
+        <p
+          className="mt-6 max-w-2xl text-pretty sm:mt-8"
+          style={{
+            fontFamily: "var(--font-inter)",
+            fontSize: "clamp(1.1rem, 2.5vw, 1.35rem)",
+            lineHeight: 1.5,
+            color: "rgba(255,255,255,0.55)",
+          }}
+        >
+          When buyers feel the light, the privacy, and the atmosphere before
+          they visit — they arrive with conviction, not curiosity.
+        </p>
 
-          <p
-            className="mt-12 text-pretty sm:mt-16"
-            style={{
-              fontFamily: "var(--font-sans)",
-              fontSize: "clamp(24px, 4vw, 34px)",
-              fontWeight: 400,
-              lineHeight: "110%",
-              color: "rgba(0,0,0,0.6)",
-            }}
-          >
-            Parcel Pin helps buyers see what static plans cannot: how orientation,
-            privacy, context, and atmosphere shape the parcel that truly fits.
-          </p>
-
-          <div className="mt-8 flex flex-wrap gap-3">
-            <a
-              href="mailto:anibalin@gmail.com?subject=Parcel Pin"
-              className="inline-flex items-center gap-2 rounded-full px-4 py-2 no-underline"
-              style={{ background: "rgba(0,0,0,1)", color: "#F9F6EF" }}
-            >
-              <span>request a private demonstration</span>
-            </a>
-            <Link
-              href="/viewer"
-              className="inline-flex items-center gap-2 rounded-full px-4 py-2 no-underline"
-              style={{ background: "#EDEADF", color: "rgba(0,0,0,1)" }}
-            >
-              <span>explore the parcel experience</span>
-            </Link>
-          </div>
-
-          <div
-            className="mt-12 text-xs uppercase sm:mt-14"
-            style={{
-              color: "rgba(0,0,0,0.45)",
-              fontFamily: "var(--font-sans)",
-              letterSpacing: "0.08em",
-            }}
-          >
-            Scroll down
-          </div>
-
-          <p
-            className="mt-16 text-pretty sm:mt-20"
-            style={{
-              fontFamily: "var(--font-sans)",
-              fontSize: "clamp(26px, 4.5vw, 48px)",
-              fontWeight: 400,
-              lineHeight: "110%",
-              color: "rgba(0,0,0,0.6)",
-            }}
-          >
-            Imagine choosing land not from a plan, but from the land itself.
-            Seeing how light, privacy, and setting shape each parcel before you
-            commit. That is{" "}
-            <span
-              style={{
-                fontFamily: "var(--font-display)",
-                fontWeight: 700,
-                fontStyle: "italic",
-                color: "rgba(0,0,0,1)",
-              }}
-            >
-              Parcel Pin
-            </span>.
-          </p>
+        {/* CTAs */}
+        <div className="mt-8 flex flex-wrap gap-3 sm:mt-10">
+          <FluidButton href="mailto:anibalin@gmail.com?subject=Parcel Pin" variant="primary">
+            Get in touch
+          </FluidButton>
+          <FluidButton href="/viewer" variant="secondary">
+            See it live
+            <ArrowIcon />
+          </FluidButton>
         </div>
       </section>
 
-      <LandingImageMotion />
-
-      {/* ── Why ── */}
-      <section
-        id="why-sales-fall-short"
-        aria-label="Why existing sales materials fall short"
-        className="mx-auto max-w-[800px] px-5"
-      >
-        <SectionLabel>Why existing sales materials fall short</SectionLabel>
-
-        <Paragraph>
-          <Lead>Premium land is rarely chosen by boundary lines alone.</Lead>{" "}
-          Static plans can show availability, but they flatten the subtle
-          differences that determine how a parcel will actually feel to live
-          in.
-        </Paragraph>
-
-        <Paragraph>
-          <Lead>In places like José Ignacio, buyers are choosing more than land.</Lead>{" "}
-          They are choosing light, exposure, privacy, approach, and the setting
-          for a future life.
-        </Paragraph>
-
-        <Paragraph>
-          <Lead>Parcel Pin turns that decision from instinct alone into clarity.</Lead>{" "}
-          It helps buyers move from broad attraction to a stronger, more
-          confident shortlist.
-        </Paragraph>
+      {/* Feature cards */}
+      <section className="mx-auto max-w-[1200px] px-6 pt-24 sm:px-10 sm:pt-32">
+        <div className="grid gap-4 sm:grid-cols-3 sm:gap-6">
+          <FeatureCard
+            label="Fewer visits, faster decisions"
+            description="Buyers self-select before the trip. The site visit confirms what they already feel."
+            image="/landing/card-overview.jpg"
+          />
+          <FeatureCard
+            label="Premium positioning"
+            description="Your project looks like nothing else on the market. The presentation matches the land."
+            image="/landing/card-detail.jpg"
+          />
+          <FeatureCard
+            label="Conviction before the visit"
+            description="They felt the orientation, the privacy, the setting. They arrive ready to commit."
+            image="/landing/card-selection.jpg"
+          />
+        </div>
       </section>
 
-      {/* ── What it reveals ── */}
-      <section
-        id="what-parcelpin-reveals"
-        aria-label="What Parcel Pin reveals"
-        className="mx-auto max-w-[800px] px-5 pt-3"
-      >
-        <SectionLabel>What Parcel Pin reveals</SectionLabel>
-
-        <RevealRow
-          title="Orientation and light"
-          copy="See how sun, exposure, and atmosphere shape the lived feel of each parcel across the day."
-        />
-        <RevealRow
-          title="Privacy and adjacency"
-          copy="Understand which parcels feel secluded, which feel connected, and where tradeoffs become visible."
-        />
-        <RevealRow
-          title="Landscape and setting"
-          copy="Read what brochures flatten: approach, surroundings, context, and the character of place."
-        />
-        <RevealRow
-          title="Selection with judgment"
-          copy="Move beyond availability and compare parcels by lifestyle fit, future use, and emotional alignment."
-        />
+      {/* How it works */}
+      <section className="mx-auto max-w-[1200px] px-6 pt-24 sm:px-10 sm:pt-32">
+        <h2
+          className="mb-10 text-xs uppercase tracking-[0.15em] sm:mb-12"
+          style={{ color: "rgba(255,255,255,0.4)" }}
+        >
+          How it works
+        </h2>
+        <div className="grid gap-8 sm:grid-cols-3 sm:gap-12">
+          <Step number="1" title="Send us your lot plan" />
+          <Step number="2" title="We build the experience" />
+          <Step number="3" title="Share the link with buyers" />
+        </div>
       </section>
 
-      {/* ── Developer proof ── */}
-      <section
-        id="why-developers-use-it"
-        aria-label="Why developers use it"
-        className="mx-auto max-w-[800px] px-5 pt-8"
-      >
-        <SectionLabel>Why developers use it</SectionLabel>
-
-        <Paragraph>
-          <Lead>A more discerning way to present a premium development.</Lead>{" "}
-          Parcel Pin elevates project perception without becoming a brochure or a
-          gimmick.
-        </Paragraph>
-
-        <CompactProof>It helps buyers understand parcel distinctions faster and with more confidence.</CompactProof>
-        <CompactProof>It creates more qualified interest because selection replaces passive browsing.</CompactProof>
-        <CompactProof>It gives exceptional land the standard of presentation it deserves.</CompactProof>
+      {/* Final CTA */}
+      <section className="mx-auto max-w-[1200px] px-6 pt-24 sm:px-10 sm:pt-32">
+        <h2
+          className="text-pretty"
+          style={{
+            fontFamily: "var(--font-inter)",
+            fontSize: "clamp(1.5rem, 4vw, 2.5rem)",
+            fontWeight: 500,
+            lineHeight: 1.15,
+            letterSpacing: "-0.01em",
+            color: "#ffffff",
+          }}
+        >
+          Ready to show your land properly?
+        </h2>
+        <div className="mt-6 flex flex-wrap gap-3 sm:mt-8">
+          <FluidButton href="mailto:anibalin@gmail.com?subject=Parcel Pin" variant="primary">
+            Get in touch
+          </FluidButton>
+          <FluidButton href="/viewer" variant="secondary">
+            Explore the viewer
+            <ArrowIcon />
+          </FluidButton>
+        </div>
       </section>
 
-      {/* ── Final CTA ── */}
-      <section
-        id="final-cta"
-        aria-label="Final call to action"
-        className="mx-auto max-w-[800px] px-5 pt-8"
-      >
-        <Paragraph>
-          <Lead>Premium land should be chosen with more than instinct alone.</Lead>{" "}
-          Parcel Pin brings atmosphere, discernment, and decision support into one
-          experience.
-        </Paragraph>
-      </section>
-
-      {/* ── Footer ── */}
-      <footer
-        id="site-footer"
-        aria-label="Site footer"
-        className="mx-auto flex max-w-[800px] flex-col gap-5 px-5 pb-[10vh] pt-[2vh] sm:flex-row sm:items-center sm:justify-between"
-      >
-        <span className="py-2" style={{ color: "rgba(0,0,0,0.6)" }}>
+      {/* Footer */}
+      <footer className="mx-auto flex max-w-[1200px] flex-col gap-4 px-6 pb-12 pt-24 sm:flex-row sm:items-center sm:justify-between sm:px-10 sm:pt-32">
+        <span
+          className="text-sm"
+          style={{ color: "rgba(255,255,255,0.4)" }}
+        >
           José Ignacio, Uruguay ·{" "}
           <a
             href="mailto:anibalin@gmail.com"
-            className="no-underline"
-            style={{ color: "rgba(0,0,0,1)", fontWeight: 500 }}
+            className="text-white/70 no-underline transition-colors hover:text-white"
           >
             anibalin@gmail.com
           </a>
         </span>
-        <div className="flex gap-2">
-          <a
-            href="mailto:anibalin@gmail.com?subject=Parcel Pin"
-            className="inline-flex items-center gap-2 rounded-full px-4 py-2 no-underline"
-            style={{ background: "rgba(0,0,0,1)", color: "#F9F6EF" }}
-          >
-            <span>discuss a project</span>
-          </a>
-          <Link
-            href="/viewer"
-            className="inline-flex items-center gap-2 rounded-full px-4 py-2 no-underline"
-            style={{ background: "#EDEADF", color: "rgba(0,0,0,1)" }}
-          >
-            <span>open the experience</span>
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M7 17L17 7M17 7H7M17 7V17" />
-            </svg>
-          </Link>
-        </div>
+        <span
+          className="text-sm"
+          style={{
+            fontFamily: "var(--font-display)",
+            color: "rgba(255,255,255,0.25)",
+          }}
+        >
+          Parcel Pin
+        </span>
       </footer>
     </main>
   );
 }
 
-/* ── Primitives ── */
+/* ── Components ── */
 
-function Paragraph({ children }: { children: React.ReactNode }) {
-  return (
-    <p
-      className="text-xl leading-[120%] sm:text-2xl"
-      style={{ color: "rgba(0,0,0,0.6)", marginBottom: "4.5vh" }}
-    >
-      {children}
-    </p>
-  );
-}
-
-function Lead({ children }: { children: React.ReactNode }) {
-  return <span style={{ color: "rgba(0,0,0,1)" }}>{children}</span>;
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      className="mb-6 text-sm uppercase"
-      style={{
-        color: "rgba(0,0,0,0.55)",
-        fontFamily: "var(--font-sans)",
-        letterSpacing: "0.08em",
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-function RevealRow({
-  title,
-  copy,
+function FluidButton({
+  href,
+  variant = "primary",
+  size = "md",
+  children,
 }: {
-  title: string;
-  copy: string;
+  href: string;
+  variant?: "primary" | "secondary";
+  size?: "sm" | "md";
+  children: React.ReactNode;
+}) {
+  const isExternal = href.startsWith("mailto:") || href.startsWith("http");
+
+  const styles = {
+    primary: "bg-white text-[#0a0a0a] hover:bg-white/90",
+    secondary:
+      "bg-white/[0.08] text-white hover:bg-white/[0.14]",
+  };
+
+  const sizes = {
+    sm: "px-4 py-2 text-sm",
+    md: "px-5 py-2.5 text-sm",
+  };
+
+  const className = `inline-flex items-center gap-2 rounded-full font-medium no-underline transition-colors ${styles[variant]} ${sizes[size]}`;
+  const shadow = variant === "secondary" ? elevation[2] : undefined;
+
+  if (isExternal) {
+    return (
+      <motion.a
+        href={href}
+        className={className}
+        style={shadow ? { boxShadow: shadow } : undefined}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        transition={{ type: "spring", stiffness: 400, damping: 25 }}
+      >
+        {children}
+      </motion.a>
+    );
+  }
+
+  return (
+    <motion.div
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      transition={{ type: "spring", stiffness: 400, damping: 25 }}
+      className="inline-flex"
+      style={shadow ? { boxShadow: shadow } : undefined}
+    >
+      <Link href={href} className={className}>
+        {children}
+      </Link>
+    </motion.div>
+  );
+}
+
+function FeatureCard({
+  label,
+  description,
+  image,
+}: {
+  label: string;
+  description: string;
+  image: string;
 }) {
   return (
-    <div
-      className="border-t py-5"
-      style={{ borderColor: "rgba(0,0,0,0.12)" }}
+    <motion.div
+      className="group rounded-xl bg-white/[0.03] p-5 sm:p-6"
+      style={{ boxShadow: elevation[3] }}
+      whileHover={{ boxShadow: elevation[4] }}
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
     >
+      <div className="mb-4 aspect-[4/3] overflow-hidden rounded-lg">
+        <img
+          src={image}
+          alt={label}
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+          loading="lazy"
+        />
+      </div>
+      <h3
+        className="mb-2 text-base font-medium text-white sm:text-lg"
+        style={{ fontFamily: "var(--font-inter)" }}
+      >
+        {label}
+      </h3>
       <p
-        className="mb-2 text-xl sm:text-2xl"
-        style={{ color: "rgba(0,0,0,1)", lineHeight: "115%" }}
+        className="text-sm leading-relaxed"
+        style={{ color: "rgba(255,255,255,0.5)" }}
+      >
+        {description}
+      </p>
+    </motion.div>
+  );
+}
+
+function Step({ number, title }: { number: string; title: string }) {
+  return (
+    <div className="flex items-start gap-4">
+      <span
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm text-white/60"
+        style={{ fontFamily: "var(--font-inter)", boxShadow: elevation[2] }}
+      >
+        {number}
+      </span>
+      <p
+        className="pt-1 text-lg text-white/80"
+        style={{ fontFamily: "var(--font-inter)" }}
       >
         {title}
       </p>
-      <p
-        className="text-lg sm:text-xl"
-        style={{ color: "rgba(0,0,0,0.6)", lineHeight: "125%" }}
-      >
-        {copy}
-      </p>
     </div>
   );
 }
 
-function CompactProof({ children }: { children: React.ReactNode }) {
+function ArrowIcon() {
   return (
-    <p
-      className="text-lg leading-[125%] sm:text-xl"
-      style={{ color: "rgba(0,0,0,0.6)", marginBottom: "2.4vh" }}
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
     >
-      {children}
-    </p>
+      <path d="M7 17L17 7M17 7H7M17 7V17" />
+    </svg>
   );
 }
