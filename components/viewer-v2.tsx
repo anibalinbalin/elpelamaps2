@@ -673,11 +673,6 @@ export function ViewerV2() {
       </div>
 
       <div className="pointer-events-none absolute bottom-4 left-4 z-20 flex items-center gap-3 text-[10px] uppercase tracking-[0.22em] text-white/50">
-        <span>
-          viewer v2 · takram atmosphere + clouds · google photorealistic 3d
-          tiles
-        </span>
-        <span className="text-white/25">·</span>
         <a
           href="/editor"
           className="pointer-events-auto text-white/40 transition-colors hover:text-white"
