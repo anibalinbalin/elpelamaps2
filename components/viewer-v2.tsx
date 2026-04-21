@@ -819,15 +819,19 @@ export function ViewerV2() {
         </a>
         <Panel className="pointer-events-auto flex items-center gap-2 px-3 py-2 text-[11px] text-white/50 max-sm:hidden">
           <span className="flex items-center gap-1.5">
-            <Kbd>click + drag</Kbd> orbit
+            <Kbd>drag</Kbd> pan
+          </span>
+          <span className="text-white/20">|</span>
+          <span className="flex items-center gap-1.5">
+            <Kbd>shift + drag</Kbd> tilt
+          </span>
+          <span className="text-white/20">|</span>
+          <span className="flex items-center gap-1.5">
+            <Kbd>ctrl + drag</Kbd> rotate
           </span>
           <span className="text-white/20">|</span>
           <span className="flex items-center gap-1.5">
             <Kbd>scroll</Kbd> zoom
-          </span>
-          <span className="text-white/20">|</span>
-          <span className="flex items-center gap-1.5">
-            <Kbd>right-click + drag</Kbd> pan
           </span>
         </Panel>
         <div />
