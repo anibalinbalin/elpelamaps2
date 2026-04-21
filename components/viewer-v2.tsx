@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import type { RefObject } from "react";
 import {
   BufferGeometry,
@@ -8,6 +8,7 @@ import {
   Float32BufferAttribute,
   Line,
   LineBasicMaterial,
+  Matrix4,
   MeshBasicMaterial,
   Vector3,
 } from "three";
@@ -43,6 +44,43 @@ import { formatAreaCompact, formatPrice } from "@/lib/geo-utils";
 import { Panel, Badge } from "@/components/ui";
 
 const DEG2RAD = Math.PI / 180;
+const ANIM_DURATION = 1.4;
+
+function computeParcelTargetPose(feature: ParcelFeature): CameraPose {
+  const ring = feature.geometry.coordinates[0];
+  const n = ring.length - 1;
+  let cLat = 0,
+    cLon = 0;
+  for (let i = 0; i < n; i++) {
+    cLon += ring[i][0];
+    cLat += ring[i][1];
+  }
+  cLon /= n;
+  cLat /= n;
+
+  const cosLat = Math.cos(cLat * DEG2RAD);
+  let maxDistSq = 0;
+  for (let i = 0; i < n; i++) {
+    const dLon = (ring[i][0] - cLon) * cosLat * 111320;
+    const dLat = (ring[i][1] - cLat) * 111320;
+    const d2 = dLon * dLon + dLat * dLat;
+    if (d2 > maxDistSq) maxDistSq = d2;
+  }
+  const boundingRadius = Math.sqrt(maxDistSq);
+  const halfFovRad = 30 * DEG2RAD;
+  const alt = Math.max(150, (boundingRadius / Math.tan(halfFovRad)) * 1.6);
+
+  return { lat: cLat, lon: cLon, alt, headingDeg: 0, pitchDeg: -78 };
+}
+
+function lerpAngleDeg(from: number, to: number, t: number): number {
+  const delta = ((to - from + 540) % 360) - 180;
+  return from + t * delta;
+}
+
+function easeOutQuint(t: number): number {
+  return 1 - (1 - t) ** 5;
+}
 
 const REFERENCE_YEAR = 2024;
 const REFERENCE_MONTH = 2;
@@ -91,23 +129,31 @@ interface CameraPose {
   pitchDeg: number;
 }
 
-function CameraFrame({
+function AnimatedCamera({
   tilesRef,
-  pose,
+  initialPose,
+  targetPose,
   exposure,
 }: {
   tilesRef: RefObject<TilesRendererImpl | null>;
-  pose: CameraPose;
+  initialPose: CameraPose;
+  targetPose: CameraPose | null;
   exposure: number;
 }) {
-  const { camera, gl } = useThree();
+  const { camera, gl, controls, invalidate } = useThree();
+  const fromPose = useRef<CameraPose>(initialPose);
+  const currentPose = useRef<CameraPose>(initialPose);
+  const animProgress = useRef(1);
+  const prevTarget = useRef<CameraPose | null>(null);
+  const tilesReady = useRef(false);
+  const mat = useRef(new Matrix4());
 
   useEffect(() => {
     gl.toneMappingExposure = exposure;
   }, [gl, exposure]);
 
-  useEffect(() => {
-    const apply = () => {
+  const applyPose = useCallback(
+    (pose: CameraPose): boolean => {
       const tiles = tilesRef.current;
       if (!tiles?.ellipsoid) return false;
       tiles.ellipsoid.getObjectFrame(
@@ -117,20 +163,67 @@ function CameraFrame({
         pose.headingDeg * DEG2RAD,
         pose.pitchDeg * DEG2RAD,
         0,
-        camera.matrix,
+        mat.current,
         CAMERA_FRAME,
       );
+      camera.matrix.copy(mat.current);
       camera.matrix.decompose(camera.position, camera.quaternion, camera.scale);
       camera.updateMatrixWorld(true);
       return true;
-    };
+    },
+    [camera, tilesRef],
+  );
 
-    if (apply()) return;
+  useEffect(() => {
+    if (applyPose(initialPose)) {
+      tilesReady.current = true;
+      return;
+    }
     const interval = setInterval(() => {
-      if (apply()) clearInterval(interval);
+      if (applyPose(initialPose)) {
+        tilesReady.current = true;
+        clearInterval(interval);
+      }
     }, 100);
     return () => clearInterval(interval);
-  }, [camera, tilesRef, pose]);
+  }, [initialPose, applyPose]);
+
+  useEffect(() => {
+    if (targetPose === null) {
+      prevTarget.current = null;
+      return;
+    }
+    if (prevTarget.current === targetPose) return;
+    prevTarget.current = targetPose;
+    fromPose.current = { ...currentPose.current };
+    animProgress.current = 0;
+    if (controls) (controls as any).enabled = false;
+  }, [targetPose, controls]);
+
+  useFrame((_, delta) => {
+    if (!tilesReady.current || animProgress.current >= 1) return;
+
+    animProgress.current = Math.min(1, animProgress.current + delta / ANIM_DURATION);
+    const t = easeOutQuint(animProgress.current);
+    const from = fromPose.current;
+    const to = prevTarget.current!;
+
+    const pose: CameraPose = {
+      lat: from.lat + (to.lat - from.lat) * t,
+      lon: from.lon + (to.lon - from.lon) * t,
+      alt: from.alt + (to.alt - from.alt) * t,
+      headingDeg: lerpAngleDeg(from.headingDeg, to.headingDeg, t),
+      pitchDeg: from.pitchDeg + (to.pitchDeg - from.pitchDeg) * t,
+    };
+
+    currentPose.current = pose;
+    applyPose(pose);
+    invalidate();
+
+    if (animProgress.current >= 1 && controls) {
+      (controls as any).enabled = true;
+    }
+  });
 
   return null;
 }
@@ -552,6 +645,7 @@ interface SceneProps {
   windSpeed: number;
   exposure: number;
   cameraPose: CameraPose;
+  targetPose: CameraPose | null;
   shadowFarScale: number;
   shadowSplitLambda: number;
   shadowMapSize: number;
@@ -566,6 +660,7 @@ function Scene({
   windSpeed,
   exposure,
   cameraPose,
+  targetPose,
   shadowFarScale,
   shadowSplitLambda,
   shadowMapSize,
@@ -578,7 +673,7 @@ function Scene({
 
   return (
     <>
-      <CameraFrame tilesRef={tilesRef} pose={cameraPose} exposure={exposure} />
+      <AnimatedCamera tilesRef={tilesRef} initialPose={cameraPose} targetPose={targetPose} exposure={exposure} />
       {showParcels && (
         <ParcelLayer
           tilesRef={tilesRef}
@@ -643,6 +738,11 @@ export function ViewerV2() {
     [],
   );
 
+  const targetPose = useMemo<CameraPose | null>(
+    () => (selectedParcel ? computeParcelTargetPose(selectedParcel) : null),
+    [selectedParcel],
+  );
+
   const hourUTC = hourLocal - URUGUAY_UTC_OFFSET_HOURS;
   const timeLabel = formatHourLabel(hourLocal);
 
@@ -660,6 +760,7 @@ export function ViewerV2() {
           windSpeed={DEFAULTS.windSpeed}
           exposure={DEFAULTS.exposure}
           cameraPose={cameraPose}
+          targetPose={targetPose}
           shadowFarScale={DEFAULTS.shadowFarScale}
           shadowSplitLambda={DEFAULTS.shadowSplitLambda}
           shadowMapSize={DEFAULTS.shadowMapSize}
