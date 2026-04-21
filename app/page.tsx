@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
+import { LandingImageMotion } from "@/components/landing-image-motion";
 
 function useScrollReveal() {
   const ref = useRef<HTMLDivElement>(null);
@@ -374,37 +375,20 @@ export default function HomePage() {
           </p>
         </Reveal>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-            gap: "24px",
-            marginTop: "80px",
-          }}
-        >
+        <div style={{ marginTop: "80px" }}>
           <Reveal delay={0}>
-            <Step
-              number="01"
-              title="Send us your lot plan"
-              description="A subdivision PDF or DWG with lot coordinates. That's all we need."
-            />
+            <StepRow number="01" title="Send us your lot plan" description="A subdivision PDF or DWG with lot coordinates. That's all we need." />
           </Reveal>
           <Reveal delay={0.1}>
-            <Step
-              number="02"
-              title="We build the viewer"
-              description="Real terrain, sun path, atmosphere, and surrounding context. Ready in 48 hours."
-            />
+            <StepRow number="02" title="We build the viewer" description="Real terrain, sun path, atmosphere, and surrounding context. Ready in 48 hours." />
           </Reveal>
           <Reveal delay={0.2}>
-            <Step
-              number="03"
-              title="Share one link"
-              description="Buyers explore on any device. No app, no login. They arrive already decided."
-            />
+            <StepRow number="03" title="Share one link" description="Buyers explore on any device. No app, no login. They arrive already decided." isLast />
           </Reveal>
         </div>
       </section>
+
+      <LandingImageMotion />
 
       {/* ── CTA — navy ── */}
       <section
@@ -674,94 +658,67 @@ function FeatureBlock({
   );
 }
 
-function Step({
+function StepRow({
   number,
   title,
   description,
+  isLast,
 }: {
   number: string;
   title: string;
   description: string;
+  isLast?: boolean;
 }) {
   return (
     <div
       style={{
-        backgroundImage:
-          "url(https://app.paper.design/file-assets/01KPR26H5Q3W6EDFSG95C2NPAG/24GWS7VJ5VPV0RSKZTCMR27QQ9.png)",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-        backgroundSize: "cover",
-        backgroundColor: "var(--color-aviation-navy)",
-        borderRadius: "6px",
-        padding: "40px",
-        display: "flex",
-        flexDirection: "column" as const,
-        justifyContent: "flex-end",
-        minHeight: "360px",
-        position: "relative" as const,
-        overflow: "hidden",
+        display: "grid",
+        gridTemplateColumns: "80px 1fr 1fr",
+        gap: "40px",
+        alignItems: "baseline",
+        padding: "36px 0",
+        borderTop: "1px solid rgba(14,22,32,0.1)",
+        ...(isLast ? { borderBottom: "1px solid rgba(14,22,32,0.1)" } : {}),
       }}
     >
-      {/* Ghost number watermark */}
-      <div
+      <span
         style={{
-          position: "absolute",
-          top: "-20px",
-          right: "24px",
           fontFamily: "var(--font-display)",
-          fontSize: "180px",
-          fontWeight: 700,
-          color: "rgba(245,244,223,0.06)",
-          lineHeight: 1,
+          fontSize: "48px",
+          fontWeight: 600,
           letterSpacing: "-0.04em",
-          pointerEvents: "none" as const,
-          userSelect: "none" as const,
+          color: "var(--color-sky-blue)",
+          lineHeight: 1,
         }}
       >
         {number}
-      </div>
-      <div
-        style={{ display: "flex", flexDirection: "column" as const, gap: "16px", position: "relative" }}
+      </span>
+      <h3
+        style={{
+          fontFamily: "var(--font-display)",
+          fontSize: "clamp(22px, 2.2vw, 28px)",
+          fontWeight: 600,
+          lineHeight: 1.15,
+          letterSpacing: "-0.03em",
+          color: "var(--color-cockpit)",
+          margin: 0,
+        }}
       >
-        <span
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: "13px",
-            fontWeight: 600,
-            letterSpacing: "0.1em",
-            textTransform: "uppercase" as const,
-            color: "var(--color-sky-blue)",
-          }}
-        >
-          Step {number}
-        </span>
-        <h3
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: "clamp(22px, 2.2vw, 30px)",
-            fontWeight: 700,
-            lineHeight: 1.1,
-            letterSpacing: "-0.03em",
-            color: "var(--color-cream)",
-            margin: 0,
-          }}
-        >
-          {title}.
-        </h3>
-        <p
-          style={{
-            fontFamily: "var(--font-text)",
-            fontSize: "17px",
-            fontWeight: 400,
-            lineHeight: 1.5,
-            color: "rgba(245,244,223,0.6)",
-            margin: 0,
-            maxWidth: "320px",
-          }}
-        >
-          {description}
-        </p>
-      </div>
+        {title}
+      </h3>
+      <p
+        style={{
+          fontFamily: "var(--font-text)",
+          fontSize: "15px",
+          fontWeight: 400,
+          lineHeight: 1.5,
+          color: "var(--color-cockpit)",
+          opacity: 0.5,
+          margin: 0,
+        }}
+      >
+        {description}
+      </p>
     </div>
   );
 }
