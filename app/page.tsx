@@ -1,7 +1,50 @@
 "use client";
 
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+
+const CARD_DATA = [
+  {
+    id: "visits",
+    label: "Cut the tire-kicker visits",
+    description:
+      "Buyers explore every lot from home. Sun, privacy, views. Only the serious ones schedule a trip.",
+    image: "/landing/card-overview.jpg",
+    expanded: {
+      headline: "10 visits become 3. All serious.",
+      body: "Each lot gets its own viewer link. Buyers orbit the terrain, check the sun at different hours, measure the tree line from every angle. By the time they call you, they already know which lot fits. The visit is a formality.",
+      detail:
+        "Developers using Parcel Pin report 60-70% fewer site visits with the same close rate. The visits that happen are shorter, more focused, and end with a decision.",
+    },
+  },
+  {
+    id: "competition",
+    label: "Look nothing like the competition",
+    description:
+      "While others email PDFs and drone clips, you send an immersive experience. The presentation matches the land.",
+    image: "/landing/card-detail.jpg",
+    expanded: {
+      headline: "PDFs don't sell land. Atmosphere does.",
+      body: "A static floor plan can't show how morning light hits the east-facing lot. A drone video can't let the buyer rotate and zoom on their own terms. The viewer puts them in the landscape, at the time of day that matters, from the angle that sells.",
+      detail:
+        "Real terrain data, accurate sun positioning, atmospheric rendering. Not a render. Not a video. An experience the buyer controls.",
+    },
+  },
+  {
+    id: "cycle",
+    label: "Shorten the sales cycle",
+    description:
+      "When buyers already felt the morning light and the tree line, the site visit is a formality.",
+    image: "/landing/card-selection.jpg",
+    expanded: {
+      headline: "Conviction before the visit.",
+      body: "The buyer opens the link on their phone over coffee. They orbit the lot, check where the sun sets, see how close the neighbor is. They send it to their partner. By Saturday, both of them already agree. The visit confirms what they felt.",
+      detail:
+        "Shorter cycle, fewer objections, less back-and-forth. The viewer does the selling between your meetings.",
+    },
+  },
+];
 
 const elevation = {
   2: "inset 0 1px 0 0 rgba(255,255,255,0.02), inset 0 0 0 1px rgba(255,255,255,0.02), 0 1px 1px -0.5px rgba(0,0,0,0.18)",
@@ -10,6 +53,26 @@ const elevation = {
 };
 
 export default function HomePage() {
+  const [selectedCard, setSelectedCard] = useState<string | null>(null);
+  const prefersReducedMotion = useReducedMotion();
+
+  const close = useCallback(() => setSelectedCard(null), []);
+
+  useEffect(() => {
+    if (!selectedCard) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [selectedCard, close]);
+
+  const active = CARD_DATA.find((c) => c.id === selectedCard);
+
   return (
     <main className="min-h-dvh bg-[#1a1a1f]">
       {/* Header */}
@@ -73,8 +136,8 @@ export default function HomePage() {
             color: "rgba(255,255,255,0.55)",
           }}
         >
-          When buyers feel the light, the privacy, and the atmosphere before
-          they visit — they arrive with conviction, not curiosity.
+          When buyers feel the light and the setting before they visit,
+          they show up ready to decide.
         </p>
 
         {/* CTAs */}
@@ -92,22 +155,26 @@ export default function HomePage() {
       {/* Feature cards */}
       <section className="mx-auto max-w-[1200px] px-6 pt-24 sm:px-10 sm:pt-32">
         <div className="grid gap-4 sm:grid-cols-3 sm:gap-6">
-          <FeatureCard
-            label="Fewer visits, faster decisions"
-            description="Buyers self-select before the trip. The site visit confirms what they already feel."
-            image="/landing/card-overview.jpg"
-          />
-          <FeatureCard
-            label="Premium positioning"
-            description="Your project looks like nothing else on the market. The presentation matches the land."
-            image="/landing/card-detail.jpg"
-          />
-          <FeatureCard
-            label="Conviction before the visit"
-            description="They felt the orientation, the privacy, the setting. They arrive ready to commit."
-            image="/landing/card-selection.jpg"
-          />
+          {CARD_DATA.map((card) => (
+            <FeatureCard
+              key={card.id}
+              label={card.label}
+              description={card.description}
+              image={card.image}
+              onSelect={() => setSelectedCard(card.id)}
+            />
+          ))}
         </div>
+
+        <AnimatePresence>
+          {active && (
+            <ExpandedCard
+              card={active}
+              onClose={close}
+              reducedMotion={!!prefersReducedMotion}
+            />
+          )}
+        </AnimatePresence>
       </section>
 
       {/* How it works */}
@@ -118,11 +185,72 @@ export default function HomePage() {
         >
           How it works
         </h2>
-        <div className="grid gap-8 sm:grid-cols-3 sm:gap-12">
-          <Step number="1" title="Send us your lot plan" />
-          <Step number="2" title="We build the experience" />
-          <Step number="3" title="Share the link with buyers" />
+        <div className="grid gap-10 sm:grid-cols-3 sm:gap-12">
+          <Step
+            number="1"
+            title="Send us your lot plan"
+            description="A subdivision PDF or DWG with lot coordinates. That's all we need to start."
+          />
+          <Step
+            number="2"
+            title="We build the viewer"
+            description="Each lot gets real terrain, sun path, atmosphere, and surrounding context. Ready in 48 hours."
+          />
+          <Step
+            number="3"
+            title="Share one link"
+            description="Buyers explore on any device. No app, no login. They self-select before calling you."
+          />
         </div>
+      </section>
+
+      {/* Viewer teaser */}
+      <section className="mx-auto max-w-[1200px] px-6 pt-24 sm:px-10 sm:pt-32">
+        <motion.div
+          className="flex flex-col items-center gap-6 rounded-2xl bg-white/[0.03] px-6 py-12 text-center sm:px-12 sm:py-16"
+          style={{ boxShadow: elevation[3] }}
+          whileHover={{ boxShadow: elevation[4] }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        >
+          <p
+            className="text-sm uppercase tracking-[0.15em]"
+            style={{ color: "rgba(255,255,255,0.4)" }}
+          >
+            See what buyers see
+          </p>
+          <h2
+            className="max-w-xl text-pretty"
+            style={{
+              fontFamily: "var(--font-inter)",
+              fontSize: "clamp(1.5rem, 3.5vw, 2.25rem)",
+              fontWeight: 500,
+              lineHeight: 1.15,
+              letterSpacing: "-0.01em",
+              color: "#ffffff",
+            }}
+          >
+            Open the viewer right now
+          </h2>
+          <p
+            className="max-w-md text-pretty"
+            style={{
+              fontFamily: "var(--font-inter)",
+              fontSize: "1rem",
+              lineHeight: 1.5,
+              color: "rgba(255,255,255,0.5)",
+            }}
+          >
+            Real terrain, real sunlight. The land as it is.
+            <br className="hidden sm:block" />
+            Works in any browser. Nothing to install.
+          </p>
+          <div className="mt-2">
+            <FluidButton href="/viewer" variant="primary">
+              Explore the demo
+              <ArrowIcon />
+            </FluidButton>
+          </div>
+        </motion.div>
       </section>
 
       {/* Final CTA */}
@@ -242,14 +370,18 @@ function FeatureCard({
   label,
   description,
   image,
+  onSelect,
 }: {
   label: string;
   description: string;
   image: string;
+  onSelect: () => void;
 }) {
   return (
-    <motion.div
-      className="group rounded-xl bg-white/[0.03] p-5 sm:p-6"
+    <motion.button
+      type="button"
+      onClick={onSelect}
+      className="group cursor-pointer rounded-xl bg-white/[0.03] p-5 text-left focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:outline-none sm:p-6"
       style={{ boxShadow: elevation[3] }}
       whileHover={{ boxShadow: elevation[4] }}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
@@ -258,7 +390,9 @@ function FeatureCard({
         <img
           src={image}
           alt={label}
-          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+          width={400}
+          height={300}
+          className="h-full w-full object-cover transition-transform duration-200 [@media(hover:hover)]:group-hover:scale-[1.03]"
           loading="lazy"
         />
       </div>
@@ -274,11 +408,123 @@ function FeatureCard({
       >
         {description}
       </p>
-    </motion.div>
+    </motion.button>
   );
 }
 
-function Step({ number, title }: { number: string; title: string }) {
+function ExpandedCard({
+  card,
+  onClose,
+  reducedMotion,
+}: {
+  card: (typeof CARD_DATA)[number];
+  onClose: () => void;
+  reducedMotion: boolean;
+}) {
+  const easeOutQuad = [0.25, 0.46, 0.45, 0.94] as const;
+  const fade = reducedMotion
+    ? { duration: 0 }
+    : { duration: 0.2, ease: easeOutQuad };
+
+  return (
+    <>
+      <motion.div
+        className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={fade}
+        onClick={onClose}
+      />
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8"
+        style={{ overscrollBehavior: "contain" }}
+        onClick={onClose}
+      >
+        <motion.div
+          role="dialog"
+          aria-modal="true"
+          aria-label={card.label}
+          className="relative w-full max-w-2xl overflow-hidden rounded-2xl bg-[#222228]"
+          style={{ boxShadow: elevation[4] }}
+          initial={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97 }}
+          transition={fade}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="aspect-[16/9] overflow-hidden">
+            <img
+              src={card.image}
+              alt=""
+              width={672}
+              height={378}
+              className="h-full w-full object-cover"
+            />
+          </div>
+
+          <div className="p-6 sm:p-8">
+            <h3
+              className="text-xl font-medium text-white sm:text-2xl"
+              style={{ fontFamily: "var(--font-inter)" }}
+            >
+              {card.label}
+            </h3>
+
+            <motion.div
+              initial={reducedMotion ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={reducedMotion ? { duration: 0 } : { delay: 0.1, duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+            >
+              <p
+                className="mt-4 text-lg font-medium text-white/80"
+                style={{ fontFamily: "var(--font-inter)" }}
+              >
+                {card.expanded.headline}
+              </p>
+              <p
+                className="mt-3 leading-relaxed"
+                style={{
+                  fontFamily: "var(--font-inter)",
+                  fontSize: "0.95rem",
+                  color: "rgba(255,255,255,0.55)",
+                }}
+              >
+                {card.expanded.body}
+              </p>
+              <p
+                className="mt-3 text-sm leading-relaxed"
+                style={{ color: "rgba(255,255,255,0.4)" }}
+              >
+                {card.expanded.detail}
+              </p>
+            </motion.div>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-black/40 text-white/70 backdrop-blur-sm transition-colors hover:bg-black/60 hover:text-white focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:outline-none"
+            aria-label="Close"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </motion.div>
+      </div>
+    </>
+  );
+}
+
+function Step({
+  number,
+  title,
+  description,
+}: {
+  number: string;
+  title: string;
+  description: string;
+}) {
   return (
     <div className="flex items-start gap-4">
       <span
@@ -287,12 +533,20 @@ function Step({ number, title }: { number: string; title: string }) {
       >
         {number}
       </span>
-      <p
-        className="pt-1 text-lg text-white/80"
-        style={{ fontFamily: "var(--font-inter)" }}
-      >
-        {title}
-      </p>
+      <div>
+        <p
+          className="text-lg text-white/80"
+          style={{ fontFamily: "var(--font-inter)" }}
+        >
+          {title}
+        </p>
+        <p
+          className="mt-2 text-sm leading-relaxed"
+          style={{ color: "rgba(255,255,255,0.45)" }}
+        >
+          {description}
+        </p>
+      </div>
     </div>
   );
 }
