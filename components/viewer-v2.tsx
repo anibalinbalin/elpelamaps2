@@ -41,7 +41,7 @@ import { Dithering, LensFlare } from "@takram/three-geospatial-effects/r3f";
 import { GOOGLE_MAPS_API_KEY } from "@/lib/constants";
 import type { ParcelCollection, ParcelFeature } from "@/lib/parcels";
 import { formatAreaCompact, formatPrice } from "@/lib/geo-utils";
-import { Panel, Badge } from "@/components/ui";
+import { Panel, Badge, Kbd } from "@/components/ui";
 
 const DEG2RAD = Math.PI / 180;
 const ANIM_DURATION = 1.4;
@@ -68,9 +68,9 @@ function computeParcelTargetPose(feature: ParcelFeature): CameraPose {
   }
   const boundingRadius = Math.sqrt(maxDistSq);
   const halfFovRad = 30 * DEG2RAD;
-  const alt = Math.max(150, (boundingRadius / Math.tan(halfFovRad)) * 1.6);
+  const alt = Math.max(150, (boundingRadius / Math.tan(halfFovRad)) * 2.8);
 
-  return { lat: cLat, lon: cLon, alt, headingDeg: 0, pitchDeg: -78 };
+  return { lat: cLat, lon: cLon, alt, headingDeg: 0, pitchDeg: -55 };
 }
 
 function lerpAngleDeg(from: number, to: number, t: number): number {
@@ -97,7 +97,7 @@ const DEFAULTS = {
   cameraAltM: 1694,
   cameraHeadingDeg: 7,
   cameraPitchDeg: -66.3,
-  hourLocal: 18,
+  hourLocal: 12,
   shadowFarScale: 0.25,
   shadowSplitLambda: 0.71,
   shadowMapSize: 512,
@@ -782,8 +782,8 @@ export function ViewerV2() {
           <span className="shrink-0 px-1 text-white/60 max-sm:hidden">Time</span>
           <input
             type="range"
-            min={0}
-            max={24}
+            min={6.5}
+            max={19}
             step={0.01}
             value={hourLocal}
             onChange={(e) => setHourLocal(parseFloat(e.target.value))}
@@ -810,13 +810,27 @@ export function ViewerV2() {
         </Panel>
       </div>
 
-      <div className="pointer-events-none absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-[max(1rem,env(safe-area-inset-left))] z-20 flex items-center gap-3 text-[10px] uppercase tracking-[0.22em] text-white/50">
+      <div className="pointer-events-none absolute bottom-[max(1rem,env(safe-area-inset-bottom))] inset-x-0 z-20 flex items-end justify-between px-[max(1rem,env(safe-area-inset-left))]">
         <a
           href="/editor"
-          className="pointer-events-auto text-white/40 transition-colors hover:text-white"
+          className="pointer-events-auto text-[10px] uppercase tracking-[0.22em] text-white/40 transition-colors hover:text-white"
         >
           editor
         </a>
+        <Panel className="pointer-events-auto flex items-center gap-2 px-3 py-2 text-[11px] text-white/50 max-sm:hidden">
+          <span className="flex items-center gap-1.5">
+            <Kbd>click + drag</Kbd> orbit
+          </span>
+          <span className="text-white/20">|</span>
+          <span className="flex items-center gap-1.5">
+            <Kbd>scroll</Kbd> zoom
+          </span>
+          <span className="text-white/20">|</span>
+          <span className="flex items-center gap-1.5">
+            <Kbd>right-click + drag</Kbd> pan
+          </span>
+        </Panel>
+        <div />
       </div>
     </div>
   );
