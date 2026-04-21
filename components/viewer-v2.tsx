@@ -716,6 +716,13 @@ function Scene({
   );
 }
 
+function getCurrentUruguayHour(): number {
+  const now = new Date();
+  const uy = new Date(now.toLocaleString("en-US", { timeZone: "America/Montevideo" }));
+  const decimal = uy.getHours() + uy.getMinutes() / 60;
+  return Math.min(19, Math.max(6.5, decimal));
+}
+
 function formatHourLabel(hourLocal: number) {
   const h = Math.floor(hourLocal);
   const m = Math.floor((hourLocal - h) * 60);
@@ -723,9 +730,16 @@ function formatHourLabel(hourLocal: number) {
 }
 
 export function ViewerV2() {
-  const [hourLocal, setHourLocal] = useState(DEFAULTS.hourLocal);
+  const [hourLocal, setHourLocal] = useState(getCurrentUruguayHour);
   const [showParcels, setShowParcels] = useState(true);
   const [selectedParcel, setSelectedParcel] = useState<ParcelFeature | null>(null);
+  const [hintsVisible, setHintsVisible] = useState(true);
+  const hintsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    hintsTimer.current = setTimeout(() => setHintsVisible(false), 10_000);
+    return () => { if (hintsTimer.current) clearTimeout(hintsTimer.current); };
+  }, []);
 
   const cameraPose = useMemo<CameraPose>(
     () => ({
@@ -817,23 +831,41 @@ export function ViewerV2() {
         >
           editor
         </a>
-        <Panel className="pointer-events-auto flex items-center gap-2 px-3 py-2 text-[11px] text-white/50 max-sm:hidden">
-          <span className="flex items-center gap-1.5">
-            <Kbd>drag</Kbd> pan
-          </span>
-          <span className="text-white/20">|</span>
-          <span className="flex items-center gap-1.5">
-            <Kbd>shift + drag</Kbd> tilt
-          </span>
-          <span className="text-white/20">|</span>
-          <span className="flex items-center gap-1.5">
-            <Kbd>ctrl + drag</Kbd> rotate
-          </span>
-          <span className="text-white/20">|</span>
-          <span className="flex items-center gap-1.5">
-            <Kbd>scroll</Kbd> zoom
-          </span>
-        </Panel>
+        <button
+          type="button"
+          onClick={() => {
+            setHintsVisible((v) => !v);
+            if (hintsTimer.current) { clearTimeout(hintsTimer.current); hintsTimer.current = null; }
+          }}
+          className="pointer-events-auto group max-sm:hidden"
+          aria-label={hintsVisible ? "Hide controls" : "Show controls"}
+        >
+          <Panel className="flex flex-col items-center overflow-hidden transition-all duration-300 ease-out">
+            <div className="py-1.5 px-4">
+              <div className="h-1 w-8 rounded-full bg-white/20 transition-colors group-hover:bg-white/40" />
+            </div>
+            <div
+              className="grid transition-[grid-template-rows,opacity] duration-300 ease-out"
+              style={{ gridTemplateRows: hintsVisible ? "1fr" : "0fr", opacity: hintsVisible ? 1 : 0 }}
+            >
+              <div className="overflow-hidden">
+                <div className="flex items-center gap-2 px-3 pb-2 text-[11px] text-white/50">
+                  <span className="flex items-center gap-1.5">
+                    <Kbd>drag</Kbd> pan
+                  </span>
+                  <span className="text-white/20">|</span>
+                  <span className="flex items-center gap-1.5">
+                    <Kbd>shift + drag</Kbd> tilt
+                  </span>
+                  <span className="text-white/20">|</span>
+                  <span className="flex items-center gap-1.5">
+                    <Kbd>scroll</Kbd> zoom
+                  </span>
+                </div>
+              </div>
+            </div>
+          </Panel>
+        </button>
         <div />
       </div>
     </div>
