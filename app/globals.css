@@ -28,18 +28,19 @@
   --color-hairline-strong: rgba(255, 255, 255, 0.16);
 
   --radius-sm: 8px;
-  --radius-md: 16px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
   --radius-full: 120px;
 
-  --spacing-xs: 8px;
-  --spacing-sm: 12px;
-  --spacing-md: 16px;
-  --spacing-lg: 24px;
-  --spacing-xl: 32px;
-  --spacing-2xl: 40px;
-  --spacing-3xl: 56px;
-  --spacing-4xl: 64px;
-  --spacing-5xl: 80px;
+  --shadow-cta: 0 6px 18px rgba(0, 0, 0, 0.24);
+
+  --shadow-glass:
+    0 0 0 1px rgba(0, 0, 0, 0.9),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 25px 50px -12px rgba(0, 0, 0, 0.5);
+
 }
 
 html,
