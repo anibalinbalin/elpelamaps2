@@ -377,8 +377,8 @@ export default function HomePage() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-            gap: "48px 32px",
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gap: "24px",
             marginTop: "80px",
           }}
         >
@@ -686,49 +686,82 @@ function Step({
   return (
     <div
       style={{
-        borderTop: "1px solid rgba(14, 22, 32, 0.1)",
-        paddingTop: "32px",
+        backgroundImage:
+          "url(https://app.paper.design/file-assets/01KPR26H5Q3W6EDFSG95C2NPAG/24GWS7VJ5VPV0RSKZTCMR27QQ9.png)",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        backgroundSize: "cover",
+        backgroundColor: "var(--color-aviation-navy)",
+        borderRadius: "6px",
+        padding: "40px",
+        display: "flex",
+        flexDirection: "column" as const,
+        justifyContent: "flex-end",
+        minHeight: "360px",
+        position: "relative" as const,
+        overflow: "hidden",
       }}
     >
-      <span
+      {/* Ghost number watermark */}
+      <div
         style={{
+          position: "absolute",
+          top: "-20px",
+          right: "24px",
           fontFamily: "var(--font-display)",
-          fontSize: "16px",
-          fontWeight: 550,
-          letterSpacing: "-0.16px",
-          color: "var(--color-sky-blue)",
+          fontSize: "180px",
+          fontWeight: 700,
+          color: "rgba(245,244,223,0.06)",
+          lineHeight: 1,
+          letterSpacing: "-0.04em",
+          pointerEvents: "none" as const,
+          userSelect: "none" as const,
         }}
       >
         {number}
-      </span>
-      <h3
-        style={{
-          fontFamily: "var(--font-display)",
-          fontSize: "clamp(24px, 2.5vw, 36px)",
-          fontWeight: 550,
-          lineHeight: 1.15,
-          letterSpacing: "-0.03em",
-          color: "var(--color-cockpit)",
-          marginTop: "16px",
-        }}
+      </div>
+      <div
+        style={{ display: "flex", flexDirection: "column" as const, gap: "16px", position: "relative" }}
       >
-        {title}
-      </h3>
-      <p
-        style={{
-          fontFamily: "var(--font-text)",
-          fontSize: "17px",
-          fontWeight: 400,
-          lineHeight: 1.45,
-          letterSpacing: "-0.32px",
-          color: "var(--color-cockpit)",
-          opacity: 0.5,
-          marginTop: "12px",
-          maxWidth: "315px",
-        }}
-      >
-        {description}
-      </p>
+        <span
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: "13px",
+            fontWeight: 600,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase" as const,
+            color: "var(--color-sky-blue)",
+          }}
+        >
+          Step {number}
+        </span>
+        <h3
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: "clamp(22px, 2.2vw, 30px)",
+            fontWeight: 700,
+            lineHeight: 1.1,
+            letterSpacing: "-0.03em",
+            color: "var(--color-cream)",
+            margin: 0,
+          }}
+        >
+          {title}.
+        </h3>
+        <p
+          style={{
+            fontFamily: "var(--font-text)",
+            fontSize: "17px",
+            fontWeight: 400,
+            lineHeight: 1.5,
+            color: "rgba(245,244,223,0.6)",
+            margin: 0,
+            maxWidth: "320px",
+          }}
+        >
+          {description}
+        </p>
+      </div>
     </div>
   );
 }
