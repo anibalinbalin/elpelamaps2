@@ -485,50 +485,136 @@ export default function HomePage() {
       {/* ── Footer ── */}
       <footer
         style={{
-          padding: "32px 40px",
+          padding: "40px 40px 28px",
           backgroundColor: "var(--color-sky-blue)",
           borderTop: "1px solid rgba(245, 244, 223, 0.08)",
         }}
       >
-        <div
-          style={{
-            maxWidth: "960px",
-            margin: "0 auto",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap" as const,
-            gap: "16px",
-          }}
-        >
-          <span
+        <div style={{ maxWidth: "960px", margin: "0 auto" }}>
+          {/* Top row */}
+          <div
             style={{
-              fontFamily: "var(--font-text)",
-              fontSize: "13px",
-              fontWeight: 450,
-              letterSpacing: "-0.13px",
-              color: "rgba(245, 244, 223, 0.35)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              flexWrap: "wrap" as const,
+              gap: "24px",
+              paddingBottom: "28px",
+              borderBottom: "1px solid rgba(245, 244, 223, 0.1)",
             }}
           >
-            José Ignacio, Uruguay ·{" "}
-            <a
-              href="mailto:anibalin@gmail.com"
-              style={{ color: "inherit", textDecoration: "none" }}
+            {/* Brand + description */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <span
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontSize: "15px",
+                  fontWeight: 600,
+                  letterSpacing: "-0.3px",
+                  color: "rgba(245, 244, 223, 0.9)",
+                }}
+              >
+                Parcel Pin
+              </span>
+              <span
+                style={{
+                  fontFamily: "var(--font-text)",
+                  fontSize: "13px",
+                  fontWeight: 400,
+                  color: "rgba(245, 244, 223, 0.4)",
+                  maxWidth: "280px",
+                  lineHeight: "1.5",
+                }}
+              >
+                See the land before you see it in person. Real terrain, real sunlight, one link per lot.
+              </span>
+            </div>
+
+            {/* Links row */}
+            <nav style={{ display: "flex", gap: "24px", flexWrap: "wrap" as const }}>
+              {["Features", "How it works", "Explore viewer"].map((label) => (
+                <a
+                  key={label}
+                  href="#"
+                  style={{
+                    fontFamily: "var(--font-text)",
+                    fontSize: "13px",
+                    fontWeight: 450,
+                    color: "rgba(245, 244, 223, 0.55)",
+                    textDecoration: "none",
+                  }}
+                >
+                  {label}
+                </a>
+              ))}
+            </nav>
+
+            {/* Contact */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px", textAlign: "right" as const }}>
+              <a
+                href="mailto:hello@parcelpin.com"
+                style={{
+                  fontFamily: "var(--font-text)",
+                  fontSize: "13px",
+                  fontWeight: 450,
+                  color: "rgba(245, 244, 223, 0.6)",
+                  textDecoration: "none",
+                }}
+              >
+                hello@parcelpin.com
+              </a>
+              <span
+                style={{
+                  fontFamily: "var(--font-text)",
+                  fontSize: "12px",
+                  fontWeight: 400,
+                  color: "rgba(245, 244, 223, 0.3)",
+                }}
+              >
+                José Ignacio, Uruguay
+              </span>
+            </div>
+          </div>
+
+          {/* Bottom row */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              paddingTop: "16px",
+              flexWrap: "wrap" as const,
+              gap: "8px",
+            }}
+          >
+            <span
+              style={{
+                fontFamily: "var(--font-text)",
+                fontSize: "12px",
+                fontWeight: 400,
+                color: "rgba(245, 244, 223, 0.2)",
+              }}
             >
-              anibalin@gmail.com
-            </a>
-          </span>
-          <span
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "14px",
-              fontWeight: 550,
-              letterSpacing: "-0.28px",
-              color: "rgba(245, 244, 223, 0.25)",
-            }}
-          >
-            Parcel Pin
-          </span>
+              © 2026 Parcel Pin. All rights reserved.
+            </span>
+            <div style={{ display: "flex", gap: "16px" }}>
+              {["Privacy policy", "Terms of service"].map((label) => (
+                <a
+                  key={label}
+                  href="#"
+                  style={{
+                    fontFamily: "var(--font-text)",
+                    fontSize: "12px",
+                    fontWeight: 400,
+                    color: "rgba(245, 244, 223, 0.2)",
+                    textDecoration: "none",
+                  }}
+                >
+                  {label}
+                </a>
+              ))}
+            </div>
+          </div>
         </div>
       </footer>
     </main>
