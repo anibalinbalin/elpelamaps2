@@ -111,13 +111,19 @@ export default function HomePage() {
             style={{
               position: "relative",
               zIndex: 20,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
               padding: "24px 40px",
               flexShrink: 0,
             }}
           >
+            <div
+              style={{
+                maxWidth: "960px",
+                margin: "0 auto",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
             <span
               style={{
                 fontFamily: "var(--font-display)",
@@ -145,6 +151,7 @@ export default function HomePage() {
             >
               Get in touch
             </a>
+            </div>
           </header>
 
           {/* Video container with rounded corners on blue */}
@@ -305,86 +312,90 @@ export default function HomePage() {
       <section
         style={{
           backgroundColor: "var(--color-cream)",
-          paddingTop: "120px",
+          paddingTop: "80px",
         }}
       >
-        <FeatureBlock
-          image="/landing/card-overview.jpg"
-          headline="One link per lot."
-          text="Buyers orbit the terrain, check sun exposure at different hours, measure the tree line from every angle."
-          cta="See it live"
-          ctaHref="/viewer"
-          align="left"
-        />
-        <FeatureBlock
-          image="/landing/card-detail.jpg"
-          headline="Light tells the truth."
-          text="A static floor plan cannot show how morning light hits the lot. The viewer puts buyers in the landscape, at the time of day that matters."
-          cta="Explore the viewer"
-          ctaHref="/viewer"
-          align="right"
-        />
-        <FeatureBlock
-          image="/landing/card-selection.jpg"
-          headline="Decided before Saturday."
-          text="The buyer opens the link on their phone. They orbit the lot, check where the sun sets. They send it to their partner. Both already agree."
-          cta="Try the demo"
-          ctaHref="/viewer"
-          align="left"
-        />
+        <div style={{ maxWidth: "960px", margin: "0 auto" }}>
+          <FeatureBlock
+            image="/landing/card-overview.jpg"
+            headline="One link per lot."
+            text="Buyers orbit the terrain, check sun exposure at different hours, measure the tree line from every angle."
+            cta="See it live"
+            ctaHref="/viewer"
+            align="left"
+          />
+          <FeatureBlock
+            image="/landing/card-detail.jpg"
+            headline="Light tells the truth."
+            text="A static floor plan cannot show how morning light hits the lot. The viewer puts buyers in the landscape, at the time of day that matters."
+            cta="Explore the viewer"
+            ctaHref="/viewer"
+            align="right"
+          />
+          <FeatureBlock
+            image="/landing/card-selection.jpg"
+            headline="Decided before Saturday."
+            text="The buyer opens the link on their phone. They orbit the lot, check where the sun sets. They send it to their partner. Both already agree."
+            cta="Try the demo"
+            ctaHref="/viewer"
+            align="left"
+          />
+        </div>
       </section>
 
       {/* ── How it works ── */}
       <section
         style={{
           backgroundColor: "var(--color-cream)",
-          padding: "120px 40px 160px",
+          padding: "80px 40px 120px",
         }}
       >
-        <Reveal>
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "clamp(36px, 5vw, 64px)",
-              fontWeight: 550,
-              lineHeight: 1.05,
-              letterSpacing: "-0.03em",
-              color: "var(--color-cockpit)",
-              maxWidth: "600px",
-            }}
-          >
-            From lot plan to live viewer in 48 hours.
-          </h2>
-        </Reveal>
-        <Reveal delay={0.08}>
-          <p
-            style={{
-              fontFamily: "var(--font-text)",
-              fontSize: "clamp(16px, 1.4vw, 20px)",
-              fontWeight: 400,
-              lineHeight: 1.45,
-              letterSpacing: "-0.2px",
-              color: "var(--color-cockpit)",
-              opacity: 0.5,
-              maxWidth: "440px",
-              marginTop: "24px",
-            }}
-          >
-            Send us a subdivision plan. We handle the terrain, sunlight, and
-            atmosphere. You get a link to share.
-          </p>
-        </Reveal>
+        <div style={{ maxWidth: "960px", margin: "0 auto" }}>
+          <Reveal>
+            <h2
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "clamp(36px, 5vw, 64px)",
+                fontWeight: 550,
+                lineHeight: 1.05,
+                letterSpacing: "-0.03em",
+                color: "var(--color-cockpit)",
+                maxWidth: "600px",
+              }}
+            >
+              From lot plan to live viewer in 48 hours.
+            </h2>
+          </Reveal>
+          <Reveal delay={0.08}>
+            <p
+              style={{
+                fontFamily: "var(--font-text)",
+                fontSize: "clamp(16px, 1.4vw, 20px)",
+                fontWeight: 400,
+                lineHeight: 1.45,
+                letterSpacing: "-0.2px",
+                color: "var(--color-cockpit)",
+                opacity: 0.5,
+                maxWidth: "440px",
+                marginTop: "24px",
+              }}
+            >
+              Send us a subdivision plan. We handle the terrain, sunlight, and
+              atmosphere. You get a link to share.
+            </p>
+          </Reveal>
 
-        <div style={{ marginTop: "80px" }}>
-          <Reveal delay={0}>
-            <StepRow number="01" title="Send us your lot plan" description="A subdivision PDF or DWG with lot coordinates. That's all we need." icon={<StepLotPlanIcon />} />
-          </Reveal>
-          <Reveal delay={0.1}>
-            <StepRow number="02" title="We build the viewer" description="Real terrain, sun path, atmosphere, and surrounding context. Ready in 48 hours." icon={<StepViewerIcon />} />
-          </Reveal>
-          <Reveal delay={0.2}>
-            <StepRow number="03" title="Share one link" description="Buyers explore on any device. No app, no login. They arrive already decided." icon={<StepShareIcon />} isLast />
-          </Reveal>
+          <div style={{ marginTop: "80px" }}>
+            <Reveal delay={0}>
+              <StepRow number="01" title="Send us your lot plan" description="A subdivision PDF or DWG with lot coordinates. That's all we need." icon={<StepLotPlanIcon />} />
+            </Reveal>
+            <Reveal delay={0.1}>
+              <StepRow number="02" title="We build the viewer" description="Real terrain, sun path, atmosphere, and surrounding context. Ready in 48 hours." icon={<StepViewerIcon />} />
+            </Reveal>
+            <Reveal delay={0.2}>
+              <StepRow number="03" title="Share one link" description="Buyers explore on any device. No app, no login. They arrive already decided." icon={<StepShareIcon />} isLast />
+            </Reveal>
+          </div>
         </div>
       </section>
 
@@ -392,124 +403,133 @@ export default function HomePage() {
       <section
         style={{
           backgroundColor: "var(--color-aviation-navy)",
-          padding: "160px 40px 120px",
+          padding: "120px 40px 100px",
         }}
       >
-        <Reveal>
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "clamp(40px, 5vw, 80px)",
-              fontWeight: 550,
-              lineHeight: 1,
-              letterSpacing: "-0.03em",
-              color: "var(--color-cream)",
-              maxWidth: "700px",
-            }}
-          >
-            Ready when you are.
-          </h2>
-        </Reveal>
-        <Reveal delay={0.1}>
-          <p
-            style={{
-              fontFamily: "var(--font-text)",
-              fontSize: "clamp(16px, 1.4vw, 20px)",
-              fontWeight: 400,
-              lineHeight: 1.45,
-              letterSpacing: "-0.2px",
-              color: "rgba(245, 244, 223, 0.55)",
-              maxWidth: "440px",
-              marginTop: "24px",
-            }}
-          >
-            One subdivision plan is all we need. Each lot gets its own viewer
-            link within 48 hours.
-          </p>
-        </Reveal>
-        <Reveal delay={0.15}>
-          <div style={{ display: "flex", gap: "12px", marginTop: "40px", flexWrap: "wrap" as const }}>
-            <a
-              href="mailto:anibalin@gmail.com?subject=Parcel Pin"
+        <div style={{ maxWidth: "960px", margin: "0 auto" }}>
+          <Reveal>
+            <h2
               style={{
-                fontFamily: "var(--font-text)",
-                fontSize: "14px",
-                fontWeight: 450,
-                letterSpacing: "-0.14px",
-                color: "var(--color-cockpit)",
-                backgroundColor: "var(--color-cream)",
-                borderRadius: "120px",
-                padding: "14px 28px",
-                textDecoration: "none",
-              }}
-            >
-              Get in touch
-            </a>
-            <Link
-              href="/viewer"
-              style={{
-                fontFamily: "var(--font-text)",
-                fontSize: "14px",
-                fontWeight: 450,
-                letterSpacing: "-0.14px",
+                fontFamily: "var(--font-display)",
+                fontSize: "clamp(40px, 5vw, 80px)",
+                fontWeight: 550,
+                lineHeight: 1,
+                letterSpacing: "-0.03em",
                 color: "var(--color-cream)",
-                border: "1.5px solid rgba(245, 244, 223, 0.25)",
-                borderRadius: "120px",
-                padding: "14px 28px",
-                textDecoration: "none",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "8px",
+                maxWidth: "700px",
               }}
             >
-              Explore the viewer
-              <ArrowIcon />
-            </Link>
-          </div>
-        </Reveal>
+              Ready when you are.
+            </h2>
+          </Reveal>
+          <Reveal delay={0.1}>
+            <p
+              style={{
+                fontFamily: "var(--font-text)",
+                fontSize: "clamp(16px, 1.4vw, 20px)",
+                fontWeight: 400,
+                lineHeight: 1.45,
+                letterSpacing: "-0.2px",
+                color: "rgba(245, 244, 223, 0.55)",
+                maxWidth: "440px",
+                marginTop: "24px",
+              }}
+            >
+              One subdivision plan is all we need. Each lot gets its own viewer
+              link within 48 hours.
+            </p>
+          </Reveal>
+          <Reveal delay={0.15}>
+            <div style={{ display: "flex", gap: "12px", marginTop: "40px", flexWrap: "wrap" as const }}>
+              <a
+                href="mailto:anibalin@gmail.com?subject=Parcel Pin"
+                style={{
+                  fontFamily: "var(--font-text)",
+                  fontSize: "14px",
+                  fontWeight: 450,
+                  letterSpacing: "-0.14px",
+                  color: "var(--color-cockpit)",
+                  backgroundColor: "var(--color-cream)",
+                  borderRadius: "120px",
+                  padding: "14px 28px",
+                  textDecoration: "none",
+                }}
+              >
+                Get in touch
+              </a>
+              <Link
+                href="/viewer"
+                style={{
+                  fontFamily: "var(--font-text)",
+                  fontSize: "14px",
+                  fontWeight: 450,
+                  letterSpacing: "-0.14px",
+                  color: "var(--color-cream)",
+                  border: "1.5px solid rgba(245, 244, 223, 0.25)",
+                  borderRadius: "120px",
+                  padding: "14px 28px",
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
+                Explore the viewer
+                <ArrowIcon />
+              </Link>
+            </div>
+          </Reveal>
+        </div>
       </section>
 
       {/* ── Footer ── */}
       <footer
         style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
           padding: "32px 40px",
           backgroundColor: "var(--color-sky-blue)",
           borderTop: "1px solid rgba(245, 244, 223, 0.08)",
-          flexWrap: "wrap" as const,
-          gap: "16px",
         }}
       >
-        <span
+        <div
           style={{
-            fontFamily: "var(--font-text)",
-            fontSize: "13px",
-            fontWeight: 450,
-            letterSpacing: "-0.13px",
-            color: "rgba(245, 244, 223, 0.35)",
+            maxWidth: "960px",
+            margin: "0 auto",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap" as const,
+            gap: "16px",
           }}
         >
-          José Ignacio, Uruguay ·{" "}
-          <a
-            href="mailto:anibalin@gmail.com"
-            style={{ color: "inherit", textDecoration: "none" }}
+          <span
+            style={{
+              fontFamily: "var(--font-text)",
+              fontSize: "13px",
+              fontWeight: 450,
+              letterSpacing: "-0.13px",
+              color: "rgba(245, 244, 223, 0.35)",
+            }}
           >
-            anibalin@gmail.com
-          </a>
-        </span>
-        <span
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: "14px",
-            fontWeight: 550,
-            letterSpacing: "-0.28px",
-            color: "rgba(245, 244, 223, 0.25)",
-          }}
-        >
-          Parcel Pin
-        </span>
+            José Ignacio, Uruguay ·{" "}
+            <a
+              href="mailto:anibalin@gmail.com"
+              style={{ color: "inherit", textDecoration: "none" }}
+            >
+              anibalin@gmail.com
+            </a>
+          </span>
+          <span
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "14px",
+              fontWeight: 550,
+              letterSpacing: "-0.28px",
+              color: "rgba(245, 244, 223, 0.25)",
+            }}
+          >
+            Parcel Pin
+          </span>
+        </div>
       </footer>
     </main>
   );
@@ -553,7 +573,7 @@ function FeatureBlock({
           position: "relative",
           borderRadius: "24px",
           overflow: "hidden",
-          minHeight: "85vh",
+          minHeight: "70vh",
           display: "flex",
           flexDirection: "column",
           justifyContent: "flex-end",
