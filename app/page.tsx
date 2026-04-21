@@ -762,14 +762,14 @@ function StepLotPlanIcon() {
       <text x="100" y="98" fill="#083E6F" fontFamily="system-ui" fontSize="11" fontWeight="600" style={{ opacity: 0.18 }}>4</text>
       <text x="158" y="120" fill="#083E6F" fontFamily="system-ui" fontSize="11" fontWeight="600" style={{ opacity: 0.18 }}>5</text>
       <text x="35" y="142" fill="#083E6F" fontFamily="system-ui" fontSize="11" fontWeight="600" style={{ opacity: 0.18 }}>6</text>
-      <line x1="15" y1="13" x2="100" y2="13" stroke="#007AE5" strokeWidth="0.75" strokeDasharray="3 2" style={{ opacity: 0.5 }} />
+      <line x1="15" y1="13" x2="185" y2="13" stroke="#007AE5" strokeWidth="0.75" strokeDasharray="3 2" style={{ opacity: 0.5 }} />
       <line x1="15" y1="10" x2="15" y2="16" stroke="#007AE5" strokeWidth="0.75" style={{ opacity: 0.5 }} />
-      <line x1="100" y1="10" x2="100" y2="16" stroke="#007AE5" strokeWidth="0.75" style={{ opacity: 0.5 }} />
-      <text x="45" y="10" fill="#007AE5" fontFamily="system-ui" fontSize="7" style={{ opacity: 0.6 }}>24.5m</text>
-      <line x1="192" y1="20" x2="192" y2="72" stroke="#007AE5" strokeWidth="0.75" strokeDasharray="3 2" style={{ opacity: 0.4 }} />
+      <line x1="185" y1="10" x2="185" y2="16" stroke="#007AE5" strokeWidth="0.75" style={{ opacity: 0.5 }} />
+      <text x="88" y="10" fill="#007AE5" fontFamily="system-ui" fontSize="7" style={{ opacity: 0.6 }}>35 m</text>
+      <line x1="192" y1="20" x2="192" y2="155" stroke="#007AE5" strokeWidth="0.75" strokeDasharray="3 2" style={{ opacity: 0.4 }} />
       <line x1="189" y1="20" x2="195" y2="20" stroke="#007AE5" strokeWidth="0.75" style={{ opacity: 0.4 }} />
-      <line x1="189" y1="72" x2="195" y2="72" stroke="#007AE5" strokeWidth="0.75" style={{ opacity: 0.4 }} />
-      <text x="193" y="50" fill="#007AE5" fontFamily="system-ui" fontSize="7" style={{ opacity: 0.5 }}>18m</text>
+      <line x1="189" y1="155" x2="195" y2="155" stroke="#007AE5" strokeWidth="0.75" style={{ opacity: 0.4 }} />
+      <text x="193" y="92" fill="#007AE5" fontFamily="system-ui" fontSize="7" style={{ opacity: 0.5 }}>70 m</text>
       <rect x="70" y="72" width="70" height="43" fill="#007AE5" stroke="#007AE540" strokeWidth="0.75" style={{ opacity: 0.06 }} />
     </svg>
   );
