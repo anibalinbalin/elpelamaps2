@@ -13,6 +13,14 @@ const nextConfig: NextConfig = {
     "@takram/three-clouds",
     "postprocessing",
   ],
+  async rewrites() {
+    return [
+      {
+        source: "/joby",
+        destination: "/joby/index.html",
+      },
+    ];
+  },
 };
 
 export default nextConfig;

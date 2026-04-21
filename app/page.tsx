@@ -1,301 +1,529 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 
-const CARD_DATA = [
-  {
-    id: "visits",
-    label: "Qualified visits only",
-    description:
-      "Buyers explore sun, privacy, and views on their own. Site visits become confirmations, not discoveries.",
-    image: "/landing/card-overview.jpg",
-    expanded: {
-      headline: "Self-guided exploration.",
-      body: "Each lot gets its own viewer link. Buyers orbit the terrain, check sun exposure at different hours, measure the tree line from every angle. They share the link with their partner. By the time they call, both of them know which lot fits.",
-      detail:
-        "Real elevation data from satellite surveys. Sun position calculated to the minute for any date. Surrounding context — roads, neighbors, vegetation — rendered from Google 3D Tiles.",
-    },
-  },
-  {
-    id: "competition",
-    label: "Beyond renders and drone footage",
-    description:
-      "Interactive terrain with accurate sun positioning. Buyers control the angle, the time of day, the perspective.",
-    image: "/landing/card-detail.jpg",
-    expanded: {
-      headline: "Not a render. Not a video.",
-      body: "A static floor plan cannot show how morning light hits the east-facing lot. A drone video cannot let the buyer rotate and zoom on their own terms. The viewer puts them in the landscape, at the time of day that matters, from the angle that sells.",
-      detail:
-        "Atmospheric rendering with volumetric clouds, accurate sun arc, and time-of-day simulation. Built on Google Photorealistic 3D Tiles with sub-meter terrain accuracy.",
-    },
-  },
-  {
-    id: "cycle",
-    label: "Shorter path to decision",
-    description:
-      "When both partners have already explored the lot together, the visit is a formality.",
-    image: "/landing/card-selection.jpg",
-    expanded: {
-      headline: "Conviction before the visit.",
-      body: "The buyer opens the link on their phone over coffee. They orbit the lot, check where the sun sets, see how close the neighbor is. They send it to their partner. By Saturday, both of them already agree. The visit confirms what they felt.",
-      detail:
-        "Works on any device — phone, tablet, desktop. No app installation, no login required. One link per lot, shareable instantly.",
-    },
-  },
+function useScrollReveal() {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          el.style.opacity = "1";
+          el.style.transform = "translateY(0)";
+          observer.unobserve(el);
+        }
+      },
+      { threshold: 0.15 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  return ref;
+}
+
+function Reveal({
+  children,
+  delay = 0,
+}: {
+  children: React.ReactNode;
+  delay?: number;
+}) {
+  const ref = useScrollReveal();
+  return (
+    <div
+      ref={ref}
+      style={{
+        opacity: 0,
+        transform: "translateY(24px)",
+        transition: `opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1) ${delay}s, transform 0.8s cubic-bezier(0.16, 1, 0.3, 1) ${delay}s`,
+        willChange: "opacity, transform",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+const HERO_CAPTIONS = [
+  "Buyers explore sun, terrain, and views on their own terms.",
+  "Real elevation data. Sun position calculated to the minute.",
+  "Works on any device — phone, tablet, desktop. One link per lot.",
 ];
 
-const elevation = {
-  2: "inset 0 1px 0 0 rgba(255,255,255,0.02), inset 0 0 0 1px rgba(255,255,255,0.02), 0 1px 1px -0.5px rgba(0,0,0,0.18)",
-  3: "inset 0 1px 0 0 rgba(255,255,255,0.05), inset 0 0 0 1px rgba(255,255,255,0.02), 0 0 0 1px rgba(0,0,0,0.12), 0 1px 1px -0.5px rgba(0,0,0,0.18), 0 3px 3px -1.5px rgba(0,0,0,0.18)",
-  4: "inset 0 1px 0 0 rgba(255,255,255,0.05), inset 0 0 0 1px rgba(255,255,255,0.04), 0 0 0 1px rgba(0,0,0,0.14), 0 1px 1px -0.5px rgba(0,0,0,0.18), 0 3px 3px -1.5px rgba(0,0,0,0.18), 0 6px 6px -3px rgba(0,0,0,0.18)",
-};
-
-export default function HomePage() {
-  const [selectedCard, setSelectedCard] = useState<string | null>(null);
-  const prefersReducedMotion = useReducedMotion();
-
-  const close = useCallback(() => setSelectedCard(null), []);
+function useScrollProgress(ref: React.RefObject<HTMLElement | null>) {
+  const [progress, setProgress] = useState(0);
+  const handleScroll = useCallback(() => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    const total = ref.current.offsetHeight - window.innerHeight;
+    if (total <= 0) return;
+    const scrolled = -rect.top;
+    setProgress(Math.max(0, Math.min(1, scrolled / total)));
+  }, [ref]);
 
   useEffect(() => {
-    if (!selectedCard) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
-    };
-    document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", onKey);
-    return () => {
-      document.body.style.overflow = "";
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [selectedCard, close]);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [handleScroll]);
 
-  const active = CARD_DATA.find((c) => c.id === selectedCard);
+  return progress;
+}
+
+export default function HomePage() {
+  const heroRef = useRef<HTMLElement>(null);
+  const progress = useScrollProgress(heroRef);
+
+  const captionIndex = Math.min(
+    Math.floor(progress * (HERO_CAPTIONS.length + 1)),
+    HERO_CAPTIONS.length - 1
+  );
+  const showCaptions = progress > 0.05 && progress < 0.85;
+  const showTransition = progress > 0.8;
 
   return (
-    <main className="min-h-dvh bg-[#1a1a1f]">
-      {/* Header */}
-      <header className="mx-auto flex max-w-[1200px] items-center justify-between px-6 pt-8 sm:px-10 sm:pt-12">
-        <span
-          className="text-lg leading-none text-white"
-          style={{ fontFamily: "var(--font-display)" }}
-        >
-          Parcel Pin
-        </span>
-        <FluidButton href="mailto:anibalin@gmail.com?subject=Parcel Pin" size="sm">
-          Get in touch
-        </FluidButton>
-      </header>
-
-      {/* Hero */}
-      <section className="mx-auto max-w-[1200px] px-6 pt-16 sm:px-10 sm:pt-24">
-        {/* Hero video */}
+    <main>
+      {/* ── Hero: sticky scroll section ── */}
+      <section
+        ref={heroRef}
+        style={{
+          height: "400vh",
+          position: "relative",
+          backgroundColor: "var(--color-sky-blue)",
+        }}
+      >
+        {/* Sticky viewport */}
         <div
-          className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl"
-          style={{ boxShadow: elevation[3] }}
-        >
-          <video
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="none"
-            poster="/landing/hero-poster.jpg"
-            className="absolute inset-0 h-full w-full object-cover"
-          >
-            <source src="/landing/hero.mp4" type="video/mp4" />
-          </video>
-          <div className="absolute inset-0 bg-gradient-to-t from-[#1a1a1f]/60 via-transparent to-transparent" />
-        </div>
-
-        {/* Headline */}
-        <h1
-          className="mt-12 text-pretty sm:mt-16"
           style={{
-            fontFamily: "var(--font-inter)",
-            fontSize: "clamp(2rem, 5vw, 3.5rem)",
-            fontWeight: 500,
-            lineHeight: 1.1,
-            letterSpacing: "-0.02em",
-            color: "#ffffff",
+            position: "sticky",
+            top: 0,
+            height: "100vh",
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
           }}
         >
-          Buyers arrive with conviction.
-        </h1>
-
-        {/* Value prop */}
-        <p
-          className="mt-6 max-w-2xl text-pretty sm:mt-8"
-          style={{
-            fontFamily: "var(--font-inter)",
-            fontSize: "clamp(1.1rem, 2.5vw, 1.35rem)",
-            lineHeight: 1.5,
-            color: "rgba(255,255,255,0.55)",
-          }}
-        >
-          An interactive viewer that presents your land with real terrain,
-          accurate sunlight, and atmospheric detail. No app required.
-        </p>
-
-        {/* CTAs */}
-        <div className="mt-8 flex flex-wrap gap-3 sm:mt-10">
-          <FluidButton href="mailto:anibalin@gmail.com?subject=Parcel Pin" variant="primary">
-            Get in touch
-          </FluidButton>
-          <FluidButton href="/viewer" variant="secondary">
-            See it live
-            <ArrowIcon />
-          </FluidButton>
-        </div>
-      </section>
-
-      {/* Feature cards */}
-      <section className="mx-auto max-w-[1200px] px-6 pt-24 sm:px-10 sm:pt-32">
-        <div className="grid gap-4 sm:grid-cols-3 sm:gap-6">
-          {CARD_DATA.map((card) => (
-            <FeatureCard
-              key={card.id}
-              label={card.label}
-              description={card.description}
-              image={card.image}
-              onSelect={() => setSelectedCard(card.id)}
-            />
-          ))}
-        </div>
-
-        <AnimatePresence>
-          {active && (
-            <ExpandedCard
-              card={active}
-              onClose={close}
-              reducedMotion={!!prefersReducedMotion}
-            />
-          )}
-        </AnimatePresence>
-      </section>
-
-      {/* How it works */}
-      <section className="mx-auto max-w-[1200px] px-6 pt-24 sm:px-10 sm:pt-32">
-        <h2
-          className="mb-10 text-xs uppercase tracking-[0.15em] sm:mb-12"
-          style={{ color: "rgba(255,255,255,0.4)" }}
-        >
-          How it works
-        </h2>
-        <div className="grid gap-10 sm:grid-cols-3 sm:gap-12">
-          <Step
-            number="1"
-            title="Send us your lot plan"
-            description="A subdivision PDF or DWG with lot coordinates. That's all we need to start."
-          />
-          <Step
-            number="2"
-            title="We build the viewer"
-            description="Each lot gets real terrain, sun path, atmosphere, and surrounding context. Ready in 48 hours."
-          />
-          <Step
-            number="3"
-            title="Share one link"
-            description="Buyers explore on any device. No app, no login. They arrive at the site visit already decided."
-          />
-        </div>
-      </section>
-
-      {/* Viewer teaser */}
-      <section className="mx-auto max-w-[1200px] px-6 pt-24 sm:px-10 sm:pt-32">
-        <motion.div
-          className="flex flex-col items-center gap-6 rounded-2xl bg-white/[0.03] px-6 py-12 text-center sm:px-12 sm:py-16"
-          style={{ boxShadow: elevation[3] }}
-          whileHover={{ boxShadow: elevation[4] }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        >
-          <p
-            className="text-sm uppercase tracking-[0.15em]"
-            style={{ color: "rgba(255,255,255,0.4)" }}
-          >
-            See what buyers see
-          </p>
-          <h2
-            className="max-w-xl text-pretty"
+          {/* Nav */}
+          <header
             style={{
-              fontFamily: "var(--font-inter)",
-              fontSize: "clamp(1.5rem, 3.5vw, 2.25rem)",
-              fontWeight: 500,
-              lineHeight: 1.15,
-              letterSpacing: "-0.01em",
-              color: "#ffffff",
+              position: "relative",
+              zIndex: 20,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "24px 40px",
+              flexShrink: 0,
             }}
           >
-            Explore the viewer.
-          </h2>
-          <p
-            className="max-w-md text-pretty"
+            <span
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "20px",
+                fontWeight: 550,
+                letterSpacing: "-0.4px",
+                color: "#fff",
+              }}
+            >
+              Parcel Pin
+            </span>
+            <a
+              href="mailto:anibalin@gmail.com?subject=Parcel Pin"
+              style={{
+                fontFamily: "var(--font-text)",
+                fontSize: "14px",
+                fontWeight: 450,
+                letterSpacing: "-0.14px",
+                color: "var(--color-cockpit)",
+                backgroundColor: "var(--color-cream)",
+                borderRadius: "120px",
+                padding: "10px 22px",
+                textDecoration: "none",
+              }}
+            >
+              Get in touch
+            </a>
+          </header>
+
+          {/* Video container with rounded corners on blue */}
+          <div
             style={{
-              fontFamily: "var(--font-inter)",
-              fontSize: "1rem",
-              lineHeight: 1.5,
-              color: "rgba(255,255,255,0.5)",
+              position: "relative",
+              flex: 1,
+              margin: "0 16px 16px",
+              borderRadius: "24px",
+              overflow: "hidden",
             }}
           >
-            Real terrain, real sunlight, real scale.
-            <br className="hidden sm:block" />
-            Works in any browser.
-          </p>
-          <div className="mt-2">
-            <FluidButton href="/viewer" variant="primary">
-              Explore the demo
-              <ArrowIcon />
-            </FluidButton>
+            <video
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="none"
+              poster="/landing/hero-poster.jpg"
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            >
+              <source src="/landing/hero.mp4" type="video/mp4" />
+            </video>
+
+            {/* Dark gradient at bottom for text legibility */}
+            <div
+              style={{
+                position: "absolute",
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: "50%",
+                background:
+                  "linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%)",
+                pointerEvents: "none",
+              }}
+            />
+
+            {/* Hero title — fades out as you scroll */}
+            <div
+              style={{
+                position: "absolute",
+                bottom: "56px",
+                left: "48px",
+                right: "48px",
+                zIndex: 10,
+                opacity: showCaptions ? 0 : 1,
+                transform: showCaptions
+                  ? "translateY(-12px)"
+                  : "translateY(0)",
+                transition: "opacity 0.5s ease, transform 0.5s ease",
+              }}
+            >
+              <h1
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontSize: "clamp(40px, 8vw, 120px)",
+                  fontWeight: 550,
+                  lineHeight: 1,
+                  letterSpacing: "-0.03em",
+                  color: "#fff",
+                }}
+              >
+                Land, understood.
+              </h1>
+            </div>
+
+            {/* Scroll captions — fade in as you scroll */}
+            <div
+              style={{
+                position: "absolute",
+                bottom: "56px",
+                left: "48px",
+                width: "460px",
+                maxWidth: "calc(100% - 96px)",
+                zIndex: 10,
+                opacity: showCaptions ? 1 : 0,
+                transition: "opacity 0.5s ease",
+              }}
+            >
+              {HERO_CAPTIONS.map((caption, i) => (
+                <p
+                  key={i}
+                  style={{
+                    fontFamily: "var(--font-text)",
+                    fontSize: "clamp(18px, 1.6vw, 24px)",
+                    fontWeight: 500,
+                    lineHeight: 1.25,
+                    letterSpacing: "-0.24px",
+                    color: "var(--color-cream)",
+                    maxWidth: "460px",
+                    paddingLeft: "20px",
+                    borderLeft: "2px solid rgba(245, 244, 223, 0.5)",
+                    position: "absolute",
+                    bottom: 0,
+                    left: 0,
+                    opacity: captionIndex === i ? 1 : 0,
+                    transform:
+                      captionIndex === i
+                        ? "translateY(0)"
+                        : captionIndex > i
+                          ? "translateY(-16px)"
+                          : "translateY(16px)",
+                    transition: "opacity 0.6s ease, transform 0.6s ease",
+                  }}
+                >
+                  {caption}
+                </p>
+              ))}
+            </div>
           </div>
-        </motion.div>
-      </section>
 
-      {/* Final CTA */}
-      <section className="mx-auto max-w-[1200px] px-6 pt-24 sm:px-10 sm:pt-32">
-        <h2
-          className="text-pretty"
-          style={{
-            fontFamily: "var(--font-inter)",
-            fontSize: "clamp(1.5rem, 4vw, 2.5rem)",
-            fontWeight: 500,
-            lineHeight: 1.15,
-            letterSpacing: "-0.01em",
-            color: "#ffffff",
-          }}
-        >
-          Present your land properly.
-        </h2>
-        <div className="mt-6 flex flex-wrap gap-3 sm:mt-8">
-          <FluidButton href="mailto:anibalin@gmail.com?subject=Parcel Pin" variant="primary">
-            Get in touch
-          </FluidButton>
-          <FluidButton href="/viewer" variant="secondary">
-            Explore the viewer
-            <ArrowIcon />
-          </FluidButton>
+          {/* Blue transition text — shows at end of scroll */}
+          <div
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: "100vh",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: showTransition ? 15 : 0,
+              opacity: showTransition ? 1 : 0,
+              transition: "opacity 0.6s ease",
+              pointerEvents: "none",
+              backgroundColor: "var(--color-sky-blue)",
+            }}
+          >
+            <h2
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "clamp(40px, 7vw, 100px)",
+                fontWeight: 550,
+                lineHeight: 1.05,
+                letterSpacing: "-0.03em",
+                color: "var(--color-cream)",
+                textAlign: "center",
+                padding: "0 40px",
+              }}
+            >
+              See the land
+              <br />
+              before you see the land.
+            </h2>
+          </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="mx-auto flex max-w-[1200px] flex-col gap-4 px-6 pb-12 pt-24 sm:flex-row sm:items-center sm:justify-between sm:px-10 sm:pt-32">
+      {/* ── Feature sections on cream ── */}
+      <section
+        style={{
+          backgroundColor: "var(--color-cream)",
+          paddingTop: "120px",
+        }}
+      >
+        <FeatureBlock
+          image="/landing/card-overview.jpg"
+          headline="One link per lot."
+          text="Buyers orbit the terrain, check sun exposure at different hours, measure the tree line from every angle."
+          cta="See it live"
+          ctaHref="/viewer"
+          align="left"
+        />
+        <FeatureBlock
+          image="/landing/card-detail.jpg"
+          headline="Light tells the truth."
+          text="A static floor plan cannot show how morning light hits the lot. The viewer puts buyers in the landscape, at the time of day that matters."
+          cta="Explore the viewer"
+          ctaHref="/viewer"
+          align="right"
+        />
+        <FeatureBlock
+          image="/landing/card-selection.jpg"
+          headline="Decided before Saturday."
+          text="The buyer opens the link on their phone. They orbit the lot, check where the sun sets. They send it to their partner. Both already agree."
+          cta="Try the demo"
+          ctaHref="/viewer"
+          align="left"
+        />
+      </section>
+
+      {/* ── How it works ── */}
+      <section
+        style={{
+          backgroundColor: "var(--color-cream)",
+          padding: "120px 40px 160px",
+        }}
+      >
+        <Reveal>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "clamp(36px, 5vw, 64px)",
+              fontWeight: 550,
+              lineHeight: 1.05,
+              letterSpacing: "-0.03em",
+              color: "var(--color-cockpit)",
+              maxWidth: "600px",
+            }}
+          >
+            From lot plan to live viewer in 48 hours.
+          </h2>
+        </Reveal>
+        <Reveal delay={0.08}>
+          <p
+            style={{
+              fontFamily: "var(--font-text)",
+              fontSize: "clamp(16px, 1.4vw, 20px)",
+              fontWeight: 400,
+              lineHeight: 1.45,
+              letterSpacing: "-0.2px",
+              color: "var(--color-cockpit)",
+              opacity: 0.5,
+              maxWidth: "440px",
+              marginTop: "24px",
+            }}
+          >
+            Send us a subdivision plan. We handle the terrain, sunlight, and
+            atmosphere. You get a link to share.
+          </p>
+        </Reveal>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+            gap: "48px 32px",
+            marginTop: "80px",
+          }}
+        >
+          <Reveal delay={0}>
+            <Step
+              number="01"
+              title="Send us your lot plan"
+              description="A subdivision PDF or DWG with lot coordinates. That's all we need."
+            />
+          </Reveal>
+          <Reveal delay={0.1}>
+            <Step
+              number="02"
+              title="We build the viewer"
+              description="Real terrain, sun path, atmosphere, and surrounding context. Ready in 48 hours."
+            />
+          </Reveal>
+          <Reveal delay={0.2}>
+            <Step
+              number="03"
+              title="Share one link"
+              description="Buyers explore on any device. No app, no login. They arrive already decided."
+            />
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ── CTA — navy ── */}
+      <section
+        style={{
+          backgroundColor: "var(--color-aviation-navy)",
+          padding: "160px 40px 120px",
+        }}
+      >
+        <Reveal>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "clamp(40px, 5vw, 80px)",
+              fontWeight: 550,
+              lineHeight: 1,
+              letterSpacing: "-0.03em",
+              color: "var(--color-cream)",
+              maxWidth: "700px",
+            }}
+          >
+            Ready when you are.
+          </h2>
+        </Reveal>
+        <Reveal delay={0.1}>
+          <p
+            style={{
+              fontFamily: "var(--font-text)",
+              fontSize: "clamp(16px, 1.4vw, 20px)",
+              fontWeight: 400,
+              lineHeight: 1.45,
+              letterSpacing: "-0.2px",
+              color: "rgba(245, 244, 223, 0.55)",
+              maxWidth: "440px",
+              marginTop: "24px",
+            }}
+          >
+            One subdivision plan is all we need. Each lot gets its own viewer
+            link within 48 hours.
+          </p>
+        </Reveal>
+        <Reveal delay={0.15}>
+          <div style={{ display: "flex", gap: "12px", marginTop: "40px", flexWrap: "wrap" as const }}>
+            <a
+              href="mailto:anibalin@gmail.com?subject=Parcel Pin"
+              style={{
+                fontFamily: "var(--font-text)",
+                fontSize: "14px",
+                fontWeight: 450,
+                letterSpacing: "-0.14px",
+                color: "var(--color-cockpit)",
+                backgroundColor: "var(--color-cream)",
+                borderRadius: "120px",
+                padding: "14px 28px",
+                textDecoration: "none",
+              }}
+            >
+              Get in touch
+            </a>
+            <Link
+              href="/viewer"
+              style={{
+                fontFamily: "var(--font-text)",
+                fontSize: "14px",
+                fontWeight: 450,
+                letterSpacing: "-0.14px",
+                color: "var(--color-cream)",
+                border: "1.5px solid rgba(245, 244, 223, 0.25)",
+                borderRadius: "120px",
+                padding: "14px 28px",
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
+              Explore the viewer
+              <ArrowIcon />
+            </Link>
+          </div>
+        </Reveal>
+      </section>
+
+      {/* ── Footer ── */}
+      <footer
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "32px 40px",
+          backgroundColor: "var(--color-aviation-navy)",
+          borderTop: "1px solid rgba(245, 244, 223, 0.08)",
+          flexWrap: "wrap" as const,
+          gap: "16px",
+        }}
+      >
         <span
-          className="text-sm"
-          style={{ color: "rgba(255,255,255,0.4)" }}
+          style={{
+            fontFamily: "var(--font-text)",
+            fontSize: "13px",
+            fontWeight: 450,
+            letterSpacing: "-0.13px",
+            color: "rgba(245, 244, 223, 0.35)",
+          }}
         >
           José Ignacio, Uruguay ·{" "}
           <a
             href="mailto:anibalin@gmail.com"
-            className="text-white/70 no-underline transition-colors hover:text-white"
+            style={{ color: "inherit", textDecoration: "none" }}
           >
             anibalin@gmail.com
           </a>
         </span>
         <span
-          className="text-sm"
           style={{
             fontFamily: "var(--font-display)",
-            color: "rgba(255,255,255,0.25)",
+            fontSize: "14px",
+            fontWeight: 550,
+            letterSpacing: "-0.28px",
+            color: "rgba(245, 244, 223, 0.25)",
           }}
         >
           Parcel Pin
@@ -307,210 +535,142 @@ export default function HomePage() {
 
 /* ── Components ── */
 
-function FluidButton({
-  href,
-  variant = "primary",
-  size = "md",
-  children,
-}: {
-  href: string;
-  variant?: "primary" | "secondary";
-  size?: "sm" | "md";
-  children: React.ReactNode;
-}) {
-  const isExternal = href.startsWith("mailto:") || href.startsWith("http");
-
-  const styles = {
-    primary: "bg-white text-[#0a0a0a] hover:bg-white/90",
-    secondary:
-      "bg-white/[0.08] text-white hover:bg-white/[0.14]",
-  };
-
-  const sizes = {
-    sm: "px-4 py-2 text-sm",
-    md: "px-5 py-2.5 text-sm",
-  };
-
-  const className = `inline-flex items-center gap-2 rounded-full font-medium no-underline transition-colors ${styles[variant]} ${sizes[size]}`;
-  const shadow = variant === "secondary" ? elevation[2] : undefined;
-
-  if (isExternal) {
-    return (
-      <motion.a
-        href={href}
-        className={className}
-        style={shadow ? { boxShadow: shadow } : undefined}
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        transition={{ type: "spring", stiffness: 400, damping: 25 }}
-      >
-        {children}
-      </motion.a>
-    );
-  }
-
-  return (
-    <motion.div
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      transition={{ type: "spring", stiffness: 400, damping: 25 }}
-      className="inline-flex"
-      style={shadow ? { boxShadow: shadow } : undefined}
-    >
-      <Link href={href} className={className}>
-        {children}
-      </Link>
-    </motion.div>
-  );
-}
-
-function FeatureCard({
-  label,
-  description,
+function FeatureBlock({
   image,
-  onSelect,
+  headline,
+  text,
+  cta,
+  ctaHref,
+  align,
 }: {
-  label: string;
-  description: string;
   image: string;
-  onSelect: () => void;
+  headline: string;
+  text: string;
+  cta: string;
+  ctaHref: string;
+  align: "left" | "right";
 }) {
+  const ref = useScrollReveal();
+  const isLeft = align === "left";
+
   return (
-    <motion.button
-      type="button"
-      onClick={onSelect}
-      className="group cursor-pointer rounded-xl bg-white/[0.03] p-5 text-left focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:outline-none sm:p-6"
-      style={{ boxShadow: elevation[3] }}
-      whileHover={{ boxShadow: elevation[4] }}
-      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+    <div
+      ref={ref}
+      style={{
+        padding: "0 16px",
+        marginBottom: "40px",
+        opacity: 0,
+        transform: "translateY(24px)",
+        transition:
+          "opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
+        willChange: "opacity, transform",
+      }}
     >
-      <div className="mb-4 aspect-[4/3] overflow-hidden rounded-lg">
+      <div
+        style={{
+          position: "relative",
+          borderRadius: "24px",
+          overflow: "hidden",
+          minHeight: "85vh",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-end",
+        }}
+      >
         <img
           src={image}
-          alt={label}
-          width={400}
-          height={300}
-          className="h-full w-full object-cover transition-transform duration-200 [@media(hover:hover)]:group-hover:scale-[1.03]"
+          alt=""
           loading="lazy"
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+          }}
         />
-      </div>
-      <h3
-        className="mb-2 text-base font-medium text-white sm:text-lg"
-        style={{ fontFamily: "var(--font-inter)" }}
-      >
-        {label}
-      </h3>
-      <p
-        className="text-sm leading-relaxed"
-        style={{ color: "rgba(255,255,255,0.5)" }}
-      >
-        {description}
-      </p>
-    </motion.button>
-  );
-}
 
-function ExpandedCard({
-  card,
-  onClose,
-  reducedMotion,
-}: {
-  card: (typeof CARD_DATA)[number];
-  onClose: () => void;
-  reducedMotion: boolean;
-}) {
-  const easeOutQuad = [0.25, 0.46, 0.45, 0.94] as const;
-  const fade = reducedMotion
-    ? { duration: 0 }
-    : { duration: 0.2, ease: easeOutQuad };
+        {/* Gradient overlay */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.25) 40%, transparent 70%)",
+            pointerEvents: "none",
+          }}
+        />
 
-  return (
-    <>
-      <motion.div
-        className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={fade}
-        onClick={onClose}
-      />
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8"
-        style={{ overscrollBehavior: "contain" }}
-        onClick={onClose}
-      >
-        <motion.div
-          role="dialog"
-          aria-modal="true"
-          aria-label={card.label}
-          className="relative w-full max-w-2xl overflow-hidden rounded-2xl bg-[#222228]"
-          style={{ boxShadow: elevation[4] }}
-          initial={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97 }}
-          transition={fade}
-          onClick={(e) => e.stopPropagation()}
+        {/* Content at bottom */}
+        <div
+          className="feature-content"
+          style={{
+            position: "relative",
+            zIndex: 1,
+            padding: "56px",
+          }}
         >
-          <div className="aspect-[16/9] overflow-hidden">
-            <img
-              src={card.image}
-              alt=""
-              width={672}
-              height={378}
-              className="h-full w-full object-cover"
-            />
-          </div>
-
-          <div className="p-6 sm:p-8">
-            <h3
-              className="text-xl font-medium text-white sm:text-2xl"
-              style={{ fontFamily: "var(--font-inter)" }}
-            >
-              {card.label}
-            </h3>
-
-            <motion.div
-              initial={reducedMotion ? false : { opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={reducedMotion ? { duration: 0 } : { delay: 0.1, duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
-            >
-              <p
-                className="mt-4 text-lg font-medium text-white/80"
-                style={{ fontFamily: "var(--font-inter)" }}
-              >
-                {card.expanded.headline}
-              </p>
-              <p
-                className="mt-3 leading-relaxed"
-                style={{
-                  fontFamily: "var(--font-inter)",
-                  fontSize: "0.95rem",
-                  color: "rgba(255,255,255,0.55)",
-                }}
-              >
-                {card.expanded.body}
-              </p>
-              <p
-                className="mt-3 text-sm leading-relaxed"
-                style={{ color: "rgba(255,255,255,0.4)" }}
-              >
-                {card.expanded.detail}
-              </p>
-            </motion.div>
-          </div>
-
-          <button
-            onClick={onClose}
-            className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-black/40 text-white/70 backdrop-blur-sm transition-colors hover:bg-black/60 hover:text-white focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:outline-none"
-            aria-label="Close"
+          <h3
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "clamp(36px, 5vw, 64px)",
+              fontWeight: 550,
+              lineHeight: 1,
+              letterSpacing: "-0.03em",
+              color: "#fff",
+              order: isLeft ? 1 : 2,
+            }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </motion.div>
+            {headline}
+          </h3>
+
+          <div
+            style={{
+              order: isLeft ? 2 : 1,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: isLeft ? "flex-end" : "flex-start",
+            }}
+          >
+            <p
+              style={{
+                fontFamily: "var(--font-text)",
+                fontSize: "clamp(16px, 1.2vw, 20px)",
+                fontWeight: 450,
+                lineHeight: 1.4,
+                letterSpacing: "-0.2px",
+                color: "rgba(255, 255, 255, 0.75)",
+                maxWidth: "400px",
+                textAlign: isLeft ? "right" : "left",
+              }}
+            >
+              {text}
+            </p>
+            <Link
+              href={ctaHref}
+              style={{
+                fontFamily: "var(--font-text)",
+                fontSize: "14px",
+                fontWeight: 450,
+                letterSpacing: "-0.14px",
+                color: "#fff",
+                border: "1.5px solid rgba(255, 255, 255, 0.3)",
+                borderRadius: "120px",
+                padding: "10px 22px",
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                marginTop: "24px",
+              }}
+            >
+              {cta}
+              <ArrowIcon />
+            </Link>
+          </div>
+        </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -524,27 +684,51 @@ function Step({
   description: string;
 }) {
   return (
-    <div className="flex items-start gap-4">
+    <div
+      style={{
+        borderTop: "1px solid rgba(14, 22, 32, 0.1)",
+        paddingTop: "32px",
+      }}
+    >
       <span
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm text-white/60"
-        style={{ fontFamily: "var(--font-inter)", boxShadow: elevation[2] }}
+        style={{
+          fontFamily: "var(--font-display)",
+          fontSize: "16px",
+          fontWeight: 550,
+          letterSpacing: "-0.16px",
+          color: "var(--color-sky-blue)",
+        }}
       >
         {number}
       </span>
-      <div>
-        <p
-          className="text-lg text-white/80"
-          style={{ fontFamily: "var(--font-inter)" }}
-        >
-          {title}
-        </p>
-        <p
-          className="mt-2 text-sm leading-relaxed"
-          style={{ color: "rgba(255,255,255,0.45)" }}
-        >
-          {description}
-        </p>
-      </div>
+      <h3
+        style={{
+          fontFamily: "var(--font-display)",
+          fontSize: "clamp(24px, 2.5vw, 36px)",
+          fontWeight: 550,
+          lineHeight: 1.15,
+          letterSpacing: "-0.03em",
+          color: "var(--color-cockpit)",
+          marginTop: "16px",
+        }}
+      >
+        {title}
+      </h3>
+      <p
+        style={{
+          fontFamily: "var(--font-text)",
+          fontSize: "17px",
+          fontWeight: 400,
+          lineHeight: 1.45,
+          letterSpacing: "-0.32px",
+          color: "var(--color-cockpit)",
+          opacity: 0.5,
+          marginTop: "12px",
+          maxWidth: "315px",
+        }}
+      >
+        {description}
+      </p>
     </div>
   );
 }

@@ -37,6 +37,7 @@
   ],
   "exclude": [
     "node_modules",
-    "public/testlanding/sites/droneland.au/app"
+    "public/testlanding/sites/droneland.au/app",
+    "sites"
   ]
 }

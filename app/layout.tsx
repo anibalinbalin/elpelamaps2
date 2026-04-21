@@ -1,31 +1,21 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
-import { Inter, Geist_Mono } from "next/font/google";
+import { Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import { DevTools } from "@/components/dev-tools";
 
 import { VersionBadge } from "@/components/version-badge";
 import "./globals.css";
 
-const baselClassic = localFont({
-  src: "./fonts/Basel-Classic-Bold-Italic.woff2",
+const jobyDisplay = localFont({
+  src: "./fonts/JobySans_Display_Variable-s.p.0q3~mkk0o.mlr.woff2",
   variable: "--font-display",
-  weight: "635",
-  style: "italic",
   display: "swap",
 });
 
-const baselGrotesk = localFont({
-  src: "./fonts/Basel-Grotesk-Book.woff2",
-  variable: "--font-sans",
-  weight: "485",
-  style: "normal",
-  display: "swap",
-});
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
+const jobyText = localFont({
+  src: "./fonts/JobySans_Text_Variable-s.p.109vigqo~-38m.woff2",
+  variable: "--font-text",
   display: "swap",
 });
 
@@ -41,7 +31,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
-  themeColor: "#0b1016",
+  themeColor: "#f5f4df",
 };
 
 export const metadata: Metadata = {
@@ -50,14 +40,14 @@ export const metadata: Metadata = {
     template: "%s | Parcel Pin",
   },
   description:
-    "Parcel Pin helps buyers choose premium land with more clarity, confidence, and emotional precision.",
+    "Interactive 3D land viewer with real terrain, accurate sunlight, and atmospheric detail. Buyers explore independently.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="en"
-      className={`${baselClassic.variable} ${baselGrotesk.variable} ${inter.variable} ${geistMono.variable}`}
+      className={`${jobyDisplay.variable} ${jobyText.variable} ${geistMono.variable}`}
     >
       <body className="antialiased">
         {children}

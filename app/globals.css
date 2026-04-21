@@ -1,20 +1,24 @@
 @import "tailwindcss";
 @import "ol/ol.css";
 
-/* ── Design tokens — ui.sh-inspired system for tool surfaces ──
-   Landing page (`/`) opts back into Basel via inline var(--font-sans/-display).
-   All other surfaces inherit Inter via body default below. */
 @theme {
-  --font-ui: var(--font-inter), system-ui, sans-serif;
+  --font-ui: var(--font-text), system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
+
+  --color-sky-blue: #007ae5;
+  --color-aviation-navy: #083e6f;
+  --color-navy-blue: #08166f;
+  --color-cream: #f5f4df;
+  --color-cockpit: #0e1620;
+  --color-paper: #ffffff;
+  --color-orange: #eb6110;
+  --color-peach: #ffd9c9;
 
   --color-ink: #0a0a0a;
   --color-ink-soft: #111114;
   --color-ink-pane: #141418;
   --color-ink-inset: #1a1a1f;
-  --color-paper: #ffffff;
 
-  /* Floating panels — match ui.sh picker palette exactly */
   --color-surface-glass: rgba(10, 10, 10, 0.8);
   --color-surface-glass-hover: rgba(255, 255, 255, 0.1);
   --color-surface-glass-active: rgba(255, 255, 255, 0.12);
@@ -23,26 +27,26 @@
   --color-hairline-dark: rgba(255, 255, 255, 0.10);
   --color-hairline-strong: rgba(255, 255, 255, 0.16);
 
-  --radius-md: 8px;
-  --radius-lg: 10px;
-  --radius-xl: 12px;
-  --radius-2xl: 16px;
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-full: 120px;
 
-  --shadow-cta: 0 6px 18px rgba(0, 0, 0, 0.24);
-
-  /* Floating-panel elevation — outer dark ring + inner light hairline + soft drop.
-     The double ring is what gives ui.sh its "two-layer" look. */
-  --shadow-glass:
-    0 0 0 1px rgba(0, 0, 0, 0.9),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.1),
-    0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  --spacing-xs: 8px;
+  --spacing-sm: 12px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 40px;
+  --spacing-3xl: 56px;
+  --spacing-4xl: 64px;
+  --spacing-5xl: 80px;
 }
 
 html,
 body {
   height: 100%;
   margin: 0;
-  background: #0a0a0a;
+  background: var(--color-cream);
 }
 
 body {
@@ -50,93 +54,25 @@ body {
   -webkit-tap-highlight-color: transparent;
   overflow-x: hidden;
   font-family: var(--font-ui);
-  color: rgba(255, 255, 255, 0.82);
+  color: var(--color-cockpit);
 }
 
 @layer components {
   .panel {
     background: var(--color-ink-pane);
     border: 1px solid var(--color-hairline-dark);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-md);
     color: rgba(255, 255, 255, 0.82);
   }
 
   .panel-inset {
     background: var(--color-ink-inset);
     border: 1px solid var(--color-hairline-dark);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-sm);
   }
 
   .hairline {
     border: 1px solid var(--color-hairline-dark);
-  }
-}
-
-.cloud-swoosh-icon {
-  transition:
-    transform 180ms ease,
-    opacity 180ms ease,
-    filter 180ms ease;
-  will-change: transform, opacity, filter;
-}
-
-.cloud-swoosh-icon-wrap.is-active .cloud-swoosh-icon {
-  animation: cloud-hand-swoosh 720ms cubic-bezier(0.22, 0.88, 0.3, 1);
-}
-
-.cloud-swoosh-trigger:hover .cloud-swoosh-icon {
-  transform: translate3d(0.45px, -0.6px, 0) rotate(3deg);
-  filter: drop-shadow(0 2px 5px rgba(255, 255, 255, 0.12));
-}
-
-@keyframes cloud-hand-swoosh {
-  0% {
-    transform: translate3d(0, 0, 0) rotate(0deg) scale(0.92);
-    opacity: 0.8;
-    filter: blur(2px);
-  }
-
-  16% {
-    transform: translate3d(-1px, 0.5px, 0) rotate(-6deg) scale(0.98);
-    opacity: 1;
-    filter: blur(0);
-  }
-
-  44% {
-    transform: translate3d(5px, -3px, 0) rotate(10deg) scale(1.02);
-    opacity: 1;
-    filter: blur(0);
-  }
-
-  72% {
-    transform: translate3d(8px, -5px, 0) rotate(2deg) scale(0.94);
-    opacity: 0.56;
-    filter: blur(1px);
-  }
-
-  100% {
-    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
-    opacity: 1;
-    filter: blur(0);
-  }
-}
-
-@keyframes shake {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  20% {
-    transform: translateX(-4px);
-  }
-  40% {
-    transform: translateX(4px);
-  }
-  60% {
-    transform: translateX(-3px);
-  }
-  80% {
-    transform: translateX(2px);
   }
 }
 
@@ -178,13 +114,21 @@ body {
   animation: editor-field-in 200ms ease-out both;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .cloud-swoosh-icon {
-    animation: none !important;
-    transition: none;
-    filter: none !important;
-  }
+.feature-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  align-items: end;
+}
 
+@media (max-width: 768px) {
+  .feature-content {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
   .sun-arc-enter {
     animation: none;
   }
@@ -193,38 +137,3 @@ body {
     animation: none;
   }
 }
-
-/* ---- Landing page (route '/') — print object ---- */
-@keyframes parcelpin-fade-up {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.parcelpin-fade-up {
-  opacity: 0;
-  animation: parcelpin-fade-up 700ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
-  animation-delay: 80ms;
-}
-
-@supports (animation-timeline: view()) {
-  .parcelpin-fade-up {
-    animation-timeline: view();
-    animation-range: entry 0% entry 55%;
-    animation-delay: 0ms;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .parcelpin-fade-up {
-    animation: none !important;
-    opacity: 1 !important;
-    transform: none !important;
-  }
-}
-

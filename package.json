@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "mirror:joby": "node scripts/mirror-joby-homepage.mjs",
     "test": "vitest",
     "postinstall": "node scripts/copy-cesium-assets.mjs"
   },
