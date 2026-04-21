@@ -7,41 +7,41 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 const CARD_DATA = [
   {
     id: "visits",
-    label: "Cut the tire-kicker visits",
+    label: "Qualified visits only",
     description:
-      "Buyers explore every lot from home. Sun, privacy, views. Only the serious ones schedule a trip.",
+      "Buyers explore sun, privacy, and views on their own. Site visits become confirmations, not discoveries.",
     image: "/landing/card-overview.jpg",
     expanded: {
-      headline: "10 visits become 3. All serious.",
-      body: "Each lot gets its own viewer link. Buyers orbit the terrain, check the sun at different hours, measure the tree line from every angle. By the time they call you, they already know which lot fits. The visit is a formality.",
+      headline: "Self-guided exploration.",
+      body: "Each lot gets its own viewer link. Buyers orbit the terrain, check sun exposure at different hours, measure the tree line from every angle. They share the link with their partner. By the time they call, both of them know which lot fits.",
       detail:
-        "Developers using Parcel Pin report 60-70% fewer site visits with the same close rate. The visits that happen are shorter, more focused, and end with a decision.",
+        "Real elevation data from satellite surveys. Sun position calculated to the minute for any date. Surrounding context — roads, neighbors, vegetation — rendered from Google 3D Tiles.",
     },
   },
   {
     id: "competition",
-    label: "Look nothing like the competition",
+    label: "Beyond renders and drone footage",
     description:
-      "While others email PDFs and drone clips, you send an immersive experience. The presentation matches the land.",
+      "Interactive terrain with accurate sun positioning. Buyers control the angle, the time of day, the perspective.",
     image: "/landing/card-detail.jpg",
     expanded: {
-      headline: "PDFs don't sell land. Atmosphere does.",
-      body: "A static floor plan can't show how morning light hits the east-facing lot. A drone video can't let the buyer rotate and zoom on their own terms. The viewer puts them in the landscape, at the time of day that matters, from the angle that sells.",
+      headline: "Not a render. Not a video.",
+      body: "A static floor plan cannot show how morning light hits the east-facing lot. A drone video cannot let the buyer rotate and zoom on their own terms. The viewer puts them in the landscape, at the time of day that matters, from the angle that sells.",
       detail:
-        "Real terrain data, accurate sun positioning, atmospheric rendering. Not a render. Not a video. An experience the buyer controls.",
+        "Atmospheric rendering with volumetric clouds, accurate sun arc, and time-of-day simulation. Built on Google Photorealistic 3D Tiles with sub-meter terrain accuracy.",
     },
   },
   {
     id: "cycle",
-    label: "Shorten the sales cycle",
+    label: "Shorter path to decision",
     description:
-      "When buyers already felt the morning light and the tree line, the site visit is a formality.",
+      "When both partners have already explored the lot together, the visit is a formality.",
     image: "/landing/card-selection.jpg",
     expanded: {
       headline: "Conviction before the visit.",
       body: "The buyer opens the link on their phone over coffee. They orbit the lot, check where the sun sets, see how close the neighbor is. They send it to their partner. By Saturday, both of them already agree. The visit confirms what they felt.",
       detail:
-        "Shorter cycle, fewer objections, less back-and-forth. The viewer does the selling between your meetings.",
+        "Works on any device — phone, tablet, desktop. No app installation, no login required. One link per lot, shareable instantly.",
     },
   },
 ];
@@ -121,9 +121,7 @@ export default function HomePage() {
             color: "#ffffff",
           }}
         >
-          Buyers arrive already knowing
-          <br className="hidden sm:block" />
-          {" "}which lot they want.
+          Buyers arrive with conviction.
         </h1>
 
         {/* Value prop */}
@@ -136,8 +134,8 @@ export default function HomePage() {
             color: "rgba(255,255,255,0.55)",
           }}
         >
-          When buyers feel the light and the setting before they visit,
-          they show up ready to decide.
+          An interactive viewer that presents your land with real terrain,
+          accurate sunlight, and atmospheric detail. No app required.
         </p>
 
         {/* CTAs */}
@@ -199,7 +197,7 @@ export default function HomePage() {
           <Step
             number="3"
             title="Share one link"
-            description="Buyers explore on any device. No app, no login. They self-select before calling you."
+            description="Buyers explore on any device. No app, no login. They arrive at the site visit already decided."
           />
         </div>
       </section>
@@ -229,7 +227,7 @@ export default function HomePage() {
               color: "#ffffff",
             }}
           >
-            Open the viewer right now
+            Explore the viewer.
           </h2>
           <p
             className="max-w-md text-pretty"
@@ -240,9 +238,9 @@ export default function HomePage() {
               color: "rgba(255,255,255,0.5)",
             }}
           >
-            Real terrain, real sunlight. The land as it is.
+            Real terrain, real sunlight, real scale.
             <br className="hidden sm:block" />
-            Works in any browser. Nothing to install.
+            Works in any browser.
           </p>
           <div className="mt-2">
             <FluidButton href="/viewer" variant="primary">
@@ -266,7 +264,7 @@ export default function HomePage() {
             color: "#ffffff",
           }}
         >
-          Ready to show your land properly?
+          Present your land properly.
         </h2>
         <div className="mt-6 flex flex-wrap gap-3 sm:mt-8">
           <FluidButton href="mailto:anibalin@gmail.com?subject=Parcel Pin" variant="primary">
