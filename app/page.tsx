@@ -494,7 +494,7 @@ export default function HomePage() {
           alignItems: "center",
           justifyContent: "space-between",
           padding: "32px 40px",
-          backgroundColor: "var(--color-aviation-navy)",
+          backgroundColor: "var(--color-sky-blue)",
           borderTop: "1px solid rgba(245, 244, 223, 0.08)",
           flexWrap: "wrap" as const,
           gap: "16px",
