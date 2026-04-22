@@ -136,7 +136,7 @@ export default function HomePage() {
               Parcel Pin
             </span>
             <a
-              href="mailto:anibalin@gmail.com?subject=Parcel Pin"
+              href="mailto:hello@parcelpin.com?subject=Parcel Pin"
               style={{
                 fontFamily: "var(--font-text)",
                 fontSize: "14px",
@@ -353,7 +353,7 @@ export default function HomePage() {
             headline="Built for your subdivision."
             text="Send us your lot plan. We place every parcel on real terrain with accurate sun paths — ready to share in 48 hours."
             cta="Get in touch"
-            ctaHref="mailto:anibalin@gmail.com?subject=Parcel Pin"
+            ctaHref="mailto:hello@parcelpin.com?subject=Parcel Pin"
             align="left"
           />
         </div>
@@ -459,7 +459,7 @@ export default function HomePage() {
           <Reveal delay={0.15}>
             <div style={{ display: "flex", gap: "12px", marginTop: "40px", flexWrap: "wrap" as const }}>
               <a
-                href="mailto:anibalin@gmail.com?subject=Parcel Pin"
+                href="mailto:hello@parcelpin.com?subject=Parcel Pin"
                 style={{
                   fontFamily: "var(--font-text)",
                   fontSize: "14px",
