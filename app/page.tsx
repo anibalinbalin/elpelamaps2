@@ -345,6 +345,7 @@ export default function HomePage() {
 
       {/* ── How it works ── */}
       <section
+        className="how-it-works-section"
         style={{
           backgroundColor: "var(--color-cream)",
           padding: "80px 40px 120px",
@@ -385,7 +386,7 @@ export default function HomePage() {
             </p>
           </Reveal>
 
-          <div style={{ marginTop: "80px" }}>
+          <div className="step-rows-container" style={{ marginTop: "80px" }}>
             <Reveal delay={0}>
               <StepRow number="01" title="Send us your lot plan" description="A subdivision PDF or DWG with lot coordinates. That's all we need." icon={<StepLotPlanIcon />} />
             </Reveal>
@@ -777,6 +778,7 @@ function StepRow({
 }) {
   return (
     <div
+      className="step-row"
       style={{
         display: "grid",
         gridTemplateColumns: "80px 1fr 1fr",
@@ -788,6 +790,7 @@ function StepRow({
       }}
     >
       <span
+        className="step-row-number"
         style={{
           fontFamily: "var(--font-display)",
           fontSize: "48px",
@@ -800,6 +803,7 @@ function StepRow({
         {number}
       </span>
       <h3
+        className="step-row-title"
         style={{
           fontFamily: "var(--font-display)",
           fontSize: "clamp(22px, 2.2vw, 28px)",
@@ -812,7 +816,7 @@ function StepRow({
       >
         {title}
       </h3>
-      <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+      <div className="step-row-body" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
         <p
           style={{
             fontFamily: "var(--font-text)",
@@ -834,7 +838,7 @@ function StepRow({
 
 function StepLotPlanIcon() {
   return (
-    <svg viewBox="0 0 200 170" fill="none" xmlns="http://www.w3.org/2000/svg" width="200" height="170" style={{ width: "200px", height: "170px", flexShrink: 0 }}>
+    <svg viewBox="0 0 200 170" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: "200px", height: "auto", flexShrink: 0 }}>
       <rect x="15" y="20" width="170" height="135" stroke="#083E6F" strokeWidth="1.2" fill="none" style={{ opacity: 0.2 }} />
       <line x1="15" y1="72" x2="185" y2="72" stroke="#083E6F" strokeWidth="0.75" style={{ opacity: 0.15 }} />
       <line x1="15" y1="115" x2="140" y2="115" stroke="#083E6F" strokeWidth="0.75" style={{ opacity: 0.15 }} />
@@ -863,7 +867,7 @@ function StepLotPlanIcon() {
 
 function StepViewerIcon() {
   return (
-    <svg viewBox="0 0 200 170" fill="none" xmlns="http://www.w3.org/2000/svg" width="200" height="170" style={{ width: "200px", height: "170px", flexShrink: 0 }}>
+    <svg viewBox="0 0 200 170" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: "200px", height: "auto", flexShrink: 0 }}>
       <path d="M0 170 L60 40 L200 40 L200 170 Z" fill="#083E6F" style={{ opacity: 0.03 }} />
       <line x1="30" y1="140" x2="180" y2="80" stroke="#083E6F" strokeWidth="1.5" style={{ opacity: 0.08 }} />
       <line x1="90" y1="170" x2="120" y2="55" stroke="#083E6F" style={{ opacity: 0.06 }} />
@@ -904,7 +908,7 @@ function StepViewerIcon() {
 
 function StepShareIcon() {
   return (
-    <svg viewBox="0 0 200 170" fill="none" xmlns="http://www.w3.org/2000/svg" width="200" height="170" style={{ width: "200px", height: "170px", flexShrink: 0 }}>
+    <svg viewBox="0 0 200 170" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: "200px", height: "auto", flexShrink: 0 }}>
       <rect x="5" y="22" width="115" height="78" rx="4" stroke="#083E6F" fill="#083E6F08" style={{ opacity: 0.25 }} />
       <rect x="12" y="30" width="101" height="62" rx="1" stroke="#083E6F" strokeWidth="0.5" fill="none" style={{ opacity: 0.1 }} />
       <line x1="-3" y1="102" x2="128" y2="102" stroke="#083E6F" strokeWidth="1.5" strokeLinecap="round" style={{ opacity: 0.2 }} />

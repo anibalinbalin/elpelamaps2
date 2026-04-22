@@ -129,6 +129,51 @@ body {
   }
 }
 
+@media (max-width: 640px) {
+  .how-it-works-section {
+    padding: 56px 20px 80px !important;
+  }
+
+  .step-row {
+    grid-template-columns: auto 1fr !important;
+    grid-template-rows: auto auto !important;
+    gap: 0 16px !important;
+    padding: 28px 0 !important;
+  }
+
+  .step-row-number {
+    font-size: 36px !important;
+    grid-row: 1;
+    grid-column: 1;
+  }
+
+  .step-row-title {
+    grid-row: 1;
+    grid-column: 2;
+    font-size: 20px !important;
+  }
+
+  .step-row-body {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    margin-top: 12px;
+  }
+
+  .step-row-body p {
+    font-size: 16px !important;
+  }
+
+  .step-row-body svg {
+    width: 100% !important;
+    height: auto !important;
+    max-width: 200px;
+  }
+
+  .step-rows-container {
+    margin-top: 48px !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sun-arc-enter {
     animation: none;
