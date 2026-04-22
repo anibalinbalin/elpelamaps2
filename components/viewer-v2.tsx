@@ -70,7 +70,8 @@ function computeParcelTargetPose(feature: ParcelFeature): CameraPose {
   const halfFovRad = 30 * DEG2RAD;
   const alt = Math.max(150, (boundingRadius / Math.tan(halfFovRad)) * 1.6);
 
-  return { lat: cLat, lon: cLon, alt, headingDeg: 0, pitchDeg: -78 };
+  const latOffsetDeg = (alt * 0.15) / 111320;
+  return { lat: cLat - latOffsetDeg, lon: cLon, alt, headingDeg: 0, pitchDeg: -78 };
 }
 
 function lerpAngleDeg(from: number, to: number, t: number): number {
