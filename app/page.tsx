@@ -317,7 +317,7 @@ export default function HomePage() {
       >
         <div style={{ maxWidth: "960px", margin: "0 auto" }}>
           <FeatureBlock
-            image="/landing/card-overview.jpg"
+            video="/landing/card-overview.mp4"
             headline="One link per lot."
             text="Buyers orbit the terrain, check sun exposure at different hours, measure the tree line from every angle."
             cta="See it live"
@@ -325,7 +325,7 @@ export default function HomePage() {
             align="left"
           />
           <FeatureBlock
-            image="/landing/card-detail.jpg"
+            video="/landing/card-detail.mp4"
             headline="Light tells the truth."
             text="A static floor plan cannot show how morning light hits the lot. The viewer puts buyers in the landscape, at the time of day that matters."
             cta="Explore the viewer"
@@ -333,11 +333,27 @@ export default function HomePage() {
             align="right"
           />
           <FeatureBlock
-            image="/landing/card-selection.jpg"
+            video="/landing/card-selection.mp4"
             headline="Decided before Saturday."
             text="The buyer opens the link on their phone. They orbit the lot, check where the sun sets. They send it to their partner. Both already agree."
             cta="Try the demo"
             ctaHref="/viewer"
+            align="left"
+          />
+          <FeatureBlock
+            video="/landing/card-lot-click.mp4"
+            headline="Tap a lot. See everything."
+            text="Sun angle, terrain, trees — the viewer reveals what a map cannot. Buyers explore on their own terms, on any device."
+            cta="Try it yourself"
+            ctaHref="/viewer"
+            align="right"
+          />
+          <FeatureBlock
+            video="/landing/card-plot-edit.mp4"
+            headline="Built for your subdivision."
+            text="Send us your lot plan. We place every parcel on real terrain with accurate sun paths — ready to share in 48 hours."
+            cta="Get in touch"
+            ctaHref="mailto:anibalin@gmail.com?subject=Parcel Pin"
             align="left"
           />
         </div>
@@ -626,13 +642,15 @@ export default function HomePage() {
 
 function FeatureBlock({
   image,
+  video,
   headline,
   text,
   cta,
   ctaHref,
   align,
 }: {
-  image: string;
+  image?: string;
+  video?: string;
   headline: string;
   text: string;
   cta: string;
@@ -666,18 +684,37 @@ function FeatureBlock({
           justifyContent: "flex-end",
         }}
       >
-        <img
-          src={image}
-          alt=""
-          loading="lazy"
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-          }}
-        />
+        {video ? (
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="none"
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+            }}
+          >
+            <source src={video} type="video/mp4" />
+          </video>
+        ) : image ? (
+          <img
+            src={image}
+            alt=""
+            loading="lazy"
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+            }}
+          />
+        ) : null}
 
         {/* Gradient overlay */}
         <div
@@ -735,7 +772,7 @@ function FeatureBlock({
             >
               {text}
             </p>
-            <Link
+            <a
               href={ctaHref}
               style={{
                 fontFamily: "var(--font-text)",
@@ -755,7 +792,7 @@ function FeatureBlock({
             >
               {cta}
               <ArrowIcon />
-            </Link>
+            </a>
           </div>
         </div>
       </div>
