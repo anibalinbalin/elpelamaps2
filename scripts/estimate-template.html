@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  @font-face {
+    font-family: 'TX-02';
+    src: url('/Users/anibalin/Library/Fonts/TX-02-Regular.otf') format('opentype');
+    font-weight: 400;
+    font-style: normal;
+  }
+  @font-face {
+    font-family: 'TX-02';
+    src: url('/Users/anibalin/Library/Fonts/TX-02-Medium.otf') format('opentype');
+    font-weight: 500;
+    font-style: normal;
+  }
+  @font-face {
+    font-family: 'TX-02';
+    src: url('/Users/anibalin/Library/Fonts/TX-02-Bold.otf') format('opentype');
+    font-weight: 700;
+    font-style: normal;
+  }
+
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: 'TX-02', 'Courier New', monospace;
+    font-size: 13px;
+    color: #000;
+    background: #fff;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    padding: 52px 56px 44px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* ── Header ── */
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 48px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-circle {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1.5px solid #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .logo-circle svg {
+    width: 22px;
+    height: 28px;
+  }
+
+  .brand-name {
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: 0.2px;
+  }
+
+  .title-block {
+    text-align: right;
+  }
+
+  .title {
+    font-family: 'TX-02', 'Courier New', monospace;
+    font-weight: 400;
+    font-size: 28px;
+    letter-spacing: -0.3px;
+    margin-bottom: 6px;
+  }
+
+  .meta-line {
+    font-size: 11px;
+    color: #888;
+    line-height: 1.6;
+  }
+
+  /* ── From / Para ── */
+
+  .rule {
+    border: none;
+    border-top: 1px solid #e5e5e5;
+  }
+
+  .parties {
+    display: flex;
+    gap: 40px;
+    margin: 20px 0 24px;
+  }
+
+  .party {
+    flex: 1;
+  }
+
+  .party-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: #aaa;
+    margin-bottom: 10px;
+  }
+
+  .party-name {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .party-detail {
+    font-size: 12px;
+    color: #666;
+    line-height: 1.7;
+  }
+
+  /* ── Scope sections ── */
+
+  .scope-section {
+    margin-bottom: 24px;
+  }
+
+
+  .scope-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .scope-desc {
+    font-size: 12px;
+    color: #555;
+    line-height: 1.6;
+    margin-bottom: 12px;
+  }
+
+  .scope-list {
+    list-style: none;
+    padding: 0;
+  }
+
+  .scope-list li {
+    font-size: 11.5px;
+    color: #555;
+    line-height: 1.6;
+    padding-left: 14px;
+    position: relative;
+    margin-bottom: 4px;
+  }
+
+  .scope-list li::before {
+    content: "–";
+    position: absolute;
+    left: 0;
+    color: #bbb;
+  }
+
+  /* ── Table ── */
+
+  .items-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+  }
+
+  .items-table thead th {
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #aaa;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e5e5e5;
+    text-align: left;
+  }
+
+  .items-table thead th.num {
+    text-align: center;
+  }
+
+  .items-table thead th.money {
+    text-align: right;
+  }
+
+  .items-table tbody td {
+    padding: 18px 0;
+    vertical-align: top;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 13px;
+  }
+
+  .items-table tbody td.num {
+    text-align: center;
+    color: #333;
+  }
+
+  .items-table tbody td.money {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .item-name {
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+
+  .item-desc {
+    font-size: 11.5px;
+    color: #777;
+    line-height: 1.55;
+    max-width: 380px;
+  }
+
+  /* ── Summary ── */
+
+  .summary-wrap {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 12px;
+  }
+
+  .summary {
+    width: 260px;
+  }
+
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12.5px;
+    padding: 5px 0;
+    color: #333;
+  }
+
+  .summary-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid #000;
+    margin-top: 6px;
+    padding-top: 10px;
+  }
+
+  .summary-total .label {
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .summary-total .amount {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+
+  /* ── Notes ── */
+
+  .notes-section {
+    margin-top: auto;
+    padding-top: 20px;
+  }
+
+  .notes-rule {
+    border: none;
+    border-top: 1px solid #e5e5e5;
+    margin-bottom: 16px;
+  }
+
+  .notes-label {
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: #aaa;
+    margin-bottom: 10px;
+  }
+
+  .note-text {
+    font-size: 11.5px;
+    color: #666;
+    line-height: 1.65;
+    margin-bottom: 5px;
+  }
+
+  /* ── Footer ── */
+
+  .footer {
+    border-top: 1px solid #e5e5e5;
+    margin-top: 36px;
+    padding-top: 16px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #aaa;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="brand">
+      <img src="parcelpin-logo.png" style="width: 36px; height: 36px; object-fit: contain;">
+      <span class="brand-name">Parcel Pin</span>
+    </div>
+    <div class="title-block">
+      <div class="title">Presupuesto</div>
+      <div class="meta-line">#PP-2026-001</div>
+      <div class="meta-line">21 de abril de 2026</div>
+    </div>
+  </div>
+
+  <!-- From / Para -->
+  <hr class="rule">
+  <div class="parties">
+    <div class="party">
+      <div class="party-label">De</div>
+      <div class="party-name">Anibal Ramos</div>
+      <div class="party-detail">hello@parcelpin.com</div>
+      <div class="party-detail">parcelpin.com</div>
+    </div>
+    <div class="party">
+      <div class="party-label">Para</div>
+      <div class="party-name">Gabriela Scalise</div>
+      <div class="party-detail">Cliente</div>
+    </div>
+  </div>
+  <hr class="rule">
+
+  <!-- Alcance -->
+  <div class="scope-section" style="margin-top: 40px;">
+    <div class="scope-title">Qué es Parcel Pin</div>
+    <p class="scope-desc">Parcel Pin convierte un terreno en una experiencia donde el interesado en un lote puede recorrer de forma virtual la zona, explorar, comparar. Es una plataforma que no requiere app ni instalaciones. El terreno a recorrer se reconstruye en medidas exactas con datos reales de elevación y análisis satelital. El comprador orbita el predio, analiza cada lote, puede ver cómo el sol se mueve en diferentes horarios.</p>
+    <p class="scope-desc">No es una experiencia estática. A diferencia de una filmación o una foto esférica, Parcel Pin es un modelo vivo — la luz se calcula por coordenadas y fecha exacta del proyecto. Los lotes se exponen con su superficie, precio y estado (disponible, reservado, vendido). Al tocar un lote, la cámara orbita al foco del mismo para mostrar su información.</p>
+  </div>
+
+  <div class="scope-section">
+    <div class="scope-title">Qué incluye cada proyecto</div>
+    <ul class="scope-list">
+      <li>Terreno reconstruido con elevación real y tiles satelitales de alta resolución</li>
+      <li>Lotes dibujados sobre el terreno con estados visuales y ficha por lote: superficie en m², costo, descripción, link de contacto</li>
+      <li>Simulación solar con slider de 24 horas</li>
+      <li>Simulación de atmósfera: cielo, nubes, perspectiva atmosférica, light scattering</li>
+      <li>Indistinto de qué dispositivo se abra — funciona en equipos de escritorio o en teléfonos. No requiere login ni instalaciones</li>
+    </ul>
+  </div>
+
+  <div class="scope-section">
+    <div class="scope-title">Panel de edición</div>
+    <p class="scope-desc">Cada proyecto tiene un editor privado donde se gestionan los lotes. Se dibujan los polígonos sobre el mapa de forma ortogonal; posterior a ello, esto ya queda reflejado en el link al público.</p>
+  </div>
+
+  <div class="scope-section">
+    <div class="scope-title">Link y dominio</div>
+    <p class="scope-desc">Cada link de cada proyecto no tiene caducidad. Cada link tiene la nomenclatura que el cliente decida, por ejemplo: lacarolina.parcelpin.com — o si el cliente ya dispone de un dominio, se puede agregar directamente a tal dominio.</p>
+  </div>
+
+  <div class="scope-section">
+    <div class="scope-title">Tiempos</div>
+    <p class="scope-desc">El tiempo de edición dependerá del tamaño del terreno a lotear y qué tipo de archivo se provee.</p>
+  </div>
+
+  <hr class="rule">
+
+  <!-- Line items -->
+  <table class="items-table">
+    <thead>
+      <tr>
+        <th style="width: 55%">Descripción</th>
+        <th class="num" style="width: 10%">Cant.</th>
+        <th class="money" style="width: 17%">Precio</th>
+        <th class="money" style="width: 18%">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          <div class="item-name">Terreno 1 — Visor 3D + Editor de lotes</div>
+          <div class="item-desc">Visualización 3D interactiva con elevación real, lotes georreferenciados, simulación solar y panel de administración.</div>
+        </td>
+        <td class="num">1</td>
+        <td class="money">USD 700</td>
+        <td class="money"><strong>USD 700</strong></td>
+      </tr>
+      <tr>
+        <td>
+          <div class="item-name">Terreno 2 — Visor 3D + Editor de lotes</div>
+          <div class="item-desc">Visualización 3D interactiva con elevación real, lotes georreferenciados, simulación solar y panel de administración.</div>
+        </td>
+        <td class="num">1</td>
+        <td class="money">USD 700</td>
+        <td class="money"><strong>USD 700</strong></td>
+      </tr>
+      <tr>
+        <td>
+          <div class="item-name">Terreno 3 — Visor 3D + Editor de lotes</div>
+          <div class="item-desc">Visualización 3D interactiva con elevación real, lotes georreferenciados, simulación solar y panel de administración.</div>
+        </td>
+        <td class="num">1</td>
+        <td class="money">USD 700</td>
+        <td class="money"><strong>USD 700</strong></td>
+      </tr>
+      <tr>
+        <td>
+          <div class="item-name">Terreno 4 — Visor 3D + Editor de lotes</div>
+          <div class="item-desc">Visualización 3D interactiva con elevación real, lotes georreferenciados, simulación solar y panel de administración.</div>
+        </td>
+        <td class="num">1</td>
+        <td class="money">USD 700</td>
+        <td class="money"><strong>USD 700</strong></td>
+      </tr>
+      <tr>
+        <td>
+          <div class="item-name">Terreno 5 — Visor 3D + Editor de lotes</div>
+          <div class="item-desc">Visualización 3D interactiva con elevación real, lotes georreferenciados, simulación solar y panel de administración.</div>
+        </td>
+        <td class="num">1</td>
+        <td class="money">USD 700</td>
+        <td class="money"><strong>USD 700</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Summary -->
+  <div class="summary-wrap">
+    <div class="summary">
+      <div class="summary-row">
+        <span>Subtotal (5 proyectos)</span>
+        <span>USD 3,500</span>
+      </div>
+      <div class="summary-row">
+        <span>Impuestos</span>
+        <span>—</span>
+      </div>
+      <div class="summary-total">
+        <span class="label">Total</span>
+        <span class="amount">USD 3,500</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notes -->
+  <div class="notes-section">
+    <hr class="notes-rule">
+    <div class="notes-label">Notas</div>
+    <p class="note-text">Precio final por paquete de 5 proyectos. Sin impuestos adicionales ni comisiones.</p>
+    <p class="note-text">Cada proyecto incluye: Visor 3D interactivo con elevación real, lotes con estados editables (disponible/reservado/vendido), simulación solar diaria, fichas por lote, entrega en HTML5 compatible con todos los dispositivos, y editor de lotes.</p>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <span>Anibal Ramos · hello@parcelpin.com</span>
+    <span>parcelpin.com</span>
+  </div>
+
+</div>
+</body>
+</html>

@@ -4,6 +4,7 @@ import { Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import { DevTools } from "@/components/dev-tools";
 
+
 import { VersionBadge } from "@/components/version-badge";
 import "./globals.css";
 
@@ -56,6 +57,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <>
             <VersionBadge />
             <DevTools />
+
             <Script src="https://ui.sh/ui-picker.js" />
           </>
         )}
