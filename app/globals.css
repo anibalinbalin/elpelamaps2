@@ -28,18 +28,19 @@
   --color-hairline-strong: rgba(255, 255, 255, 0.16);
 
   --radius-sm: 8px;
-  --radius-md: 16px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
   --radius-full: 120px;
 
-  --spacing-xs: 8px;
-  --spacing-sm: 12px;
-  --spacing-md: 16px;
-  --spacing-lg: 24px;
-  --spacing-xl: 32px;
-  --spacing-2xl: 40px;
-  --spacing-3xl: 56px;
-  --spacing-4xl: 64px;
-  --spacing-5xl: 80px;
+  --shadow-cta: 0 6px 18px rgba(0, 0, 0, 0.24);
+
+  --shadow-glass:
+    0 0 0 1px rgba(0, 0, 0, 0.9),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 25px 50px -12px rgba(0, 0, 0, 0.5);
+
 }
 
 html,
@@ -125,6 +126,51 @@ body {
   .feature-content {
     grid-template-columns: 1fr;
     gap: 24px;
+  }
+}
+
+@media (max-width: 640px) {
+  .how-it-works-section {
+    padding: 56px 20px 80px !important;
+  }
+
+  .step-row {
+    grid-template-columns: auto 1fr !important;
+    grid-template-rows: auto auto !important;
+    gap: 0 16px !important;
+    padding: 28px 0 !important;
+  }
+
+  .step-row-number {
+    font-size: 36px !important;
+    grid-row: 1;
+    grid-column: 1;
+  }
+
+  .step-row-title {
+    grid-row: 1;
+    grid-column: 2;
+    font-size: 20px !important;
+  }
+
+  .step-row-body {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    margin-top: 12px;
+  }
+
+  .step-row-body p {
+    font-size: 16px !important;
+  }
+
+  .step-row-body svg {
+    width: 100% !important;
+    height: auto !important;
+    max-width: 200px;
+  }
+
+  .step-rows-container {
+    margin-top: 48px !important;
   }
 }
 
