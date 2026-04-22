@@ -68,9 +68,9 @@ function computeParcelTargetPose(feature: ParcelFeature): CameraPose {
   }
   const boundingRadius = Math.sqrt(maxDistSq);
   const halfFovRad = 30 * DEG2RAD;
-  const alt = Math.max(150, (boundingRadius / Math.tan(halfFovRad)) * 2.8);
+  const alt = Math.max(150, (boundingRadius / Math.tan(halfFovRad)) * 1.6);
 
-  return { lat: cLat, lon: cLon, alt, headingDeg: 0, pitchDeg: -55 };
+  return { lat: cLat, lon: cLon, alt, headingDeg: 0, pitchDeg: -78 };
 }
 
 function lerpAngleDeg(from: number, to: number, t: number): number {
