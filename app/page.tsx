@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
+import { ParcelPinLogo } from "@/components/parcelpin-logo";
 
 
 function useScrollReveal() {
@@ -124,17 +125,7 @@ export default function HomePage() {
                 justifyContent: "space-between",
               }}
             >
-            <span
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "20px",
-                fontWeight: 550,
-                letterSpacing: "-0.4px",
-                color: "#fff",
-              }}
-            >
-              Parcel Pin
-            </span>
+            <ParcelPinLogo size="header" tone="bright" />
             <a
               href="mailto:hello@parcelpin.com?subject=Parcel Pin"
               style={{
