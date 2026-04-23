@@ -123,6 +123,10 @@ body {
 }
 
 @media (max-width: 768px) {
+  .before-after-grid {
+    grid-template-columns: 1fr !important;
+  }
+
   .feature-content {
     grid-template-columns: 1fr;
     gap: 24px;

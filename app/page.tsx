@@ -299,6 +299,9 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ── Before / After ── */}
+      <BeforeAfterSection />
+
       {/* ── Feature sections on cream ── */}
       <section
         style={{
@@ -630,6 +633,235 @@ export default function HomePage() {
 }
 
 /* ── Components ── */
+
+function BeforeAfterSection() {
+  const sectionRef = useRef<HTMLElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [revealed, setRevealed] = useState(false);
+
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setRevealed(true);
+          observer.unobserve(el);
+        }
+      },
+      { threshold: 0.3 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (revealed && videoRef.current) {
+      videoRef.current.play();
+    }
+  }, [revealed]);
+
+  return (
+    <section
+      ref={sectionRef}
+      style={{
+        backgroundColor: "var(--color-cream)",
+        padding: "120px 40px 40px",
+      }}
+    >
+      <div style={{ maxWidth: "960px", margin: "0 auto" }}>
+        <Reveal>
+          <p
+            style={{
+              fontFamily: "var(--font-text)",
+              fontSize: "14px",
+              fontWeight: 500,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase" as const,
+              color: "var(--color-sky-blue)",
+              marginBottom: "16px",
+            }}
+          >
+            Before &amp; after
+          </p>
+        </Reveal>
+        <Reveal delay={0.06}>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "clamp(36px, 5vw, 64px)",
+              fontWeight: 550,
+              lineHeight: 1.05,
+              letterSpacing: "-0.03em",
+              color: "var(--color-cockpit)",
+              maxWidth: "700px",
+            }}
+          >
+            From flat plan to full experience.
+          </h2>
+        </Reveal>
+        <Reveal delay={0.1}>
+          <p
+            style={{
+              fontFamily: "var(--font-text)",
+              fontSize: "clamp(16px, 1.4vw, 20px)",
+              fontWeight: 400,
+              lineHeight: 1.45,
+              letterSpacing: "-0.2px",
+              color: "var(--color-cockpit)",
+              opacity: 0.5,
+              maxWidth: "480px",
+              marginTop: "20px",
+            }}
+          >
+            A subdivision plan tells you where the lots are. The viewer lets you
+            stand on them.
+          </p>
+        </Reveal>
+
+        {/* Cards */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "16px",
+            marginTop: "56px",
+          }}
+          className="before-after-grid"
+        >
+          {/* Before */}
+          <Reveal delay={0.12}>
+            <div
+              style={{
+                position: "relative",
+                borderRadius: "20px",
+                overflow: "hidden",
+                aspectRatio: "4 / 3",
+                backgroundColor: "#e8e6d8",
+              }}
+            >
+              <img
+                src="/landing/before-map.png"
+                alt="Static subdivision plan"
+                loading="lazy"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  padding: "40px 28px 24px",
+                  background:
+                    "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)",
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: "var(--font-text)",
+                    fontSize: "13px",
+                    fontWeight: 500,
+                    color: "rgba(255,255,255,0.55)",
+                    letterSpacing: "0.04em",
+                    textTransform: "uppercase" as const,
+                  }}
+                >
+                  Before
+                </span>
+                <p
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontSize: "clamp(18px, 2vw, 24px)",
+                    fontWeight: 550,
+                    lineHeight: 1.15,
+                    letterSpacing: "-0.02em",
+                    color: "#fff",
+                    marginTop: "6px",
+                  }}
+                >
+                  A flat image with lot numbers.
+                </p>
+              </div>
+            </div>
+          </Reveal>
+
+          {/* After */}
+          <Reveal delay={0.18}>
+            <div
+              style={{
+                position: "relative",
+                borderRadius: "20px",
+                overflow: "hidden",
+                aspectRatio: "4 / 3",
+                backgroundColor: "var(--color-cockpit)",
+              }}
+            >
+              <video
+                ref={videoRef}
+                muted
+                loop
+                playsInline
+                preload="none"
+                poster="/landing/before-after-poster.jpg"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  opacity: revealed ? 1 : 0.4,
+                  transition: "opacity 1.2s ease",
+                }}
+              >
+                <source src="/landing/before-after.mp4" type="video/mp4" />
+              </video>
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  padding: "40px 28px 24px",
+                  background:
+                    "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)",
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: "var(--font-text)",
+                    fontSize: "13px",
+                    fontWeight: 500,
+                    color: "var(--color-sky-blue)",
+                    letterSpacing: "0.04em",
+                    textTransform: "uppercase" as const,
+                  }}
+                >
+                  After
+                </span>
+                <p
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontSize: "clamp(18px, 2vw, 24px)",
+                    fontWeight: 550,
+                    lineHeight: 1.15,
+                    letterSpacing: "-0.02em",
+                    color: "#fff",
+                    marginTop: "6px",
+                  }}
+                >
+                  Terrain, sun, and atmosphere — explored live.
+                </p>
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 function FeatureBlock({
   image,
