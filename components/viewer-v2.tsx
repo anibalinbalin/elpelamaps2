@@ -9,9 +9,11 @@ import {
   Line,
   LineBasicMaterial,
   Matrix4,
+  Mesh,
   MeshBasicMaterial,
   Vector3,
 } from "three";
+import { Earcut } from "three/src/extras/Earcut.js";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import { EffectComposer, ToneMapping } from "@react-three/postprocessing";
@@ -390,7 +392,7 @@ function ParcelLayer({
         }));
         line.renderOrder = 999;
 
-        // Mesh positions — fan triangulation from vertex 0, skipping closing duplicate
+        // Mesh positions — earcut triangulation (handles concave polygons)
         const n = ring.length - 1;
         const verts: Vector3[] = [];
         for (let i = 0; i < n; i++) {
@@ -399,11 +401,24 @@ function ParcelLayer({
           tiles.ellipsoid.getCartographicToPosition(lat * DEG2RAD, lon * DEG2RAD, 5, v);
           verts.push(v);
         }
+
+        // Project to local 2D tangent plane for earcut
+        const up = verts[0].clone().normalize();
+        const arbitrary = Math.abs(up.x) < 0.9
+          ? new Vector3(1, 0, 0) : new Vector3(0, 1, 0);
+        const east = new Vector3().crossVectors(up, arbitrary).normalize();
+        const north = new Vector3().crossVectors(east, up).normalize();
+        const origin = verts[0];
+        const coords2D: number[] = [];
+        for (const v of verts) {
+          const d = v.clone().sub(origin);
+          coords2D.push(d.dot(east), d.dot(north));
+        }
+        const triIndices = Earcut.triangulate(coords2D, undefined, 2);
+
         const meshPos: number[] = [];
-        for (let i = 1; i < n - 1; i++) {
-          meshPos.push(verts[0].x, verts[0].y, verts[0].z);
-          meshPos.push(verts[i].x, verts[i].y, verts[i].z);
-          meshPos.push(verts[i + 1].x, verts[i + 1].y, verts[i + 1].z);
+        for (const idx of triIndices) {
+          meshPos.push(verts[idx].x, verts[idx].y, verts[idx].z);
         }
         const meshGeom = new BufferGeometry();
         meshGeom.setAttribute("position", new Float32BufferAttribute(meshPos, 3));
