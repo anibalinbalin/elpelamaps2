@@ -1,20 +1,27 @@
-import type { FeatureCollection, Feature, Polygon } from "geojson";
+import type { FeatureCollection, Feature, Polygon, LineString } from "geojson";
 import parcelsData from "@/data/parcels.json";
+
+export type FeatureType = "parcel" | "road" | "amenity";
 
 export interface ParcelProperties {
   id: string;
   name: string;
   areaSqMeters: number;
+  featureType?: FeatureType;
   priceUSD?: number;
   zoning?: string;
+  label?: string;
   status?: "for-sale" | "sold" | "reserved";
   description?: string;
   contactUrl?: string;
   color?: string;
+  roadWidth?: number;
+  smoothed?: boolean;
+  originalCoords?: number[][][];
 }
 
-export type ParcelFeature = Feature<Polygon, ParcelProperties>;
-export type ParcelCollection = FeatureCollection<Polygon, ParcelProperties>;
+export type ParcelFeature = Feature<Polygon | LineString, ParcelProperties>;
+export type ParcelCollection = FeatureCollection<Polygon | LineString, ParcelProperties>;
 
 export function getParcels(): ParcelCollection {
   return parcelsData as ParcelCollection;

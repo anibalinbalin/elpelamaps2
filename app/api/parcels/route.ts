@@ -13,11 +13,15 @@ function isParcelFeature(value: unknown): value is ParcelFeature {
   if (!value || typeof value !== "object") return false;
 
   const feature = value as ParcelFeature;
+  const geomType = feature.geometry?.type;
+  const hasCoords = Array.isArray(feature.geometry?.coordinates);
+  const validGeom =
+    (geomType === "Polygon" && hasCoords && Array.isArray(feature.geometry.coordinates[0])) ||
+    (geomType === "LineString" && hasCoords);
+
   return (
     feature.type === "Feature" &&
-    feature.geometry?.type === "Polygon" &&
-    Array.isArray(feature.geometry.coordinates) &&
-    Array.isArray(feature.geometry.coordinates[0]) &&
+    !!validGeom &&
     typeof feature.properties?.id === "string" &&
     typeof feature.properties?.name === "string" &&
     typeof feature.properties?.areaSqMeters === "number"
