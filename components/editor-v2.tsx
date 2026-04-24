@@ -101,9 +101,9 @@ function featureStyle(f: AnyFeature): Style[] {
   });
   const vertices = new Style({
     image: new CircleStyle({
-      radius: 3.5,
-      fill: new Fill({ color: s.stroke }),
-      stroke: new Stroke({ color: "rgba(0, 0, 0, 0.4)", width: 1 }),
+      radius: 5,
+      fill: new Fill({ color: "rgba(255, 255, 255, 0.95)" }),
+      stroke: new Stroke({ color: "rgba(0, 0, 0, 0.6)", width: 1.5 }),
     }),
     geometry: (feature) => {
       const geom = feature.getGeometry();
