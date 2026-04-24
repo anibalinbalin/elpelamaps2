@@ -278,6 +278,15 @@ const STATUS_PALETTE: Record<string, StatusPalette> = {
 
 const toHex = (n: number) => `#${n.toString(16).padStart(6, "0")}`;
 
+const LAYER_ELEVATION = {
+  water: 0.10,
+  greenspace: 0.15,
+  road: 0.30,
+  sidewalk: 0.45,
+  parcel: 5,
+  outline: 5,
+} as const;
+
 const BADGE_DIST_NEAR = 1500;
 const BADGE_DIST_FAR = 7000;
 
@@ -372,7 +381,12 @@ function ParcelLayer({
       if (!tiles?.ellipsoid || !data) return;
       clearInterval(interval);
 
-      const built: ParcelRender[] = data.features.map((feature) => {
+      const parcels = data.features.filter((f) => {
+        const ft = f.properties.featureType ?? "parcel";
+        return ft === "parcel" || ft === "amenity";
+      });
+
+      const built: ParcelRender[] = parcels.map((feature) => {
         const ring = (feature.geometry.coordinates as number[][][])[0];
 
         // Line positions (visual outline — ring is already closed)
