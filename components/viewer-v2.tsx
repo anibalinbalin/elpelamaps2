@@ -47,7 +47,8 @@ const DEG2RAD = Math.PI / 180;
 const ANIM_DURATION = 1.4;
 
 function computeParcelTargetPose(feature: ParcelFeature): CameraPose {
-  const ring = feature.geometry.coordinates[0];
+  const coords = feature.geometry.coordinates as number[][][];
+  const ring = coords[0];
   const n = ring.length - 1;
   let cLat = 0,
     cLon = 0;
@@ -93,9 +94,9 @@ const DEFAULTS = {
   coverage: 0.19,
   windSpeed: 0.0005,
   exposure: 10,
-  cameraLat: -34.832685,
-  cameraLon: -54.633519,
-  cameraAltM: 1694,
+  cameraLat: -34.8330,
+  cameraLon: -54.6335,
+  cameraAltM: 2200,
   cameraHeadingDeg: 7,
   cameraPitchDeg: -66.3,
   hourLocal: 12,
@@ -370,7 +371,7 @@ function ParcelLayer({
       clearInterval(interval);
 
       const built: ParcelRender[] = data.features.map((feature) => {
-        const ring = feature.geometry.coordinates[0];
+        const ring = (feature.geometry.coordinates as number[][][])[0];
 
         // Line positions (visual outline — ring is already closed)
         const linePositions: number[] = [];
@@ -476,7 +477,7 @@ function ParcelLayer({
     <>
       {renders.map(({ feature, line, fill, meshGeom, centroid }) => {
         const rawName = feature.properties.name || feature.properties.id;
-        const shortLabel = rawName.replace(/^lote\s*/i, "").trim() || rawName;
+        const shortLabel = feature.properties.label ?? (rawName.replace(/^lote\s*/i, "").trim() || rawName);
         const status = feature.properties.status ?? "for-sale";
         return (
           <group key={feature.properties.id}>
