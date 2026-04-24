@@ -45,6 +45,9 @@ interface FeatureMeta {
   areaSqMeters: number;
   roadWidth?: number;
   smoothed?: boolean;
+  canopyRadius?: number;
+  height?: number;
+  floors?: number;
 }
 
 // --- Chaikin corner-cutting (smooths polygon/line edges) ---
@@ -83,6 +86,11 @@ const FEATURE_STYLES: Record<FeatureType, { fill: string; stroke: string }> = {
   parcel: { fill: "rgba(255, 251, 240, 0.1)", stroke: "rgba(255, 251, 240, 0.85)" },
   road: { fill: "rgba(180, 180, 180, 0.08)", stroke: "rgba(220, 200, 160, 0.75)" },
   amenity: { fill: "rgba(129, 199, 132, 0.12)", stroke: "rgba(129, 199, 132, 0.8)" },
+  water: { fill: "rgba(30, 136, 229, 0.15)", stroke: "rgba(30, 136, 229, 0.8)" },
+  greenspace: { fill: "rgba(76, 175, 80, 0.12)", stroke: "rgba(76, 175, 80, 0.7)" },
+  tree: { fill: "rgba(56, 142, 60, 0.3)", stroke: "rgba(56, 142, 60, 0.9)" },
+  building: { fill: "rgba(158, 158, 158, 0.15)", stroke: "rgba(158, 158, 158, 0.8)" },
+  sidewalk: { fill: "rgba(210, 200, 180, 0.08)", stroke: "rgba(210, 200, 180, 0.75)" },
 };
 
 function featureStyle(f: AnyFeature): Style[] {
@@ -185,19 +193,32 @@ function featureToMeta(f: AnyFeature): FeatureMeta {
     areaSqMeters: Number(f.get("areaSqMeters") || 0),
     roadWidth: f.get("roadWidth") as number | undefined,
     smoothed: f.get("smoothed") as boolean | undefined,
+    canopyRadius: f.get("canopyRadius") as number | undefined,
+    height: f.get("height") as number | undefined,
+    floors: f.get("floors") as number | undefined,
   };
 }
 
-const DRAW_TYPES: Record<FeatureType, "Polygon" | "LineString"> = {
+const DRAW_TYPES: Record<FeatureType, "Polygon" | "LineString" | "Point"> = {
   parcel: "Polygon",
   road: "LineString",
   amenity: "Polygon",
+  water: "Polygon",
+  greenspace: "Polygon",
+  tree: "Point",
+  building: "Polygon",
+  sidewalk: "LineString",
 };
 
 const FEATURE_TYPE_LABELS: Record<FeatureType, string> = {
   parcel: "parcel",
   road: "road",
   amenity: "amenity",
+  water: "water",
+  greenspace: "green space",
+  tree: "tree",
+  building: "building",
+  sidewalk: "sidewalk",
 };
 
 export function EditorV2() {
@@ -346,7 +367,7 @@ export function EditorV2() {
 
   // --- Recreate draw interaction when drawType changes ---
   const recreateDraw = useCallback(
-    (map: Map, geomType: "Polygon" | "LineString") => {
+    (map: Map, geomType: "Polygon" | "LineString" | "Point") => {
       const old = drawRef.current;
       if (old) {
         map.removeInteraction(old);
@@ -371,6 +392,9 @@ export function EditorV2() {
         f.set("status", ft === "parcel" ? "for-sale" : undefined);
         f.set("areaSqMeters", getArea(f));
         if (ft === "road") f.set("roadWidth", 6);
+        if (ft === "tree") f.set("canopyRadius", 4);
+        if (ft === "building") { f.set("height", 6); f.set("floors", 2); }
+        if (ft === "sidewalk") f.set("roadWidth", 1.5);
         syncFeatures();
         setMode("select");
         window.setTimeout(() => {

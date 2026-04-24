@@ -17,7 +17,8 @@ function isParcelFeature(value: unknown): value is ParcelFeature {
   const hasCoords = Array.isArray(feature.geometry?.coordinates);
   const validGeom =
     (geomType === "Polygon" && hasCoords && Array.isArray(feature.geometry.coordinates[0])) ||
-    (geomType === "LineString" && hasCoords);
+    (geomType === "LineString" && hasCoords) ||
+    (geomType === "Point" && hasCoords);
 
   return (
     feature.type === "Feature" &&
