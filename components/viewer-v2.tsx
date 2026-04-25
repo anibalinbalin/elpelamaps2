@@ -45,9 +45,17 @@ import { Clouds } from "@takram/three-clouds/r3f";
 import { Dithering, LensFlare } from "@takram/three-geospatial-effects/r3f";
 
 import { GOOGLE_MAPS_API_KEY } from "@/lib/constants";
-import type { ParcelCollection, ParcelFeature } from "@/lib/parcels";
+import type { ParcelCollection, ParcelFeature, FeatureType } from "@/lib/parcels";
 import { formatAreaCompact, formatPrice } from "@/lib/geo-utils";
 import { Panel, Badge, Kbd } from "@/components/ui";
+
+type LayerVisibility = Record<FeatureType, boolean>;
+
+const ALL_LAYERS_VISIBLE: LayerVisibility = {
+  parcel: true, road: true, amenity: true,
+  water: true, greenspace: true, tree: true,
+  building: true, sidewalk: true,
+};
 
 const DEG2RAD = Math.PI / 180;
 const ANIM_DURATION = 1.4;
@@ -367,10 +375,12 @@ function ParcelLayer({
   tilesRef,
   selectedId,
   onSelect,
+  visibleLayers,
 }: {
   tilesRef: RefObject<TilesRendererImpl | null>;
   selectedId: string | null;
   onSelect: (f: ParcelFeature | null) => void;
+  visibleLayers: LayerVisibility;
 }) {
   const parcelsRef = useRef<ParcelCollection | null>(null);
   const [renders, setRenders] = useState<ParcelRender[]>([]);
@@ -937,7 +947,7 @@ function ParcelLayer({
 
   return (
     <>
-      {renders.map(({ feature, line, fill, meshGeom, centroid }) => {
+      {visibleLayers.parcel && renders.map(({ feature, line, fill, meshGeom, centroid }) => {
         const rawName = feature.properties.name || feature.properties.id;
         const shortLabel = feature.properties.label ?? (rawName.replace(/^lote\s*/i, "").trim() || rawName);
         const status = feature.properties.status ?? "for-sale";
@@ -974,32 +984,32 @@ function ParcelLayer({
       })}
 
       {/* Water bodies */}
-      {waterRenders.map(({ id, meshGeom, material }) => (
+      {visibleLayers.water && waterRenders.map(({ id, meshGeom, material }) => (
         <mesh key={id} geometry={meshGeom} material={material} renderOrder={1} />
       ))}
 
       {/* Green spaces */}
-      {greenRenders.map(({ id, meshGeom, material }) => (
+      {visibleLayers.greenspace && greenRenders.map(({ id, meshGeom, material }) => (
         <mesh key={id} geometry={meshGeom} material={material} renderOrder={2} />
       ))}
 
       {/* Roads */}
-      {roadRenders.map(({ id, meshGeom, material }) => (
+      {visibleLayers.road && roadRenders.map(({ id, meshGeom, material }) => (
         <mesh key={id} geometry={meshGeom} material={material} renderOrder={3} />
       ))}
 
       {/* Sidewalks */}
-      {sidewalkRenders.map(({ id, meshGeom, material }) => (
+      {visibleLayers.sidewalk && sidewalkRenders.map(({ id, meshGeom, material }) => (
         <mesh key={id} geometry={meshGeom} material={material} renderOrder={4} />
       ))}
 
       {/* Buildings */}
-      {buildingRenders.map(({ id, meshGeom, material }) => (
+      {visibleLayers.building && buildingRenders.map(({ id, meshGeom, material }) => (
         <mesh key={id} geometry={meshGeom} material={material} renderOrder={5} />
       ))}
 
       {/* Trees */}
-      {treesMeshRef.current && (
+      {visibleLayers.tree && treesMeshRef.current && (
         <primitive object={treesMeshRef.current} renderOrder={6} />
       )}
     </>
@@ -1143,7 +1153,7 @@ interface SceneProps {
   shadowFarScale: number;
   shadowSplitLambda: number;
   shadowMapSize: number;
-  showParcels: boolean;
+  visibleLayers: LayerVisibility;
   selectedParcelId: string | null;
   onParcelSelect: (f: ParcelFeature | null) => void;
 }
@@ -1158,7 +1168,7 @@ function Scene({
   shadowFarScale,
   shadowSplitLambda,
   shadowMapSize,
-  showParcels,
+  visibleLayers,
   selectedParcelId,
   onParcelSelect,
 }: SceneProps) {
@@ -1168,13 +1178,12 @@ function Scene({
   return (
     <>
       <AnimatedCamera tilesRef={tilesRef} initialPose={cameraPose} targetPose={targetPose} exposure={exposure} />
-      {showParcels && (
-        <ParcelLayer
-          tilesRef={tilesRef}
-          selectedId={selectedParcelId}
-          onSelect={onParcelSelect}
-        />
-      )}
+      <ParcelLayer
+        tilesRef={tilesRef}
+        selectedId={selectedParcelId}
+        onSelect={onParcelSelect}
+        visibleLayers={visibleLayers}
+      />
 
       <TilesRenderer ref={tilesRef}>
         <TilesPlugin
@@ -1225,7 +1234,7 @@ function formatHourLabel(hourLocal: number) {
 
 export function ViewerV2() {
   const [hourLocal, setHourLocal] = useState(getCurrentUruguayHour);
-  const [showParcels, setShowParcels] = useState(true);
+  const [visibleLayers, setVisibleLayers] = useState<LayerVisibility>({ ...ALL_LAYERS_VISIBLE });
   const [selectedParcel, setSelectedParcel] = useState<ParcelFeature | null>(null);
   const [hintsVisible, setHintsVisible] = useState(true);
   const hintsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1272,7 +1281,7 @@ export function ViewerV2() {
           shadowFarScale={DEFAULTS.shadowFarScale}
           shadowSplitLambda={DEFAULTS.shadowSplitLambda}
           shadowMapSize={DEFAULTS.shadowMapSize}
-          showParcels={showParcels}
+          visibleLayers={visibleLayers}
           selectedParcelId={selectedParcel?.properties.id ?? null}
           onParcelSelect={setSelectedParcel}
         />
@@ -1302,19 +1311,23 @@ export function ViewerV2() {
             {timeLabel}
           </span>
           <span className="shrink-0 font-mono text-[12px] text-white/50 px-1 max-sm:hidden">UY</span>
-          <button
-            type="button"
-            onClick={() => setShowParcels((v) => !v)}
-            className={`size-9 shrink-0 rounded-[var(--radius-md)] text-[12px] font-medium transition-colors sm:h-8 sm:w-auto sm:px-3 ${
-              showParcels
-                ? "bg-white/12 text-white"
-                : "text-white/60 hover:bg-white/10 hover:text-white"
-            }`}
-            aria-label="Toggle parcels"
-          >
-            <span className="max-sm:hidden">parcels</span>
-            <span className="sm:hidden text-[16px]">◆</span>
-          </button>
+          <div className="flex gap-1">
+            {(["parcel", "road", "water", "tree", "building"] as FeatureType[]).map((ft) => (
+              <button
+                key={ft}
+                type="button"
+                onClick={() => setVisibleLayers((v) => ({ ...v, [ft]: !v[ft] }))}
+                className={`shrink-0 rounded-[var(--radius-md)] px-2 py-1 text-[10px] font-medium uppercase tracking-wider transition-colors ${
+                  visibleLayers[ft]
+                    ? "bg-white/12 text-white"
+                    : "text-white/40 hover:bg-white/10 hover:text-white/70"
+                }`}
+                aria-label={`Toggle ${ft}`}
+              >
+                {ft === "parcel" ? "lots" : ft === "greenspace" ? "green" : ft}
+              </button>
+            ))}
+          </div>
         </Panel>
       </div>
 
