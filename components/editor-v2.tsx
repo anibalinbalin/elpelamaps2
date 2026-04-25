@@ -1,7 +1,7 @@
 "use client";
 
 import "ol/ol.css";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import Map from "ol/Map";
 import View from "ol/View";
 import TileLayer from "ol/layer/Tile";
@@ -96,15 +96,26 @@ const FEATURE_STYLES: Record<FeatureType, { fill: string; stroke: string }> = {
 function featureStyle(f: AnyFeature): Style[] {
   const ft = (f.get("featureType") as FeatureType) || "parcel";
   const s = FEATURE_STYLES[ft];
-  const isRoad = ft === "road";
-  const width = isRoad ? (f.get("roadWidth") as number) || 6 : 2;
+  const isLine = ft === "road" || ft === "sidewalk";
+  const width = isLine ? (f.get("roadWidth") as number) || (ft === "sidewalk" ? 3 : 6) : 2;
+
+  if (ft === "tree") {
+    return [new Style({
+      image: new CircleStyle({
+        radius: 6,
+        fill: new Fill({ color: s.fill }),
+        stroke: new Stroke({ color: s.stroke, width: 1.5 }),
+      }),
+    })];
+  }
+
   const base = new Style({
     fill: new Fill({ color: s.fill }),
     stroke: new Stroke({
       color: s.stroke,
       width,
-      lineCap: isRoad ? "round" : "butt",
-      lineJoin: isRoad ? "round" : "miter",
+      lineCap: isLine ? "round" : "butt",
+      lineJoin: isLine ? "round" : "miter",
     }),
   });
   const vertices = new Style({
@@ -548,9 +559,14 @@ export function EditorV2() {
           ? "error"
           : "save";
 
-  const parcels = features.filter((f) => f.featureType === "parcel");
-  const roads = features.filter((f) => f.featureType === "road");
-  const amenities = features.filter((f) => f.featureType === "amenity");
+  const featuresByType = useMemo(() => {
+    const groups: Record<string, FeatureMeta[]> = {};
+    for (const f of features) {
+      const ft = f.featureType || "parcel";
+      (groups[ft] ??= []).push(f);
+    }
+    return groups;
+  }, [features]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--color-ink)]">
@@ -596,26 +612,27 @@ export function EditorV2() {
             <div className="mb-2 text-[10px] uppercase tracking-[0.18em] text-white/40">
               draw type
             </div>
-            <div className="flex gap-1.5">
-              {(["parcel", "road", "amenity"] as FeatureType[]).map((ft) => (
+            <div className="flex flex-wrap gap-1.5">
+              {(Object.keys(FEATURE_TYPE_LABELS) as FeatureType[]).map((ft) => (
                 <button
                   key={ft}
                   type="button"
                   onClick={() => setDrawType(ft)}
-                  className={`flex-1 rounded-[var(--radius-md)] border py-1.5 text-[10px] uppercase tracking-[0.1em] transition-colors ${
+                  className={`rounded-[var(--radius-md)] border px-2.5 py-1.5 text-[10px] uppercase tracking-[0.1em] transition-colors ${
                     drawType === ft
                       ? "border-[var(--color-hairline-strong)] bg-white/12 text-white"
                       : "border-[var(--color-hairline-dark)] text-white/45 hover:bg-white/5 hover:text-white/80"
                   }`}
+                  style={drawType === ft ? { borderColor: FEATURE_STYLES[ft].stroke } : undefined}
                 >
                   {FEATURE_TYPE_LABELS[ft]}
                 </button>
               ))}
             </div>
             <div className="mt-2 text-[10px] text-white/30">
-              {drawType === "parcel" && "Click to place vertices, double-click to close."}
-              {drawType === "road" && "Click to place points, double-click to finish."}
-              {drawType === "amenity" && "Draw area polygon, use smooth after."}
+              {DRAW_TYPES[drawType] === "Polygon" && "Click to place vertices, double-click to close."}
+              {DRAW_TYPES[drawType] === "LineString" && "Click to place points, double-click to finish."}
+              {DRAW_TYPES[drawType] === "Point" && "Click to place."}
             </div>
           </div>
         )}
@@ -628,33 +645,20 @@ export function EditorV2() {
             </div>
           ) : (
             <>
-              {parcels.length > 0 && (
-                <FeatureGroup
-                  label="Parcels"
-                  items={parcels}
-                  selectedId={selectedId}
-                  onSelect={selectFeatureById}
-                  onDelete={deleteFeature}
-                />
-              )}
-              {roads.length > 0 && (
-                <FeatureGroup
-                  label="Roads"
-                  items={roads}
-                  selectedId={selectedId}
-                  onSelect={selectFeatureById}
-                  onDelete={deleteFeature}
-                />
-              )}
-              {amenities.length > 0 && (
-                <FeatureGroup
-                  label="Amenities"
-                  items={amenities}
-                  selectedId={selectedId}
-                  onSelect={selectFeatureById}
-                  onDelete={deleteFeature}
-                />
-              )}
+              {(Object.keys(FEATURE_TYPE_LABELS) as FeatureType[]).map((ft) => {
+                const items = featuresByType[ft];
+                if (!items?.length) return null;
+                return (
+                  <FeatureGroup
+                    key={ft}
+                    label={FEATURE_TYPE_LABELS[ft] + "s"}
+                    items={items}
+                    selectedId={selectedId}
+                    onSelect={selectFeatureById}
+                    onDelete={deleteFeature}
+                  />
+                );
+              })}
             </>
           )}
         </div>
@@ -738,26 +742,82 @@ export function EditorV2() {
                 </div>
               )}
 
-              {inspectorDraft.featureType === "road" && (
+              {(inspectorDraft.featureType === "road" || inspectorDraft.featureType === "sidewalk") && (
                 <div>
                   <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">
-                    road width (px)
+                    width (m)
                   </label>
                   <Input
                     type="number"
                     mono
-                    value={inspectorDraft.roadWidth ?? 6}
+                    value={inspectorDraft.roadWidth ?? (inspectorDraft.featureType === "sidewalk" ? 1.5 : 6)}
                     onChange={(e) =>
                       updateFeatureProps(inspectorDraft.id, {
-                        roadWidth: e.target.value ? Number(e.target.value) : 6,
+                        roadWidth: e.target.value ? Number(e.target.value) : undefined,
                       })
                     }
-                    placeholder="6"
+                    placeholder={inspectorDraft.featureType === "sidewalk" ? "1.5" : "6"}
                   />
                 </div>
               )}
 
-              {inspectorDraft.featureType !== "road" && (
+              {inspectorDraft.featureType === "tree" && (
+                <div>
+                  <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">
+                    canopy radius (m)
+                  </label>
+                  <Input
+                    type="number"
+                    mono
+                    value={inspectorDraft.canopyRadius ?? 4}
+                    onChange={(e) =>
+                      updateFeatureProps(inspectorDraft.id, {
+                        canopyRadius: e.target.value ? Number(e.target.value) : 4,
+                      })
+                    }
+                    placeholder="4"
+                  />
+                </div>
+              )}
+
+              {inspectorDraft.featureType === "building" && (
+                <>
+                  <div>
+                    <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">
+                      height (m)
+                    </label>
+                    <Input
+                      type="number"
+                      mono
+                      value={inspectorDraft.height ?? 6}
+                      onChange={(e) =>
+                        updateFeatureProps(inspectorDraft.id, {
+                          height: e.target.value ? Number(e.target.value) : 6,
+                        })
+                      }
+                      placeholder="6"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">
+                      floors
+                    </label>
+                    <Input
+                      type="number"
+                      mono
+                      value={inspectorDraft.floors ?? 2}
+                      onChange={(e) =>
+                        updateFeatureProps(inspectorDraft.id, {
+                          floors: e.target.value ? Number(e.target.value) : 2,
+                        })
+                      }
+                      placeholder="2"
+                    />
+                  </div>
+                </>
+              )}
+
+              {!["road", "sidewalk", "tree"].includes(inspectorDraft.featureType) && (
                 <div>
                   <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">
                     area (m²)
@@ -797,8 +857,8 @@ export function EditorV2() {
                 />
               </div>
 
-              {/* Smooth toggle */}
-              <button
+              {/* Smooth toggle (not for trees) */}
+              {inspectorDraft.featureType !== "tree" && <button
                 type="button"
                 onClick={() => toggleSmooth(inspectorDraft.id)}
                 className={`w-full rounded-[var(--radius-md)] border py-2 text-[10px] uppercase tracking-[0.12em] transition-colors ${
@@ -808,7 +868,7 @@ export function EditorV2() {
                 }`}
               >
                 {inspectorDraft.smoothed ? "✓ smoothed — click to undo" : "smooth edges"}
-              </button>
+              </button>}
             </div>
           </div>
         )}
@@ -879,9 +939,13 @@ function FeatureGroup({
                 {p.name || p.id}
               </div>
               <div className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-white/40" style={{ fontVariantNumeric: "tabular-nums" }}>
-                {p.featureType === "road"
-                  ? `width: ${p.roadWidth || 6}px`
-                  : formatAreaCompact(p.areaSqMeters)}
+                {p.featureType === "road" || p.featureType === "sidewalk"
+                  ? `width: ${p.roadWidth || (p.featureType === "sidewalk" ? 1.5 : 6)}m`
+                  : p.featureType === "tree"
+                    ? `radius: ${p.canopyRadius || 4}m`
+                    : p.featureType === "building"
+                      ? `${p.height || 6}m · ${p.floors || 2}F`
+                      : formatAreaCompact(p.areaSqMeters)}
                 {p.smoothed ? " · curved" : ""}
               </div>
             </button>
