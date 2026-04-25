@@ -5,12 +5,16 @@ import type { RefObject } from "react";
 import {
   BufferGeometry,
   DoubleSide,
+  ExtrudeGeometry,
   Float32BufferAttribute,
+  InstancedMesh,
   Line,
   LineBasicMaterial,
   Matrix4,
-  Mesh,
   MeshBasicMaterial,
+  Object3D,
+  PlaneGeometry,
+  Shape,
   Vector3,
 } from "three";
 import { Earcut } from "three/src/extras/Earcut.js";
@@ -246,6 +250,12 @@ interface ParcelRender {
   centroid: Vector3;
 }
 
+interface InfraRender {
+  id: string;
+  meshGeom: BufferGeometry;
+  material: MeshBasicMaterial;
+}
+
 interface StatusPalette {
   line: number;
   lineAlpha: number;
@@ -365,6 +375,14 @@ function ParcelLayer({
   const parcelsRef = useRef<ParcelCollection | null>(null);
   const [renders, setRenders] = useState<ParcelRender[]>([]);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [waterRenders, setWaterRenders] = useState<InfraRender[]>([]);
+  const [greenRenders, setGreenRenders] = useState<InfraRender[]>([]);
+  const [roadRenders, setRoadRenders] = useState<InfraRender[]>([]);
+  const [sidewalkRenders, setSidewalkRenders] = useState<InfraRender[]>([]);
+  const [buildingRenders, setBuildingRenders] = useState<InfraRender[]>([]);
+  const treesMeshRef = useRef<InstancedMesh | null>(null);
+  const treeNormalsRef = useRef<Vector3[]>([]);
+  const treeCountRef = useRef(0);
 
   useEffect(() => {
     fetch("/api/parcels", { cache: "no-store" })
@@ -455,6 +473,379 @@ function ParcelLayer({
       });
 
       setRenders(built);
+
+      // --- Infrastructure: Water bodies ---
+      const waterFeatures = data.features.filter(
+        (f) => f.properties.featureType === "water",
+      );
+      const builtWater: InfraRender[] = waterFeatures.map((feature) => {
+        const ring = (feature.geometry.coordinates as number[][][])[0];
+        const n = ring.length - 1;
+        const verts: Vector3[] = [];
+        for (let i = 0; i < n; i++) {
+          const [lon, lat] = ring[i];
+          const v = new Vector3();
+          tiles.ellipsoid.getCartographicToPosition(
+            lat * DEG2RAD, lon * DEG2RAD, LAYER_ELEVATION.water, v,
+          );
+          verts.push(v);
+        }
+        const up = verts[0].clone().normalize();
+        const arbitrary = Math.abs(up.x) < 0.9
+          ? new Vector3(1, 0, 0) : new Vector3(0, 1, 0);
+        const east = new Vector3().crossVectors(up, arbitrary).normalize();
+        const north = new Vector3().crossVectors(east, up).normalize();
+        const origin = verts[0];
+        const coords2D: number[] = [];
+        for (const v of verts) {
+          const d = v.clone().sub(origin);
+          coords2D.push(d.dot(east), d.dot(north));
+        }
+        const triIndices = Earcut.triangulate(coords2D, undefined, 2);
+        const meshPositions: number[] = [];
+        for (const idx of triIndices) {
+          meshPositions.push(verts[idx].x, verts[idx].y, verts[idx].z);
+        }
+        const meshGeom = new BufferGeometry();
+        meshGeom.setAttribute("position", new Float32BufferAttribute(meshPositions, 3));
+        const material = new MeshBasicMaterial({
+          color: 0x1e88e5,
+          transparent: true,
+          opacity: 0.35,
+          side: DoubleSide,
+          depthTest: true,
+          depthWrite: false,
+          polygonOffset: true,
+          polygonOffsetFactor: -1,
+        });
+        return { id: feature.properties.id, meshGeom, material };
+      });
+      setWaterRenders(builtWater);
+
+      // --- Infrastructure: Green spaces ---
+      const greenFeatures = data.features.filter(
+        (f) => f.properties.featureType === "greenspace",
+      );
+      const builtGreen: InfraRender[] = greenFeatures.map((feature) => {
+        const ring = (feature.geometry.coordinates as number[][][])[0];
+        const n = ring.length - 1;
+        const verts: Vector3[] = [];
+        for (let i = 0; i < n; i++) {
+          const [lon, lat] = ring[i];
+          const v = new Vector3();
+          tiles.ellipsoid.getCartographicToPosition(
+            lat * DEG2RAD, lon * DEG2RAD, LAYER_ELEVATION.greenspace, v,
+          );
+          verts.push(v);
+        }
+        const up = verts[0].clone().normalize();
+        const arbitrary = Math.abs(up.x) < 0.9
+          ? new Vector3(1, 0, 0) : new Vector3(0, 1, 0);
+        const east = new Vector3().crossVectors(up, arbitrary).normalize();
+        const north = new Vector3().crossVectors(east, up).normalize();
+        const origin = verts[0];
+        const coords2D: number[] = [];
+        for (const v of verts) {
+          const d = v.clone().sub(origin);
+          coords2D.push(d.dot(east), d.dot(north));
+        }
+        const triIndices = Earcut.triangulate(coords2D, undefined, 2);
+        const meshPositions: number[] = [];
+        for (const idx of triIndices) {
+          meshPositions.push(verts[idx].x, verts[idx].y, verts[idx].z);
+        }
+        const meshGeom = new BufferGeometry();
+        meshGeom.setAttribute("position", new Float32BufferAttribute(meshPositions, 3));
+        const material = new MeshBasicMaterial({
+          color: 0x4caf50,
+          transparent: true,
+          opacity: 0.15,
+          side: DoubleSide,
+          depthTest: true,
+          depthWrite: false,
+          polygonOffset: true,
+          polygonOffsetFactor: -2,
+        });
+        return { id: feature.properties.id, meshGeom, material };
+      });
+      setGreenRenders(builtGreen);
+
+      // --- Infrastructure: Roads ---
+      const roadFeatures = data.features.filter(
+        (f) => f.properties.featureType === "road",
+      );
+      const builtRoads: InfraRender[] = roadFeatures.map((feature) => {
+        const coords = (feature.geometry.coordinates as number[][]);
+        const width = (feature.properties.roadWidth ?? 6) / 2;
+        const ecefPts: Vector3[] = coords.map(([lon, lat]) => {
+          const v = new Vector3();
+          tiles.ellipsoid.getCartographicToPosition(
+            lat * DEG2RAD, lon * DEG2RAD, LAYER_ELEVATION.road, v,
+          );
+          return v;
+        });
+
+        const positions: number[] = [];
+        for (let i = 0; i < ecefPts.length; i++) {
+          const curr = ecefPts[i];
+          const up = curr.clone().normalize();
+
+          let tangent: Vector3;
+          if (i === 0) {
+            tangent = ecefPts[1].clone().sub(curr).normalize();
+          } else if (i === ecefPts.length - 1) {
+            tangent = curr.clone().sub(ecefPts[i - 1]).normalize();
+          } else {
+            const t0 = curr.clone().sub(ecefPts[i - 1]).normalize();
+            const t1 = ecefPts[i + 1].clone().sub(curr).normalize();
+            tangent = t0.clone().add(t1).normalize();
+          }
+
+          const perp = new Vector3().crossVectors(tangent, up).normalize();
+          const left = curr.clone().add(perp.clone().multiplyScalar(width));
+          const right = curr.clone().add(perp.clone().multiplyScalar(-width));
+
+          if (i > 0) {
+            const prevLeft = new Vector3(
+              positions[positions.length - 6],
+              positions[positions.length - 5],
+              positions[positions.length - 4],
+            );
+            const prevRight = new Vector3(
+              positions[positions.length - 3],
+              positions[positions.length - 2],
+              positions[positions.length - 1],
+            );
+            // Two triangles per segment
+            positions.push(
+              prevLeft.x, prevLeft.y, prevLeft.z,
+              prevRight.x, prevRight.y, prevRight.z,
+              left.x, left.y, left.z,
+              left.x, left.y, left.z,
+              prevRight.x, prevRight.y, prevRight.z,
+              right.x, right.y, right.z,
+            );
+          }
+          // Store current left/right for next segment
+          positions.push(left.x, left.y, left.z, right.x, right.y, right.z);
+        }
+
+        // Remove the stored left/right pairs (they were for adjacency lookback)
+        // Rebuild properly: strip pairs, keep triangles
+        const triPositions: number[] = [];
+        const pairCount = ecefPts.length;
+        let readIdx = 0;
+        for (let i = 0; i < pairCount; i++) {
+          if (i > 0) {
+            // 6 vertices (2 triangles) were pushed before pair
+            for (let j = 0; j < 18; j++) {
+              triPositions.push(positions[readIdx++]);
+            }
+          }
+          readIdx += 6; // skip stored left/right pair
+        }
+
+        const meshGeom = new BufferGeometry();
+        meshGeom.setAttribute("position", new Float32BufferAttribute(triPositions, 3));
+        const material = new MeshBasicMaterial({
+          color: 0x888888,
+          transparent: true,
+          opacity: 0.65,
+          side: DoubleSide,
+          depthTest: true,
+          depthWrite: false,
+        });
+        return { id: feature.properties.id, meshGeom, material };
+      });
+      setRoadRenders(builtRoads);
+
+      // --- Infrastructure: Sidewalks ---
+      const sidewalkFeatures = data.features.filter(
+        (f) => f.properties.featureType === "sidewalk",
+      );
+      const builtSidewalks: InfraRender[] = sidewalkFeatures.map((feature) => {
+        const coords = (feature.geometry.coordinates as number[][]);
+        const width = (feature.properties.roadWidth ?? 1.5) / 2;
+        const ecefPts: Vector3[] = coords.map(([lon, lat]) => {
+          const v = new Vector3();
+          tiles.ellipsoid.getCartographicToPosition(
+            lat * DEG2RAD, lon * DEG2RAD, LAYER_ELEVATION.sidewalk, v,
+          );
+          return v;
+        });
+
+        const positions: number[] = [];
+        for (let i = 0; i < ecefPts.length; i++) {
+          const curr = ecefPts[i];
+          const up = curr.clone().normalize();
+
+          let tangent: Vector3;
+          if (i === 0) {
+            tangent = ecefPts[1].clone().sub(curr).normalize();
+          } else if (i === ecefPts.length - 1) {
+            tangent = curr.clone().sub(ecefPts[i - 1]).normalize();
+          } else {
+            const t0 = curr.clone().sub(ecefPts[i - 1]).normalize();
+            const t1 = ecefPts[i + 1].clone().sub(curr).normalize();
+            tangent = t0.clone().add(t1).normalize();
+          }
+
+          const perp = new Vector3().crossVectors(tangent, up).normalize();
+          const left = curr.clone().add(perp.clone().multiplyScalar(width));
+          const right = curr.clone().add(perp.clone().multiplyScalar(-width));
+
+          if (i > 0) {
+            const prevLeft = new Vector3(
+              positions[positions.length - 6],
+              positions[positions.length - 5],
+              positions[positions.length - 4],
+            );
+            const prevRight = new Vector3(
+              positions[positions.length - 3],
+              positions[positions.length - 2],
+              positions[positions.length - 1],
+            );
+            positions.push(
+              prevLeft.x, prevLeft.y, prevLeft.z,
+              prevRight.x, prevRight.y, prevRight.z,
+              left.x, left.y, left.z,
+              left.x, left.y, left.z,
+              prevRight.x, prevRight.y, prevRight.z,
+              right.x, right.y, right.z,
+            );
+          }
+          positions.push(left.x, left.y, left.z, right.x, right.y, right.z);
+        }
+
+        const triPositions: number[] = [];
+        const pairCount = ecefPts.length;
+        let readIdx = 0;
+        for (let i = 0; i < pairCount; i++) {
+          if (i > 0) {
+            for (let j = 0; j < 18; j++) {
+              triPositions.push(positions[readIdx++]);
+            }
+          }
+          readIdx += 6;
+        }
+
+        const meshGeom = new BufferGeometry();
+        meshGeom.setAttribute("position", new Float32BufferAttribute(triPositions, 3));
+        const material = new MeshBasicMaterial({
+          color: 0xddd8c8,
+          transparent: true,
+          opacity: 0.55,
+          side: DoubleSide,
+          depthTest: true,
+          depthWrite: false,
+        });
+        return { id: feature.properties.id, meshGeom, material };
+      });
+      setSidewalkRenders(builtSidewalks);
+
+      // --- Infrastructure: Buildings ---
+      const buildingFeatures = data.features.filter(
+        (f) => f.properties.featureType === "building",
+      );
+      const builtBuildings: InfraRender[] = buildingFeatures.map((feature) => {
+        const ring = (feature.geometry.coordinates as number[][][])[0];
+        const n = ring.length - 1;
+
+        // Compute centroid in lat/lon
+        let cLat = 0, cLon = 0;
+        for (let i = 0; i < n; i++) {
+          cLon += ring[i][0];
+          cLat += ring[i][1];
+        }
+        cLon /= n;
+        cLat /= n;
+
+        // Get ENU frame at centroid
+        const enuMatrix = new Matrix4();
+        tiles.ellipsoid.getObjectFrame(
+          cLat * DEG2RAD, cLon * DEG2RAD, 0,
+          0, -90 * DEG2RAD, 0,
+          enuMatrix, CAMERA_FRAME,
+        );
+        const enuInverse = enuMatrix.clone().invert();
+
+        // Project polygon vertices to local 2D
+        const localVerts: { x: number; y: number }[] = [];
+        const localV = new Vector3();
+        for (let i = 0; i < n; i++) {
+          const [lon, lat] = ring[i];
+          tiles.ellipsoid.getCartographicToPosition(
+            lat * DEG2RAD, lon * DEG2RAD, 0, localV,
+          );
+          localV.applyMatrix4(enuInverse);
+          localVerts.push({ x: localV.x, y: localV.y });
+        }
+
+        // Create Shape from local 2D coordinates
+        const shape = new Shape();
+        shape.moveTo(localVerts[0].x, localVerts[0].y);
+        for (let i = 1; i < localVerts.length; i++) {
+          shape.lineTo(localVerts[i].x, localVerts[i].y);
+        }
+        shape.closePath();
+
+        const height = feature.properties.height
+          ?? (feature.properties.floors ? feature.properties.floors * 3 : 6);
+        const meshGeom = new ExtrudeGeometry(shape, {
+          depth: height,
+          bevelEnabled: false,
+        });
+
+        // Transform geometry back to ECEF
+        meshGeom.applyMatrix4(enuMatrix);
+
+        const material = new MeshBasicMaterial({
+          color: 0xcccccc,
+          transparent: true,
+          opacity: 0.85,
+          side: DoubleSide,
+          depthTest: true,
+          depthWrite: true,
+        });
+        return { id: feature.properties.id, meshGeom, material };
+      });
+      setBuildingRenders(builtBuildings);
+
+      // --- Infrastructure: Trees (InstancedMesh) ---
+      const treeFeatures = data.features.filter(
+        (f) => f.properties.featureType === "tree",
+      );
+      if (treeFeatures.length > 0) {
+        const planeGeom = new PlaneGeometry(8, 12);
+        planeGeom.translate(0, 6, 0);
+        const treeMat = new MeshBasicMaterial({
+          color: 0x2e7d32,
+          transparent: true,
+          opacity: 0.8,
+          alphaTest: 0.5,
+          side: DoubleSide,
+        });
+        const instancedMesh = new InstancedMesh(planeGeom, treeMat, treeFeatures.length);
+        instancedMesh.frustumCulled = false;
+
+        const normals: Vector3[] = [];
+        const dummy = new Object3D();
+        treeFeatures.forEach((feature, i) => {
+          const [lon, lat] = feature.geometry.coordinates as number[];
+          tiles.ellipsoid.getCartographicToPosition(
+            lat * DEG2RAD, lon * DEG2RAD, 0, pos,
+          );
+          dummy.position.copy(pos);
+          dummy.updateMatrix();
+          instancedMesh.setMatrixAt(i, dummy.matrix);
+          normals.push(pos.clone().normalize());
+        });
+        instancedMesh.instanceMatrix.needsUpdate = true;
+
+        treesMeshRef.current = instancedMesh;
+        treeNormalsRef.current = normals;
+        treeCountRef.current = treeFeatures.length;
+      }
     }, 200);
 
     return () => clearInterval(interval);
@@ -502,6 +893,48 @@ function ParcelLayer({
     };
   }, [renders]);
 
+  // Dispose infrastructure on unmount / re-build
+  useEffect(() => {
+    return () => {
+      const allInfra = [
+        ...waterRenders, ...greenRenders,
+        ...roadRenders, ...sidewalkRenders,
+        ...buildingRenders,
+      ];
+      allInfra.forEach(({ meshGeom, material }) => {
+        meshGeom.dispose();
+        material.dispose();
+      });
+      if (treesMeshRef.current) {
+        treesMeshRef.current.geometry.dispose();
+        (treesMeshRef.current.material as MeshBasicMaterial).dispose();
+        treesMeshRef.current.dispose();
+        treesMeshRef.current = null;
+      }
+    };
+  }, [waterRenders, greenRenders, roadRenders, sidewalkRenders, buildingRenders]);
+
+  // Billboard trees: face camera each frame
+  useFrame(({ camera }) => {
+    const mesh = treesMeshRef.current;
+    if (!mesh || treeCountRef.current === 0) return;
+    const normals = treeNormalsRef.current;
+    const dummy = new Object3D();
+    for (let i = 0; i < treeCountRef.current; i++) {
+      mesh.getMatrixAt(i, dummy.matrix);
+      dummy.matrix.decompose(dummy.position, dummy.quaternion, dummy.scale);
+      // Face camera while keeping "up" as surface normal
+      const up = normals[i];
+      const toCamera = camera.position.clone().sub(dummy.position).normalize();
+      const right = new Vector3().crossVectors(up, toCamera).normalize();
+      const forward = new Vector3().crossVectors(right, up).normalize();
+      dummy.matrix.makeBasis(right, up, forward);
+      dummy.matrix.setPosition(dummy.position);
+      mesh.setMatrixAt(i, dummy.matrix);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+  });
+
   return (
     <>
       {renders.map(({ feature, line, fill, meshGeom, centroid }) => {
@@ -539,6 +972,36 @@ function ParcelLayer({
           </group>
         );
       })}
+
+      {/* Water bodies */}
+      {waterRenders.map(({ id, meshGeom, material }) => (
+        <mesh key={id} geometry={meshGeom} material={material} renderOrder={1} />
+      ))}
+
+      {/* Green spaces */}
+      {greenRenders.map(({ id, meshGeom, material }) => (
+        <mesh key={id} geometry={meshGeom} material={material} renderOrder={2} />
+      ))}
+
+      {/* Roads */}
+      {roadRenders.map(({ id, meshGeom, material }) => (
+        <mesh key={id} geometry={meshGeom} material={material} renderOrder={3} />
+      ))}
+
+      {/* Sidewalks */}
+      {sidewalkRenders.map(({ id, meshGeom, material }) => (
+        <mesh key={id} geometry={meshGeom} material={material} renderOrder={4} />
+      ))}
+
+      {/* Buildings */}
+      {buildingRenders.map(({ id, meshGeom, material }) => (
+        <mesh key={id} geometry={meshGeom} material={material} renderOrder={5} />
+      ))}
+
+      {/* Trees */}
+      {treesMeshRef.current && (
+        <primitive object={treesMeshRef.current} renderOrder={6} />
+      )}
     </>
   );
 }
