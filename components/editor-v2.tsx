@@ -1,70 +1,364 @@
 "use client";
 
-import "ol/ol.css";
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import Map from "ol/Map";
-import View from "ol/View";
-import TileLayer from "ol/layer/Tile";
-import VectorLayer from "ol/layer/Vector";
-import VectorSource from "ol/source/Vector";
-import XYZ from "ol/source/XYZ";
-import { Draw, Modify, Select, Snap } from "ol/interaction";
-import { defaults as defaultInteractions } from "ol/interaction/defaults";
-import { click } from "ol/events/condition";
-import { fromLonLat, transform } from "ol/proj";
-import GeoJSON from "ol/format/GeoJSON";
-import { Fill, Stroke, Style, Circle as CircleStyle } from "ol/style";
-import MultiPoint from "ol/geom/MultiPoint";
-import type OLFeature from "ol/Feature";
-import type OLGeometry from "ol/geom/Geometry";
-import type OLPolygon from "ol/geom/Polygon";
-import type OLLineString from "ol/geom/LineString";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import maplibregl, {
+  type LngLatBoundsLike,
+  type Map as MapLibreMap,
+  type StyleSpecification,
+} from "maplibre-gl";
+import {
+  Geoman,
+  SOURCES,
+  type FeatureData,
+  type GeoJsonImportFeatureCollection,
+  type GeoJsonShapeFeature,
+  type GmOptionsPartial,
+} from "@geoman-io/maplibre-geoman-free";
+import type {
+  FeatureCollection,
+  Geometry,
+  LineString,
+  Point,
+  Polygon,
+} from "geojson";
 
 import { EditorAccessDialog } from "@/components/editor-access-dialog";
 import { hasEditorAccess, grantEditorAccess } from "@/lib/editor-access";
 import { sphericalArea } from "@/lib/geo-area";
-import { formatAreaCompact } from "@/lib/geo-utils";
+import { formatAreaCompact, distanceMeters } from "@/lib/geo-utils";
 import { JOSE_IGNACIO_CENTER } from "@/lib/constants";
-import type { ParcelCollection, FeatureType } from "@/lib/parcels";
+import type { FeatureType, ParcelCollection, ParcelFeature } from "@/lib/parcels";
+import {
+  geomanCollectionToParcels,
+  parcelCollectionToGeoman,
+} from "@/lib/parcel-serialization";
 import { Input, Button } from "@/components/ui";
 
-type AnyFeature = OLFeature<OLGeometry>;
 type ParcelStatus = "for-sale" | "reserved" | "sold";
-type SaveState = "idle" | "saving" | "saved" | "error";
-type EditorMode = "select" | "draw";
+type SaveState = "idle" | "saving" | "saved" | "error" | "unsaved";
 
 interface FeatureMeta {
   id: string;
+  parcelId: string;
   name: string;
   featureType: FeatureType;
-  status: ParcelStatus;
+  geometryType: "Polygon" | "LineString" | "Point";
+  areaSqMeters: number;
+  readout: string;
+  status?: ParcelStatus;
   priceUSD?: number;
   zoning?: string;
+  label?: string;
   contactUrl?: string;
   description?: string;
-  areaSqMeters: number;
   roadWidth?: number;
   smoothed?: boolean;
+  originalCoords?: number[][][];
   canopyRadius?: number;
   height?: number;
   floors?: number;
 }
 
-// --- Chaikin corner-cutting (smooths polygon/line edges) ---
+interface OverlayTransform {
+  opacity: number;
+  offsetX: number;
+  offsetY: number;
+  scale: number;
+  rotation: number;
+  visible: boolean;
+}
+
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+const OVERLAY_STORAGE_KEY = "parcelpin:masterplan-overlay";
+
+const SELECTION_FILL_LAYER = "parcelpin-selection-fill";
+const SELECTION_LINE_LAYER = "parcelpin-selection-line";
+const SELECTION_CIRCLE_LAYER = "parcelpin-selection-circle";
+const SELECTION_NONE_FILTER: ["==", string, string] = ["==", "id", ""];
+
+const DEFAULT_OVERLAY: OverlayTransform = {
+  opacity: 0.55,
+  offsetX: 0,
+  offsetY: 0,
+  scale: 1,
+  rotation: 0,
+  visible: true,
+};
+
+const FEATURE_STYLES: Record<FeatureType, { fill: string; stroke: string; opacity: number }> = {
+  parcel: { fill: "#fff7d8", stroke: "#fff7d8", opacity: 0.14 },
+  road: { fill: "#d8c194", stroke: "#e0c994", opacity: 0.18 },
+  amenity: { fill: "#8bcf92", stroke: "#8bcf92", opacity: 0.22 },
+  water: { fill: "#2f9bea", stroke: "#5bb6ff", opacity: 0.28 },
+  greenspace: { fill: "#58b86b", stroke: "#7edc8d", opacity: 0.2 },
+  tree: { fill: "#2f8b43", stroke: "#8ee09b", opacity: 0.78 },
+  building: { fill: "#b8b8b8", stroke: "#eeeeee", opacity: 0.22 },
+  sidewalk: { fill: "#ddd2bd", stroke: "#f0dfbf", opacity: 0.2 },
+};
+
+const FEATURE_TYPE_DEFAULTS: Record<FeatureType, Partial<FeatureMeta>> = {
+  parcel: { status: "for-sale" },
+  road: { roadWidth: 6 },
+  amenity: {},
+  water: {},
+  greenspace: {},
+  tree: { canopyRadius: 4, height: 6 },
+  building: { height: 6, floors: 1 },
+  sidewalk: { roadWidth: 1.5 },
+};
+
+const FEATURE_TYPE_OPTIONS: FeatureType[] = [
+  "parcel",
+  "road",
+  "water",
+  "greenspace",
+  "sidewalk",
+  "tree",
+  "building",
+  "amenity",
+];
+
+const FEATURE_TYPE_LABELS: Record<FeatureType, string> = {
+  parcel: "lots",
+  road: "roads",
+  amenity: "amenities",
+  water: "water",
+  greenspace: "green space",
+  tree: "trees",
+  building: "buildings",
+  sidewalk: "sidewalks",
+};
+
+const FEATURE_COLOR = [
+  "match",
+  ["get", "featureType"],
+  "parcel", FEATURE_STYLES.parcel.stroke,
+  "road", FEATURE_STYLES.road.stroke,
+  "amenity", FEATURE_STYLES.amenity.stroke,
+  "water", FEATURE_STYLES.water.stroke,
+  "greenspace", FEATURE_STYLES.greenspace.stroke,
+  "tree", FEATURE_STYLES.tree.stroke,
+  "building", FEATURE_STYLES.building.stroke,
+  "sidewalk", FEATURE_STYLES.sidewalk.stroke,
+  "#ffffff",
+] as unknown as string;
+
+const FEATURE_FILL = [
+  "match",
+  ["get", "featureType"],
+  "parcel", FEATURE_STYLES.parcel.fill,
+  "road", FEATURE_STYLES.road.fill,
+  "amenity", FEATURE_STYLES.amenity.fill,
+  "water", FEATURE_STYLES.water.fill,
+  "greenspace", FEATURE_STYLES.greenspace.fill,
+  "tree", FEATURE_STYLES.tree.fill,
+  "building", FEATURE_STYLES.building.fill,
+  "sidewalk", FEATURE_STYLES.sidewalk.fill,
+  "#ffffff",
+] as unknown as string;
+
+const FEATURE_FILL_OPACITY = [
+  "match",
+  ["get", "featureType"],
+  "parcel", FEATURE_STYLES.parcel.opacity,
+  "amenity", FEATURE_STYLES.amenity.opacity,
+  "water", FEATURE_STYLES.water.opacity,
+  "greenspace", FEATURE_STYLES.greenspace.opacity,
+  "building", FEATURE_STYLES.building.opacity,
+  0.16,
+] as unknown as number;
+
+const GEOMAN_LAYER_STYLES: GmOptionsPartial["layerStyles"] = {
+  polygon: {
+    [SOURCES.main]: [
+      { type: "fill", paint: { "fill-color": FEATURE_FILL, "fill-opacity": FEATURE_FILL_OPACITY } },
+      { type: "line", paint: { "line-color": FEATURE_COLOR, "line-opacity": 0.95, "line-width": 2 } },
+    ],
+    [SOURCES.temporary]: [
+      { type: "fill", paint: { "fill-color": FEATURE_FILL, "fill-opacity": 0.22 } },
+      { type: "line", paint: { "line-color": "#ffffff", "line-opacity": 0.95, "line-width": 2.5 } },
+    ],
+    [SOURCES.internal]: [],
+  },
+  line: {
+    [SOURCES.main]: [
+      {
+        type: "line",
+        paint: {
+          "line-color": FEATURE_COLOR,
+          "line-opacity": 0.9,
+          "line-width": [
+            "interpolate",
+            ["linear"],
+            ["coalesce", ["to-number", ["get", "roadWidth"]], 4],
+            1, 2,
+            6, 5,
+            12, 9,
+          ],
+        },
+      },
+    ],
+    [SOURCES.temporary]: [
+      { type: "line", paint: { "line-color": "#ffffff", "line-opacity": 0.95, "line-width": 4 } },
+    ],
+    [SOURCES.internal]: [],
+  },
+  marker: {
+    [SOURCES.main]: [
+      {
+        type: "circle",
+        paint: {
+          "circle-color": FEATURE_FILL,
+          "circle-opacity": 0.72,
+          "circle-stroke-color": FEATURE_COLOR,
+          "circle-stroke-width": 1.5,
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["coalesce", ["to-number", ["get", "canopyRadius"]], 4],
+            1, 5,
+            4, 9,
+            12, 18,
+          ],
+        },
+      },
+    ],
+    [SOURCES.temporary]: [
+      { type: "circle", paint: { "circle-color": "#ffffff", "circle-radius": 7, "circle-opacity": 0.9 } },
+    ],
+    [SOURCES.internal]: [],
+  },
+};
+
+function createMapStyle(): StyleSpecification {
+  const source = MAPBOX_TOKEN
+    ? {
+        type: "raster" as const,
+        tiles: [
+          `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`,
+        ],
+        tileSize: 512,
+        maxzoom: 20,
+        attribution: "Mapbox",
+      }
+    : {
+        type: "raster" as const,
+        tiles: [
+          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        ],
+        tileSize: 256,
+        maxzoom: 19,
+        attribution: "Esri",
+      };
+
+  return {
+    version: 8,
+    sources: { satellite: source },
+    layers: [{ id: "satellite", type: "raster", source: "satellite" }],
+  };
+}
+
+function loadOverlayTransform(): OverlayTransform {
+  if (typeof window === "undefined") return DEFAULT_OVERLAY;
+  try {
+    const raw = window.localStorage.getItem(OVERLAY_STORAGE_KEY);
+    return raw ? { ...DEFAULT_OVERLAY, ...JSON.parse(raw) } : DEFAULT_OVERLAY;
+  } catch {
+    return DEFAULT_OVERLAY;
+  }
+}
+
+function polygonArea(geometry: Geometry): number {
+  if (geometry.type === "Polygon") {
+    const ring = (geometry as Polygon).coordinates[0] as [number, number][] | undefined;
+    return ring ? sphericalArea(ring) : 0;
+  }
+  if (geometry.type === "MultiPolygon") {
+    const coords = (geometry as { coordinates: number[][][][] }).coordinates;
+    if (coords.length === 1) {
+      const ring = coords[0][0] as [number, number][] | undefined;
+      return ring ? sphericalArea(ring) : 0;
+    }
+  }
+  return 0;
+}
+
+function lineLength(geometry: Geometry): number {
+  if (geometry.type !== "LineString") return 0;
+  const coords = (geometry as LineString).coordinates as [number, number][];
+  let meters = 0;
+  for (let i = 1; i < coords.length; i++) {
+    meters += distanceMeters(coords[i - 1], coords[i]);
+  }
+  return meters;
+}
+
+function featureReadout(feature: ParcelFeature): string {
+  if (feature.geometry.type === "LineString") {
+    return `${Math.round(lineLength(feature.geometry)).toLocaleString("en-US")} m`;
+  }
+  if (feature.geometry.type === "Point") {
+    const coords = (feature.geometry as Point).coordinates;
+    return `${coords[1].toFixed(5)}, ${coords[0].toFixed(5)}`;
+  }
+  return formatAreaCompact(feature.properties.areaSqMeters);
+}
+
+function featureToMeta(feature: ParcelFeature): FeatureMeta {
+  return {
+    id: feature.properties.id,
+    parcelId: feature.properties.id,
+    name: feature.properties.name,
+    featureType: feature.properties.featureType ?? "parcel",
+    geometryType: feature.geometry.type,
+    areaSqMeters: feature.properties.areaSqMeters,
+    readout: featureReadout(feature),
+    status: feature.properties.status,
+    priceUSD: feature.properties.priceUSD,
+    zoning: feature.properties.zoning,
+    label: feature.properties.label,
+    contactUrl: feature.properties.contactUrl,
+    description: feature.properties.description,
+    roadWidth: feature.properties.roadWidth,
+    smoothed: feature.properties.smoothed,
+    originalCoords: feature.properties.originalCoords,
+    canopyRadius: feature.properties.canopyRadius,
+    height: feature.properties.height,
+    floors: feature.properties.floors,
+  };
+}
+
+function geomanFeatureId(feature: GeoJsonShapeFeature): string {
+  return String(feature.id ?? feature.properties?.__gm_id ?? feature.properties?.id);
+}
+
+function geomanFeatureToMeta(feature: GeoJsonShapeFeature): FeatureMeta | null {
+  const collection = geomanCollectionToParcels({
+    type: "FeatureCollection",
+    features: [feature],
+  } as FeatureCollection<Geometry>);
+  const parcel = collection.features[0];
+  if (!parcel) return null;
+  return {
+    ...featureToMeta(parcel),
+    id: geomanFeatureId(feature),
+    parcelId: parcel.properties.id,
+  };
+}
 
 function chaikinSmooth(coords: number[][], iterations = 3): number[][] {
-  let pts = coords;
+  let points = coords;
   for (let i = 0; i < iterations; i++) {
     const next: number[][] = [];
-    for (let j = 0; j < pts.length - 1; j++) {
-      const p0 = pts[j];
-      const p1 = pts[j + 1];
+    for (let j = 0; j < points.length - 1; j++) {
+      const p0 = points[j];
+      const p1 = points[j + 1];
       next.push([0.75 * p0[0] + 0.25 * p1[0], 0.75 * p0[1] + 0.25 * p1[1]]);
       next.push([0.25 * p0[0] + 0.75 * p1[0], 0.25 * p0[1] + 0.75 * p1[1]]);
     }
-    pts = next;
+    points = next;
   }
-  return pts;
+  return points;
 }
 
 function smoothPolygonCoords(rings: number[][][]): number[][][] {
@@ -76,467 +370,462 @@ function smoothPolygonCoords(rings: number[][][]): number[][][] {
   });
 }
 
-function smoothLineCoords(coords: number[][]): number[][] {
-  return chaikinSmooth(coords);
-}
-
-// --- Styles per feature type ---
-
-const FEATURE_STYLES: Record<FeatureType, { fill: string; stroke: string }> = {
-  parcel: { fill: "rgba(255, 251, 240, 0.1)", stroke: "rgba(255, 251, 240, 0.85)" },
-  road: { fill: "rgba(180, 180, 180, 0.08)", stroke: "rgba(220, 200, 160, 0.75)" },
-  amenity: { fill: "rgba(129, 199, 132, 0.12)", stroke: "rgba(129, 199, 132, 0.8)" },
-  water: { fill: "rgba(30, 136, 229, 0.15)", stroke: "rgba(30, 136, 229, 0.8)" },
-  greenspace: { fill: "rgba(76, 175, 80, 0.12)", stroke: "rgba(76, 175, 80, 0.7)" },
-  tree: { fill: "rgba(56, 142, 60, 0.3)", stroke: "rgba(56, 142, 60, 0.9)" },
-  building: { fill: "rgba(158, 158, 158, 0.15)", stroke: "rgba(158, 158, 158, 0.8)" },
-  sidewalk: { fill: "rgba(210, 200, 180, 0.08)", stroke: "rgba(210, 200, 180, 0.75)" },
-};
-
-function featureStyle(f: AnyFeature): Style[] {
-  const ft = (f.get("featureType") as FeatureType) || "parcel";
-  const s = FEATURE_STYLES[ft];
-  const isLine = ft === "road" || ft === "sidewalk";
-  const width = isLine ? (f.get("roadWidth") as number) || (ft === "sidewalk" ? 3 : 6) : 2;
-
-  if (ft === "tree") {
-    return [new Style({
-      image: new CircleStyle({
-        radius: 6,
-        fill: new Fill({ color: s.fill }),
-        stroke: new Stroke({ color: s.stroke, width: 1.5 }),
-      }),
-    })];
-  }
-
-  const base = new Style({
-    fill: new Fill({ color: s.fill }),
-    stroke: new Stroke({
-      color: s.stroke,
-      width,
-      lineCap: isLine ? "round" : "butt",
-      lineJoin: isLine ? "round" : "miter",
-    }),
-  });
-  const vertices = new Style({
-    image: new CircleStyle({
-      radius: 5,
-      fill: new Fill({ color: "rgba(255, 255, 255, 0.95)" }),
-      stroke: new Stroke({ color: "rgba(0, 0, 0, 0.6)", width: 1.5 }),
-    }),
-    geometry: (feature) => {
-      const geom = feature.getGeometry();
-      if (!geom) return undefined;
-      let coords: number[][] = [];
-      if (geom.getType() === "Polygon") {
-        coords = (geom as OLPolygon).getCoordinates()[0];
-      } else if (geom.getType() === "LineString") {
-        coords = (geom as OLLineString).getCoordinates();
-      }
-      return new MultiPoint(coords);
-    },
-  });
-  return [base, vertices];
-}
-
-const selectedStyle = new Style({
-  fill: new Fill({ color: "rgba(255, 255, 255, 0.14)" }),
-  stroke: new Stroke({ color: "rgba(255, 255, 255, 1)", width: 2.5 }),
-  image: new CircleStyle({
-    radius: 5,
-    fill: new Fill({ color: "rgba(255, 255, 255, 0.95)" }),
-    stroke: new Stroke({ color: "rgba(15, 20, 25, 0.75)", width: 1.5 }),
-  }),
-});
-
-const drawStyle = new Style({
-  fill: new Fill({ color: "rgba(255, 255, 255, 0.06)" }),
-  stroke: new Stroke({ color: "rgba(255, 255, 255, 0.65)", width: 2, lineDash: [6, 4] }),
-  image: new CircleStyle({
-    radius: 4,
-    fill: new Fill({ color: "rgba(255, 255, 255, 0.75)" }),
-  }),
-});
-
-const geoFormat = new GeoJSON({
-  dataProjection: "EPSG:4326",
-  featureProjection: "EPSG:3857",
-});
-
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
-
-function makeBasemap() {
-  return new TileLayer({
-    source: MAPBOX_TOKEN
-      ? new XYZ({
-          url: `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`,
-          tileSize: 512,
-          maxZoom: 20,
-        })
-      : new XYZ({
-          url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-          maxZoom: 19,
-        }),
-  });
-}
-
-function getArea(f: AnyFeature): number {
-  const geom = f.getGeometry();
-  if (!geom || geom.getType() !== "Polygon") return 0;
-  const coords = (geom as OLPolygon).getCoordinates()[0];
-  if (!coords || coords.length < 3) return 0;
-  const ring = coords.map(
-    ([x, y]) => transform([x, y], "EPSG:3857", "EPSG:4326") as [number, number],
-  );
-  return sphericalArea(ring);
-}
-
-function featureToMeta(f: AnyFeature): FeatureMeta {
+function syncFeatureAreaPatch(geometry: Geometry): Record<string, unknown> {
   return {
-    id: String(f.getId()),
-    name: String(f.get("name") || f.getId()),
-    featureType: (f.get("featureType") as FeatureType) || "parcel",
-    status: (f.get("status") as ParcelStatus) || "for-sale",
-    priceUSD: f.get("priceUSD") as number | undefined,
-    zoning: f.get("zoning") as string | undefined,
-    contactUrl: f.get("contactUrl") as string | undefined,
-    description: f.get("description") as string | undefined,
-    areaSqMeters: Number(f.get("areaSqMeters") || 0),
-    roadWidth: f.get("roadWidth") as number | undefined,
-    smoothed: f.get("smoothed") as boolean | undefined,
-    canopyRadius: f.get("canopyRadius") as number | undefined,
-    height: f.get("height") as number | undefined,
-    floors: f.get("floors") as number | undefined,
+    areaSqMeters: polygonArea(geometry),
+    smoothed: false,
+    originalCoords: undefined,
   };
 }
 
-const DRAW_TYPES: Record<FeatureType, "Polygon" | "LineString" | "Point"> = {
-  parcel: "Polygon",
-  road: "LineString",
-  amenity: "Polygon",
-  water: "Polygon",
-  greenspace: "Polygon",
-  tree: "Point",
-  building: "Polygon",
-  sidewalk: "LineString",
-};
+function defaultFeatureTypeForGeometry(geometry: Geometry): FeatureType {
+  if (geometry.type === "LineString") return "road";
+  if (geometry.type === "Point") return "tree";
+  return "parcel";
+}
 
-const FEATURE_TYPE_LABELS: Record<FeatureType, string> = {
-  parcel: "parcel",
-  road: "road",
-  amenity: "amenity",
-  water: "water",
-  greenspace: "green space",
-  tree: "tree",
-  building: "building",
-  sidewalk: "sidewalk",
-};
+function isFeatureType(value: unknown): value is FeatureType {
+  return typeof value === "string" && FEATURE_TYPE_OPTIONS.includes(value as FeatureType);
+}
+
+function prefixForFeatureType(featureType: FeatureType): string {
+  if (featureType === "parcel") return "Lot";
+  if (featureType === "greenspace") return "Green Space";
+  return FEATURE_TYPE_LABELS[featureType].replace(/s$/, "").replace(/^\w/, (c) => c.toUpperCase());
+}
+
+function nextNameForFeatureType(featureType: FeatureType, existingNames: string[]): string {
+  const prefix = prefixForFeatureType(featureType);
+  const pattern = new RegExp(`^${prefix}\\s+(\\d+)$`, "i");
+  let max = 0;
+  for (const name of existingNames) {
+    const m = name.match(pattern);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  return `${prefix} ${max + 1}`;
+}
+
+function featureTypeOptionsForGeometry(geometryType: FeatureMeta["geometryType"]): FeatureType[] {
+  if (geometryType === "LineString") return ["road", "sidewalk"];
+  if (geometryType === "Point") return ["tree"];
+  return ["parcel", "water", "greenspace", "building", "amenity"];
+}
 
 export function EditorV2() {
   const mapDivRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<Map | null>(null);
-  const sourceRef = useRef(new VectorSource());
-  const selectRef = useRef<Select | null>(null);
-  const drawRef = useRef<Draw | null>(null);
+  const mapRef = useRef<MapLibreMap | null>(null);
+  const geomanRef = useRef<Geoman | null>(null);
+  const createCountRef = useRef(0);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const savingRef = useRef(false);
+  const syncFeaturesRef = useRef<() => void>(() => {});
+  const markDirtyRef = useRef<() => void>(() => {});
 
   const [access, setAccess] = useState(false);
-  const [mode, setMode] = useState<EditorMode>("select");
-  const [drawType, setDrawType] = useState<FeatureType>("parcel");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [features, setFeatures] = useState<FeatureMeta[]>([]);
   const [saveState, setSaveState] = useState<SaveState>("idle");
-  const [inspectorDraft, setInspectorDraft] = useState<FeatureMeta | null>(null);
+  const [overlay, setOverlay] = useState<OverlayTransform>(() => DEFAULT_OVERLAY);
 
   useEffect(() => {
     setAccess(hasEditorAccess());
+    setOverlay(loadOverlayTransform());
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(OVERLAY_STORAGE_KEY, JSON.stringify(overlay));
+    }
+  }, [overlay]);
+
+  const normalizeFeatureData = useCallback(
+    async (feature: FeatureData, existingNames: string[]) => {
+      const geoJson = feature.getGeoJson();
+      const props = geoJson.properties ?? {};
+      const id = String(props.id ?? feature.id);
+      const featureType = isFeatureType(props.featureType)
+        ? props.featureType
+        : defaultFeatureTypeForGeometry(geoJson.geometry);
+      const defaults = FEATURE_TYPE_DEFAULTS[featureType];
+      const name = typeof props.name === "string" && props.name.trim()
+        ? props.name
+        : nextNameForFeatureType(featureType, existingNames);
+
+      await feature.updateProperties({
+        ...defaults,
+        id,
+        name,
+        featureType,
+        areaSqMeters: polygonArea(geoJson.geometry),
+      });
+    },
+    [],
+  );
+
+  const normalizeAllFeatures = useCallback(async () => {
+    const geoman = geomanRef.current;
+    if (!geoman) return;
+    const collection = geoman.features.exportGeoJson() as FeatureCollection<Geometry>;
+    const allNames = collection.features
+      .map((f) => (f.properties as Record<string, unknown>)?.name)
+      .filter((n): n is string => typeof n === "string");
+    for (const item of collection.features) {
+      const feature = geoman.features.get(SOURCES.main, geomanFeatureId(item as GeoJsonShapeFeature));
+      if (!feature) continue;
+      await normalizeFeatureData(feature, allNames);
+    }
+    await geoman.features.updateManager.waitForPendingUpdates(SOURCES.main);
+  }, [normalizeFeatureData]);
+
+  const exportParcels = useCallback(async (): Promise<ParcelCollection> => {
+    const geoman = geomanRef.current;
+    if (!geoman) return { type: "FeatureCollection", features: [] };
+    await normalizeAllFeatures();
+    const exported = geoman.features.exportGeoJson() as FeatureCollection<Geometry>;
+    return geomanCollectionToParcels(exported);
+  }, [normalizeAllFeatures]);
+
+  const exportGeomanCollection = useCallback((): FeatureCollection<Geometry> => {
+    const geoman = geomanRef.current;
+    if (!geoman) return { type: "FeatureCollection", features: [] };
+    return geoman.features.exportGeoJson() as FeatureCollection<Geometry>;
   }, []);
 
   const syncFeatures = useCallback(() => {
-    const all = sourceRef.current.getFeatures() as AnyFeature[];
-    setFeatures(all.map(featureToMeta));
-  }, []);
-
-  const updateFeatureProps = useCallback(
-    (id: string, patch: Partial<Omit<FeatureMeta, "id">>) => {
-      const f = sourceRef.current.getFeatureById(id) as AnyFeature | null;
-      if (!f) return;
-      for (const [k, v] of Object.entries(patch)) f.set(k, v);
-      setInspectorDraft((prev) => (prev ? { ...prev, ...patch } : prev));
-      syncFeatures();
-    },
-    [syncFeatures],
-  );
-
-  const deleteFeature = useCallback(
-    (id: string) => {
-      const f = sourceRef.current.getFeatureById(id);
-      if (f) sourceRef.current.removeFeature(f);
-      selectRef.current?.getFeatures().clear();
-      setSelectedId((prev) => (prev === id ? null : prev));
-      setInspectorDraft((prev) => (prev?.id === id ? null : prev));
-      syncFeatures();
-    },
-    [syncFeatures],
-  );
-
-  const toggleSmooth = useCallback(
-    (id: string) => {
-      const f = sourceRef.current.getFeatureById(id) as AnyFeature | null;
-      if (!f) return;
-      const geom = f.getGeometry();
-      if (!geom) return;
-      const isSmoothed = f.get("smoothed") as boolean;
-
-      if (isSmoothed) {
-        const original = f.get("originalCoords") as number[][][] | undefined;
-        if (!original) return;
-        if (geom.getType() === "Polygon") {
-          (geom as OLPolygon).setCoordinates(original);
-        } else if (geom.getType() === "LineString") {
-          (geom as OLLineString).setCoordinates(original[0]);
-        }
-        f.set("smoothed", false);
-        f.set("originalCoords", undefined);
-      } else {
-        if (geom.getType() === "Polygon") {
-          const coords = (geom as OLPolygon).getCoordinates();
-          f.set("originalCoords", coords);
-          (geom as OLPolygon).setCoordinates(smoothPolygonCoords(coords));
-        } else if (geom.getType() === "LineString") {
-          const coords = (geom as OLLineString).getCoordinates();
-          f.set("originalCoords", [coords]);
-          (geom as OLLineString).setCoordinates(smoothLineCoords(coords));
-        }
-        f.set("smoothed", true);
-      }
-      f.set("areaSqMeters", getArea(f));
-      setInspectorDraft((prev) =>
-        prev?.id === id
-          ? { ...prev, smoothed: !isSmoothed, areaSqMeters: getArea(f) }
-          : prev,
-      );
-      syncFeatures();
-    },
-    [syncFeatures],
-  );
+    const collection = exportGeomanCollection();
+    const metas = collection.features
+      .map((feature) => geomanFeatureToMeta(feature as GeoJsonShapeFeature))
+      .filter((feature): feature is FeatureMeta => Boolean(feature));
+    setFeatures(metas);
+    setSelectedId((current) => {
+      if (!current) return current;
+      return metas.some((feature) => feature.id === current) ? current : null;
+    });
+  }, [exportGeomanCollection]);
 
   const save = useCallback(async () => {
+    savingRef.current = true;
     setSaveState("saving");
-    const all = sourceRef.current.getFeatures() as AnyFeature[];
-    const collection: ParcelCollection = {
-      type: "FeatureCollection",
-      features: all.map((f) => {
-        const written = geoFormat.writeFeatureObject(f);
-        return {
-          ...written,
-          properties: {
-            id: String(f.getId()),
-            name: String(f.get("name") || f.getId()),
-            featureType: (f.get("featureType") as FeatureType) || "parcel",
-            status: (f.get("status") as ParcelStatus) ?? "for-sale",
-            priceUSD: f.get("priceUSD") as number | undefined,
-            zoning: f.get("zoning") as string | undefined,
-            contactUrl: f.get("contactUrl") as string | undefined,
-            description: f.get("description") as string | undefined,
-            areaSqMeters: Number(f.get("areaSqMeters") || 0),
-            roadWidth: f.get("roadWidth") as number | undefined,
-            smoothed: f.get("smoothed") as boolean | undefined,
-            originalCoords: f.get("originalCoords") as number[][][] | undefined,
-          },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } as any;
-      }),
-    };
     try {
+      const collection = await exportParcels();
       const res = await fetch("/api/parcels?mode=replace", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(collection),
       });
       setSaveState(res.ok ? "saved" : "error");
+      if (res.ok) window.setTimeout(() => setSaveState((s) => s === "saved" ? "idle" : s), 2000);
     } catch {
       setSaveState("error");
+    } finally {
+      savingRef.current = false;
     }
-    window.setTimeout(() => setSaveState("idle"), 2500);
-  }, []);
+  }, [exportParcels]);
 
-  const selectFeatureById = useCallback((id: string) => {
-    const sel = selectRef.current;
-    const f = sourceRef.current.getFeatureById(id) as AnyFeature | null;
-    if (!sel || !f) return;
-    sel.getFeatures().clear();
-    sel.getFeatures().push(f);
+  const markDirty = useCallback(() => {
+    if (savingRef.current) return;
+    setSaveState("unsaved");
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => void save(), 800);
+  }, [save]);
+
+  syncFeaturesRef.current = syncFeatures;
+  markDirtyRef.current = markDirty;
+
+  const selectFeatureById = useCallback(async (id: string) => {
+    const geoman = geomanRef.current;
+    const map = mapRef.current;
+    if (!geoman) return;
+    geoman.features.setSelection([id]);
     setSelectedId(id);
-    setInspectorDraft(featureToMeta(f));
-    const geom = f.getGeometry();
-    if (geom) {
-      mapRef.current
-        ?.getView()
-        .fit(geom.getExtent(), { padding: [60, 60, 60, 60], maxZoom: 18, duration: 400 });
-    }
-  }, []);
+    const geomanFeature = exportGeomanCollection().features.find(
+      (item) => geomanFeatureId(item as GeoJsonShapeFeature) === id,
+    );
+    const feature = geomanFeature
+      ? geomanCollectionToParcels({
+          type: "FeatureCollection",
+          features: [geomanFeature],
+        } as FeatureCollection<Geometry>).features[0]
+      : null;
+    if (!feature || feature.geometry.type === "Point" || !map) return;
+    const coords =
+      feature.geometry.type === "LineString"
+        ? feature.geometry.coordinates
+        : feature.geometry.coordinates[0];
+    const bounds = coords.reduce(
+      (lngLatBounds, coord) => lngLatBounds.extend(coord as [number, number]),
+      new maplibregl.LngLatBounds(coords[0] as [number, number], coords[0] as [number, number]),
+    );
+    map.fitBounds(bounds as LngLatBoundsLike, { padding: 80, maxZoom: 18, duration: 400 });
+  }, [exportGeomanCollection]);
 
-  // --- Recreate draw interaction when drawType changes ---
-  const recreateDraw = useCallback(
-    (map: Map, geomType: "Polygon" | "LineString" | "Point") => {
-      const old = drawRef.current;
-      if (old) {
-        map.removeInteraction(old);
-      }
-      const draw = new Draw({
-        source: sourceRef.current,
-        type: geomType,
-        style: drawStyle,
-      });
-      draw.setActive(mode === "draw");
-      drawRef.current = draw;
-      map.addInteraction(draw);
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      draw.on("drawend", (e: any) => {
-        const f = e.feature as AnyFeature;
-        const ft = drawType;
-        const id = `${ft}-${Date.now()}`;
-        f.setId(id);
-        f.set("name", id);
-        f.set("featureType", ft);
-        f.set("status", ft === "parcel" ? "for-sale" : undefined);
-        f.set("areaSqMeters", getArea(f));
-        if (ft === "road") f.set("roadWidth", 6);
-        if (ft === "tree") f.set("canopyRadius", 4);
-        if (ft === "building") { f.set("height", 6); f.set("floors", 2); }
-        if (ft === "sidewalk") f.set("roadWidth", 1.5);
-        syncFeatures();
-        setMode("select");
-        window.setTimeout(() => {
-          const sel = selectRef.current;
-          if (!sel) return;
-          sel.getFeatures().clear();
-          const added = sourceRef.current.getFeatureById(id) as AnyFeature | null;
-          if (added) {
-            sel.getFeatures().push(added);
-            setSelectedId(id);
-            setInspectorDraft(featureToMeta(added));
-          }
-        }, 50);
-      });
-
-      return draw;
+  const updateFeatureProps = useCallback(
+    async (id: string, patch: Record<string, unknown>) => {
+      const feature = geomanRef.current?.features.get(SOURCES.main, id);
+      if (!feature) return;
+      await feature.updateProperties(patch);
+      syncFeatures();
+      markDirty();
     },
-    [mode, drawType, syncFeatures],
+    [syncFeatures, markDirty],
   );
 
-  // Initialize map
+  const deleteFeature = useCallback(
+    async (id: string) => {
+      await geomanRef.current?.features.delete(id);
+      setSelectedId(null);
+      syncFeatures();
+      markDirty();
+    },
+    [syncFeatures, markDirty],
+  );
+
+  const toggleSmooth = useCallback(
+    async (id: string) => {
+      const feature = geomanRef.current?.features.get(SOURCES.main, id);
+      if (!feature) return;
+      const geoJson = feature.getGeoJson();
+      const props = geoJson.properties ?? {};
+      const geometry = geoJson.geometry;
+
+      if (geometry.type !== "Polygon" && geometry.type !== "LineString") return;
+
+      if (props.smoothed && Array.isArray(props.originalCoords)) {
+        const coordinates =
+          geometry.type === "Polygon"
+            ? props.originalCoords
+            : (props.originalCoords[0] as number[][]);
+        await feature.updateGeometry({ ...geometry, coordinates });
+        await feature.updateProperties({
+          ...syncFeatureAreaPatch({ ...geometry, coordinates } as Geometry),
+        });
+      } else if (geometry.type === "Polygon") {
+        const originalCoords = (geometry as Polygon).coordinates as number[][][];
+        const coordinates = smoothPolygonCoords(originalCoords);
+        await feature.updateGeometry({ ...geometry, coordinates });
+        await feature.updateProperties({
+          areaSqMeters: polygonArea({ ...geometry, coordinates } as Polygon),
+          smoothed: true,
+          originalCoords,
+        });
+      } else {
+        const originalCoords = [(geometry as LineString).coordinates as number[][]];
+        const coordinates = chaikinSmooth(originalCoords[0]);
+        await feature.updateGeometry({ ...geometry, coordinates });
+        await feature.updateProperties({ smoothed: true, originalCoords });
+      }
+      syncFeatures();
+      markDirty();
+    },
+    [syncFeatures, markDirty],
+  );
+
   useEffect(() => {
     if (!access || !mapDivRef.current) return;
 
-    const source = sourceRef.current;
-    const select = new Select({ condition: click, style: selectedStyle });
-    const modify = new Modify({ source });
-    const snap = new Snap({ source });
-
-    selectRef.current = select;
-
-    const map = new Map({
-      target: mapDivRef.current,
-      layers: [
-        makeBasemap(),
-        new VectorLayer({
-          source,
-          style: (f) => featureStyle(f as AnyFeature),
-          zIndex: 1,
-        }),
-      ],
-      view: new View({
-        center: fromLonLat([JOSE_IGNACIO_CENTER.lon, JOSE_IGNACIO_CENTER.lat]),
-        zoom: 15,
-        minZoom: 12,
-        maxZoom: 20,
-      }),
-      controls: [],
-      interactions: [...defaultInteractions().getArray(), select, modify, snap],
+    let cancelled = false;
+    const map = new maplibregl.Map({
+      container: mapDivRef.current,
+      style: createMapStyle(),
+      center: [JOSE_IGNACIO_CENTER.lon, JOSE_IGNACIO_CENTER.lat],
+      zoom: 15,
+      minZoom: 12,
+      maxZoom: 20,
+      attributionControl: false,
     });
+
     mapRef.current = map;
+    map.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), "bottom-left");
+    map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
 
-    recreateDraw(map, DRAW_TYPES[drawType]);
+    map.once("load", async () => {
+      if (cancelled) return;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    select.on("select", (e: any) => {
-      const f = e.selected[0] as AnyFeature | undefined;
-      const id = f ? String(f.getId()) : null;
-      setSelectedId(id);
-      setInspectorDraft(f ? featureToMeta(f) : null);
-    });
+      const geoman = new Geoman(map, {
+        settings: {
+          useControlsUi: true,
+          controlsUiEnabledByDefault: true,
+          controlsPosition: "top-left",
+          awaitDataUpdatesOnEvents: true,
+          idGenerator: (shapeGeoJson) => {
+            createCountRef.current += 1;
+            return `${defaultFeatureTypeForGeometry(shapeGeoJson.geometry)}-${Date.now()}-${createCountRef.current}`;
+          },
+        },
+        layerStyles: GEOMAN_LAYER_STYLES,
+      });
+      geomanRef.current = geoman;
+      await geoman.waitForGeomanLoaded();
+      if (cancelled) return;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    modify.on("modifyend", (e: any) => {
-      for (const f of e.features.getArray() as AnyFeature[]) {
-        if (f.get("smoothed")) {
-          f.set("smoothed", false);
-          f.set("originalCoords", undefined);
-        }
-        const area = getArea(f);
-        f.set("areaSqMeters", area);
-        setInspectorDraft((prev) =>
-          prev?.id === String(f.getId())
-            ? { ...prev, areaSqMeters: area, smoothed: false }
-            : prev,
-        );
-      }
-      syncFeatures();
-    });
-
-    fetch("/api/parcels", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((data: ParcelCollection) => {
-        const loaded = geoFormat.readFeatures(data) as AnyFeature[];
-        for (const f of loaded) {
-          const id = f.get("id") as string;
-          if (id) f.setId(id);
-          if (!f.get("featureType")) f.set("featureType", "parcel");
-          if (!f.get("areaSqMeters")) f.set("areaSqMeters", getArea(f));
-        }
-        source.addFeatures(loaded);
+      try {
+        const response = await fetch("/api/parcels", { cache: "no-store" });
+        const data = (await response.json()) as ParcelCollection;
+        await geoman.features.importGeoJson(parcelCollectionToGeoman(data) as GeoJsonImportFeatureCollection, {
+          idPropertyName: "id",
+          overwrite: true,
+        });
         syncFeatures();
-      })
-      .catch(() => {});
+      } catch {
+        syncFeatures();
+      }
+
+      await geoman.enableGlobalEditMode();
+
+      map.addLayer({
+        id: SELECTION_FILL_LAYER,
+        type: "fill",
+        source: SOURCES.main,
+        filter: SELECTION_NONE_FILTER,
+        paint: { "fill-color": "#ffffff", "fill-opacity": 0.35 },
+      });
+      map.addLayer({
+        id: SELECTION_LINE_LAYER,
+        type: "line",
+        source: SOURCES.main,
+        filter: SELECTION_NONE_FILTER,
+        paint: { "line-color": "#ffffff", "line-opacity": 1, "line-width": 3 },
+      });
+      map.addLayer({
+        id: SELECTION_CIRCLE_LAYER,
+        type: "circle",
+        source: SOURCES.main,
+        filter: SELECTION_NONE_FILTER,
+        paint: {
+          "circle-color": "#ffffff",
+          "circle-opacity": 0.45,
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-width": 2.5,
+          "circle-radius": 10,
+        },
+      });
+
+      geoman.setGlobalEventsListener((event) => {
+        const action = (event as { action?: string }).action;
+
+        if (action === "feature_created") {
+          const e = event as { featureData?: FeatureData; feature?: FeatureData };
+          const featureData = e.featureData ?? e.feature;
+          if (!featureData) return;
+          const id = String(featureData.id);
+          syncFeaturesRef.current();
+          setSelectedId(id);
+          markDirtyRef.current();
+          void (async () => {
+            try {
+              const allNames = (geoman.features.exportGeoJson() as FeatureCollection<Geometry>).features
+                .map((f) => (f.properties as Record<string, unknown>)?.name)
+                .filter((n): n is string => typeof n === "string");
+              await normalizeFeatureData(featureData, allNames);
+              await geoman.features.updateManager.waitForPendingUpdates(SOURCES.main);
+              geoman.features.setSelection([id]);
+            } catch { /* normalization is best-effort */ }
+            setSelectedId(id);
+            syncFeaturesRef.current();
+            markDirtyRef.current();
+          })();
+          return;
+        }
+
+        if (action === "feature_removed") {
+          setSelectedId(null);
+          syncFeaturesRef.current();
+          markDirtyRef.current();
+          return;
+        }
+
+        if (action === "feature_updated") {
+          syncFeaturesRef.current();
+          markDirtyRef.current();
+          return;
+        }
+
+        if (action === "feature_edit_end") {
+          const feature = (event as { feature?: FeatureData }).feature;
+          if (feature) {
+            void feature.updateProperties(syncFeatureAreaPatch(feature.getGeoJson().geometry));
+          }
+          syncFeaturesRef.current();
+          markDirtyRef.current();
+          return;
+        }
+
+        if (action === "selection_change") {
+          const selection = (event as { selection?: Array<string | number> }).selection ?? [];
+          setSelectedId(selection.length ? String(selection[0]) : null);
+        }
+      });
+
+      map.on("click", (event) => {
+        if (geoman.getActiveDrawModes().length > 0) return;
+        const point = event.point;
+        const rendered = map
+          .queryRenderedFeatures([
+            [point.x - 6, point.y - 6],
+            [point.x + 6, point.y + 6],
+          ])
+          .find((item) => item.source === SOURCES.main && (item.properties?.id || item.properties?.__gm_id));
+        const id = rendered?.properties?.__gm_id ?? rendered?.properties?.id;
+        if (id) {
+          geoman.features.setSelection([String(id)]);
+          setSelectedId(String(id));
+        }
+      });
+
+      const handleEscape = (event: KeyboardEvent) => {
+        if (event.key === "Escape") {
+          void geoman.disableAllModes().then(() => geoman.enableGlobalEditMode());
+        }
+      };
+      window.addEventListener("keydown", handleEscape);
+
+      map.once("remove", () => {
+        window.removeEventListener("keydown", handleEscape);
+      });
+    });
 
     return () => {
-      map.setTarget(undefined);
+      cancelled = true;
+      geomanRef.current?.destroy({ removeSources: true }).catch(() => {});
+      geomanRef.current = null;
+      map.remove();
       mapRef.current = null;
-      selectRef.current = null;
-      drawRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [access]);
 
-  // Recreate draw when drawType changes (after map init)
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
-    recreateDraw(map, DRAW_TYPES[drawType]);
-  }, [drawType, recreateDraw]);
-
-  // Toggle interactions on mode change
-  useEffect(() => {
-    const sel = selectRef.current;
-    const drw = drawRef.current;
-    if (!sel || !drw) return;
-    if (mode === "draw") {
-      sel.setActive(false);
-      sel.getFeatures().clear();
-      setSelectedId(null);
-      setInspectorDraft(null);
-      drw.setActive(true);
-    } else {
-      drw.setActive(false);
-      sel.setActive(true);
+    if (!map || !map.isStyleLoaded()) return;
+    const filter: ["==", string, string] = selectedId
+      ? ["==", "id", selectedId]
+      : SELECTION_NONE_FILTER;
+    for (const layer of [SELECTION_FILL_LAYER, SELECTION_LINE_LAYER, SELECTION_CIRCLE_LAYER]) {
+      if (map.getLayer(layer)) map.setFilter(layer, filter);
     }
-  }, [mode]);
+  }, [selectedId]);
+
+  const selected = useMemo(
+    () => features.find((feature) => feature.id === selectedId) ?? null,
+    [features, selectedId],
+  );
+
+  const featuresByType = useMemo(() => {
+    const groups: Partial<Record<FeatureType, FeatureMeta[]>> = {};
+    for (const feature of features) {
+      (groups[feature.featureType] ??= []).push(feature);
+    }
+    return groups;
+  }, [features]);
 
   if (!access) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#0a0f14]">
+      <div className="relative flex h-screen items-center justify-center bg-[#0a0f14]">
+        <div
+          className="absolute inset-0 bg-cover bg-center blur-[20px] saturate-[0.3] scale-110"
+          style={{ backgroundImage: "url(/masterplan.png)" }}
+        />
+        <div className="absolute inset-0 bg-black/60" />
         <EditorAccessDialog
           onSuccess={() => {
             grantEditorAccess();
@@ -551,351 +840,264 @@ export function EditorV2() {
   }
 
   const saveLabel =
-    saveState === "saving"
-      ? "saving..."
-      : saveState === "saved"
-        ? "saved"
-        : saveState === "error"
-          ? "error"
-          : "save";
-
-  const featuresByType = useMemo(() => {
-    const groups: Record<string, FeatureMeta[]> = {};
-    for (const f of features) {
-      const ft = f.featureType || "parcel";
-      (groups[ft] ??= []).push(f);
-    }
-    return groups;
-  }, [features]);
+    saveState === "saving" ? "saving..." :
+    saveState === "saved" ? "saved" :
+    saveState === "error" ? "error - retry" :
+    saveState === "unsaved" ? "unsaved" :
+    "";
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[var(--color-ink)]">
-      {/* Map */}
-      <div ref={mapDivRef} className="flex-1" />
+    <div className="flex h-screen overflow-hidden bg-[var(--color-ink)] max-md:flex-col">
+      <div ref={mapDivRef} className="min-h-0 flex-1" />
 
-      {/* Sidebar */}
-      <div className="flex w-80 shrink-0 flex-col border-l border-[var(--color-hairline-dark)] bg-[var(--color-ink-pane)]">
-        {/* Header / Mode */}
-        <div className="flex items-center justify-between gap-3 border-b border-[var(--color-hairline-dark)] px-4 py-3">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/75">
-            editor
-          </span>
-          <div className="flex overflow-hidden rounded-[var(--radius-md)] border border-[var(--color-hairline-dark)] text-[11px] uppercase tracking-[0.12em]">
-            <button
-              type="button"
-              onClick={() => setMode("select")}
-              className={`px-3 py-1.5 transition-colors ${
-                mode === "select"
-                  ? "bg-white/12 text-white"
-                  : "text-white/50 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              select
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("draw")}
-              className={`px-3 py-1.5 transition-colors ${
-                mode === "draw"
-                  ? "bg-white/12 text-white"
-                  : "text-white/50 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              draw
-            </button>
+      <aside className="flex w-[360px] shrink-0 flex-col border-l border-[var(--color-hairline-dark)] bg-[var(--color-ink-pane)] max-md:h-[46vh] max-md:w-full max-md:border-l-0 max-md:border-t">
+        <div className="border-b border-[var(--color-hairline-dark)] px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/75">
+              editor
+            </span>
+            {saveLabel && (
+              <button
+                type="button"
+                onClick={saveState === "error" ? () => void save() : undefined}
+                className={`text-[10px] uppercase tracking-[0.12em] ${
+                  saveState === "error" ? "cursor-pointer text-red-300 hover:text-red-200" :
+                  saveState === "unsaved" ? "text-amber-300/70" :
+                  saveState === "saving" ? "text-white/40" :
+                  "text-white/30"
+                }`}
+              >
+                {saveLabel}
+              </button>
+            )}
+          </div>
+          <div className="mt-2 text-[11px] leading-4 text-white/38">
+            Use the toolbar on the map to draw and edit. Changes auto-save.
           </div>
         </div>
 
-        {/* Draw type selector (visible in draw mode) */}
-        {mode === "draw" && (
-          <div className="border-b border-[var(--color-hairline-dark)] px-4 py-3">
-            <div className="mb-2 text-[10px] uppercase tracking-[0.18em] text-white/40">
-              draw type
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {(Object.keys(FEATURE_TYPE_LABELS) as FeatureType[]).map((ft) => (
-                <button
-                  key={ft}
-                  type="button"
-                  onClick={() => setDrawType(ft)}
-                  className={`rounded-[var(--radius-md)] border px-2.5 py-1.5 text-[10px] uppercase tracking-[0.1em] transition-colors ${
-                    drawType === ft
-                      ? "border-[var(--color-hairline-strong)] bg-white/12 text-white"
-                      : "border-[var(--color-hairline-dark)] text-white/45 hover:bg-white/5 hover:text-white/80"
-                  }`}
-                  style={drawType === ft ? { borderColor: FEATURE_STYLES[ft].stroke } : undefined}
-                >
-                  {FEATURE_TYPE_LABELS[ft]}
-                </button>
-              ))}
-            </div>
-            <div className="mt-2 text-[10px] text-white/30">
-              {DRAW_TYPES[drawType] === "Polygon" && "Click to place vertices, double-click to close."}
-              {DRAW_TYPES[drawType] === "LineString" && "Click to place points, double-click to finish."}
-              {DRAW_TYPES[drawType] === "Point" && "Click to place."}
-            </div>
-          </div>
-        )}
+        {/* masterplan trace controls hidden for now */}
 
-        {/* Feature list */}
         <div className="min-h-0 flex-1 overflow-y-auto py-1">
           {features.length === 0 ? (
             <div className="px-4 py-8 text-center text-[11px] uppercase tracking-[0.14em] text-white/25">
-              no features · draw to add
+              no features - draw to add
             </div>
           ) : (
-            <>
-              {(Object.keys(FEATURE_TYPE_LABELS) as FeatureType[]).map((ft) => {
-                const items = featuresByType[ft];
-                if (!items?.length) return null;
-                return (
-                  <FeatureGroup
-                    key={ft}
-                    label={FEATURE_TYPE_LABELS[ft] + "s"}
-                    items={items}
-                    selectedId={selectedId}
-                    onSelect={selectFeatureById}
-                    onDelete={deleteFeature}
-                  />
-                );
-              })}
-            </>
+            (Object.keys(FEATURE_TYPE_LABELS) as FeatureType[]).map((featureType) => {
+              const items = featuresByType[featureType];
+              if (!items?.length) return null;
+              return (
+                <FeatureGroup
+                  key={featureType}
+                  label={FEATURE_TYPE_LABELS[featureType]}
+                  items={items}
+                  selectedId={selectedId}
+                  onSelect={selectFeatureById}
+                  onDelete={deleteFeature}
+                />
+              );
+            })
           )}
         </div>
 
-        {/* Inspector */}
-        {inspectorDraft && (
-          <div className="border-t border-[var(--color-hairline-dark)] px-4 py-4">
-            <div className="mb-3 flex items-center justify-between">
-              <span className="text-[10px] uppercase tracking-[0.18em] text-white/40">
-                inspector
-              </span>
-              <span
-                className="rounded-sm px-1.5 py-0.5 text-[9px] uppercase tracking-wider"
-                style={{
-                  color: FEATURE_STYLES[inspectorDraft.featureType].stroke,
-                  background: FEATURE_STYLES[inspectorDraft.featureType].fill,
-                }}
-              >
-                {inspectorDraft.featureType}
-              </span>
-            </div>
-            <div className="flex flex-col gap-3">
-              <div>
-                <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">
-                  name
-                </label>
-                <Input
-                  type="text"
-                  value={inspectorDraft.name}
-                  onChange={(e) =>
-                    updateFeatureProps(inspectorDraft.id, { name: e.target.value })
-                  }
-                />
-              </div>
-
-              {inspectorDraft.featureType === "parcel" && (
-                <div>
-                  <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">
-                    status
-                  </label>
-                  <div className="flex gap-1.5">
-                    {(["for-sale", "reserved", "sold"] as ParcelStatus[]).map((s) => {
-                      const active = inspectorDraft.status === s;
-                      return (
-                        <button
-                          key={s}
-                          type="button"
-                          onClick={() =>
-                            updateFeatureProps(inspectorDraft.id, { status: s })
-                          }
-                          className={`flex-1 rounded-[var(--radius-md)] border py-1.5 text-[10px] uppercase tracking-[0.1em] transition-colors ${
-                            active
-                              ? "border-[var(--color-hairline-strong)] bg-white/12 text-white"
-                              : "border-[var(--color-hairline-dark)] text-white/45 hover:bg-white/5 hover:text-white/80"
-                          }`}
-                        >
-                          {s === "for-sale" ? "sale" : s}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {inspectorDraft.featureType === "parcel" && (
-                <div>
-                  <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">
-                    price usd
-                  </label>
-                  <Input
-                    type="number"
-                    mono
-                    value={inspectorDraft.priceUSD ?? ""}
-                    onChange={(e) =>
-                      updateFeatureProps(inspectorDraft.id, {
-                        priceUSD: e.target.value ? Number(e.target.value) : undefined,
-                      })
-                    }
-                    placeholder="—"
-                  />
-                </div>
-              )}
-
-              {(inspectorDraft.featureType === "road" || inspectorDraft.featureType === "sidewalk") && (
-                <div>
-                  <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">
-                    width (m)
-                  </label>
-                  <Input
-                    type="number"
-                    mono
-                    value={inspectorDraft.roadWidth ?? (inspectorDraft.featureType === "sidewalk" ? 1.5 : 6)}
-                    onChange={(e) =>
-                      updateFeatureProps(inspectorDraft.id, {
-                        roadWidth: e.target.value ? Number(e.target.value) : undefined,
-                      })
-                    }
-                    placeholder={inspectorDraft.featureType === "sidewalk" ? "1.5" : "6"}
-                  />
-                </div>
-              )}
-
-              {inspectorDraft.featureType === "tree" && (
-                <div>
-                  <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">
-                    canopy radius (m)
-                  </label>
-                  <Input
-                    type="number"
-                    mono
-                    value={inspectorDraft.canopyRadius ?? 4}
-                    onChange={(e) =>
-                      updateFeatureProps(inspectorDraft.id, {
-                        canopyRadius: e.target.value ? Number(e.target.value) : 4,
-                      })
-                    }
-                    placeholder="4"
-                  />
-                </div>
-              )}
-
-              {inspectorDraft.featureType === "building" && (
-                <>
-                  <div>
-                    <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">
-                      height (m)
-                    </label>
-                    <Input
-                      type="number"
-                      mono
-                      value={inspectorDraft.height ?? 6}
-                      onChange={(e) =>
-                        updateFeatureProps(inspectorDraft.id, {
-                          height: e.target.value ? Number(e.target.value) : 6,
-                        })
-                      }
-                      placeholder="6"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">
-                      floors
-                    </label>
-                    <Input
-                      type="number"
-                      mono
-                      value={inspectorDraft.floors ?? 2}
-                      onChange={(e) =>
-                        updateFeatureProps(inspectorDraft.id, {
-                          floors: e.target.value ? Number(e.target.value) : 2,
-                        })
-                      }
-                      placeholder="2"
-                    />
-                  </div>
-                </>
-              )}
-
-              {!["road", "sidewalk", "tree"].includes(inspectorDraft.featureType) && (
-                <div>
-                  <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">
-                    area (m²)
-                  </label>
-                  <Input
-                    type="number"
-                    mono
-                    step={1}
-                    value={
-                      Number.isFinite(inspectorDraft.areaSqMeters)
-                        ? Math.round(inspectorDraft.areaSqMeters)
-                        : ""
-                    }
-                    onChange={(e) => {
-                      const next = e.target.value === "" ? 0 : Number(e.target.value);
-                      updateFeatureProps(inspectorDraft.id, { areaSqMeters: next });
-                    }}
-                    placeholder="0"
-                  />
-                </div>
-              )}
-
-              <div>
-                <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">
-                  description
-                </label>
-                <textarea
-                  value={inspectorDraft.description ?? ""}
-                  onChange={(e) =>
-                    updateFeatureProps(inspectorDraft.id, {
-                      description: e.target.value || undefined,
-                    })
-                  }
-                  rows={2}
-                  placeholder="Notes..."
-                  className="w-full resize-none rounded-[var(--radius-md)] border border-[var(--color-hairline-dark)] bg-white/[0.04] px-3 py-2 text-[13px] leading-5 text-white outline-none placeholder:text-white/30 focus:border-white/25 focus:bg-white/10"
-                />
-              </div>
-
-              {/* Smooth toggle (not for trees) */}
-              {inspectorDraft.featureType !== "tree" && <button
-                type="button"
-                onClick={() => toggleSmooth(inspectorDraft.id)}
-                className={`w-full rounded-[var(--radius-md)] border py-2 text-[10px] uppercase tracking-[0.12em] transition-colors ${
-                  inspectorDraft.smoothed
-                    ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-400"
-                    : "border-[var(--color-hairline-dark)] text-white/50 hover:bg-white/5 hover:text-white/80"
-                }`}
-              >
-                {inspectorDraft.smoothed ? "✓ smoothed — click to undo" : "smooth edges"}
-              </button>}
-            </div>
-          </div>
+        {selected && (
+          <Inspector
+            feature={selected}
+            onChange={(patch) => updateFeatureProps(selected.id, patch)}
+            onSmooth={() => toggleSmooth(selected.id)}
+            onDelete={() => deleteFeature(selected.id)}
+          />
         )}
 
-        {/* Footer */}
         <div className="flex items-center justify-between border-t border-[var(--color-hairline-dark)] px-4 py-3">
-          <a
-            href="/viewer"
-            className="text-[11px] uppercase tracking-[0.14em] text-white/40 transition-colors hover:text-white"
-          >
-            ← viewer
+          <a href="/viewer" className="text-[11px] uppercase tracking-[0.14em] text-white/40 transition-colors hover:text-white">
+            viewer
           </a>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={save}
-            disabled={saveState === "saving"}
-          >
-            {saveLabel}
+          <Button variant="primary" size="sm" onClick={save} disabled={saveState === "saving"}>
+            save
           </Button>
         </div>
-      </div>
+      </aside>
     </div>
   );
 }
 
-// --- Feature group component ---
+
+function Inspector({
+  feature,
+  onChange,
+  onSmooth,
+  onDelete,
+}: {
+  feature: FeatureMeta;
+  onChange: (patch: Record<string, unknown>) => void;
+  onSmooth: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="border-t border-[var(--color-hairline-dark)] px-4 py-4">
+      <div className="mb-3 flex items-center justify-between">
+        <span className="text-[10px] uppercase tracking-[0.18em] text-white/40">inspector</span>
+        <span
+          className="rounded-sm px-1.5 py-0.5 text-[9px] uppercase tracking-wider"
+          style={{ color: FEATURE_STYLES[feature.featureType].stroke, background: `${FEATURE_STYLES[feature.featureType].fill}22` }}
+        >
+          {feature.featureType}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <label className="col-span-2">
+          <span className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">name</span>
+          <Input type="text" value={feature.name} onChange={(event) => onChange({ name: event.target.value })} />
+        </label>
+
+        <div className="col-span-2">
+          <span className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">type</span>
+          <div className="flex gap-1">
+            {featureTypeOptionsForGeometry(feature.geometryType).map((ft) => (
+              <button
+                key={ft}
+                type="button"
+                onClick={() => onChange({ ...FEATURE_TYPE_DEFAULTS[ft], featureType: ft })}
+                className={`flex-1 rounded-[var(--radius-md)] border py-1.5 text-[10px] uppercase tracking-wider transition-colors ${
+                  feature.featureType === ft
+                    ? "border-white/25 bg-white/12 text-white"
+                    : "border-transparent text-white/30 hover:bg-white/[0.06] hover:text-white/60"
+                }`}
+              >
+                {ft === "parcel" ? "lot" : ft === "greenspace" ? "green" : ft}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <span className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">measure</span>
+          <div className="rounded-[var(--radius-md)] border border-[var(--color-hairline-dark)] bg-white/[0.04] px-3 py-2 font-mono text-[12px] text-white/70">
+            {feature.readout}
+          </div>
+        </div>
+
+        {feature.featureType === "parcel" && (
+          <label>
+            <span className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">price usd</span>
+            <Input
+              type="number"
+              mono
+              value={feature.priceUSD ?? ""}
+              onChange={(event) => onChange({ priceUSD: event.target.value ? Number(event.target.value) : undefined })}
+              placeholder="-"
+            />
+          </label>
+        )}
+
+        {feature.featureType === "parcel" && (
+          <div className="col-span-2">
+            <span className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">status</span>
+            <div className="flex gap-1.5">
+              {(["for-sale", "reserved", "sold"] as ParcelStatus[]).map((status) => (
+                <button
+                  key={status}
+                  type="button"
+                  onClick={() => onChange({ status })}
+                  className={`flex-1 rounded-[var(--radius-md)] border py-1.5 text-[10px] uppercase tracking-[0.1em] transition-colors ${
+                    feature.status === status
+                      ? "border-[var(--color-hairline-strong)] bg-white/12 text-white"
+                      : "border-[var(--color-hairline-dark)] text-white/45 hover:bg-white/5 hover:text-white/80"
+                  }`}
+                >
+                  {status === "for-sale" ? "sale" : status}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {(feature.featureType === "road" || feature.featureType === "sidewalk") && (
+          <label>
+            <span className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">width m</span>
+            <Input
+              type="number"
+              mono
+              value={feature.roadWidth ?? (feature.featureType === "sidewalk" ? 1.5 : 6)}
+              onChange={(event) => onChange({ roadWidth: event.target.value ? Number(event.target.value) : undefined })}
+            />
+          </label>
+        )}
+
+        {feature.featureType === "tree" && (
+          <label>
+            <span className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">canopy m</span>
+            <Input
+              type="number"
+              mono
+              value={feature.canopyRadius ?? 4}
+              onChange={(event) => onChange({ canopyRadius: event.target.value ? Number(event.target.value) : undefined })}
+            />
+          </label>
+        )}
+
+        {feature.featureType === "building" && (
+          <>
+            <label>
+              <span className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">height m</span>
+              <Input
+                type="number"
+                mono
+                value={feature.height ?? 6}
+                onChange={(event) => onChange({ height: event.target.value ? Number(event.target.value) : undefined })}
+              />
+            </label>
+            <label>
+              <span className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">floors</span>
+              <Input
+                type="number"
+                mono
+                value={feature.floors ?? 1}
+                onChange={(event) => onChange({ floors: event.target.value ? Number(event.target.value) : undefined })}
+              />
+            </label>
+          </>
+        )}
+
+        <label className="col-span-2">
+          <span className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-white/45">description</span>
+          <textarea
+            value={feature.description ?? ""}
+            onChange={(event) => onChange({ description: event.target.value || undefined })}
+            rows={2}
+            placeholder="Notes..."
+            className="w-full resize-none rounded-[var(--radius-md)] border border-[var(--color-hairline-dark)] bg-white/[0.04] px-3 py-2 text-[13px] leading-5 text-white outline-none placeholder:text-white/30 focus:border-white/25 focus:bg-white/10"
+          />
+        </label>
+
+        {feature.geometryType !== "Point" && (
+          <button
+            type="button"
+            onClick={onSmooth}
+            className={`col-span-2 rounded-[var(--radius-md)] border py-2 text-[10px] uppercase tracking-[0.12em] transition-colors ${
+              feature.smoothed
+                ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300"
+                : "border-[var(--color-hairline-dark)] text-white/50 hover:bg-white/5 hover:text-white/80"
+            }`}
+          >
+            {feature.smoothed ? "smoothed - undo" : "smooth edges"}
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={onDelete}
+          className="col-span-2 rounded-[var(--radius-md)] border border-red-400/25 py-2 text-[10px] uppercase tracking-[0.12em] text-red-200/70 transition-colors hover:bg-red-500/10 hover:text-red-100"
+        >
+          delete selected
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function FeatureGroup({
   label,
@@ -915,47 +1117,35 @@ function FeatureGroup({
       <div className="px-4 pb-1 pt-3 text-[9px] uppercase tracking-[0.2em] text-white/30">
         {label}
       </div>
-      {items.map((p) => {
-        const isSelected = p.id === selectedId;
+      {items.map((item) => {
+        const isSelected = item.id === selectedId;
         return (
           <div
-            key={p.id}
+            key={item.id}
             className={`group flex w-full items-center transition-colors ${
-              isSelected
-                ? "bg-[var(--color-ink-inset)]"
-                : "hover:bg-[var(--color-ink-inset)]/60"
+              isSelected ? "bg-[var(--color-ink-inset)]" : "hover:bg-[var(--color-ink-inset)]/60"
             }`}
           >
             <button
               type="button"
-              onClick={() => onSelect(p.id)}
+              onClick={() => onSelect(item.id)}
               className={`flex min-w-0 flex-1 flex-col items-start px-4 py-2.5 text-left ${
-                isSelected
-                  ? "text-white"
-                  : "text-white/55 group-hover:text-white/85"
+                isSelected ? "text-white" : "text-white/55 group-hover:text-white/85"
               }`}
             >
-              <div className="w-full truncate text-[12px] font-medium">
-                {p.name || p.id}
-              </div>
+              <div className="w-full truncate text-[12px] font-medium">{item.name || item.id}</div>
               <div className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-white/40" style={{ fontVariantNumeric: "tabular-nums" }}>
-                {p.featureType === "road" || p.featureType === "sidewalk"
-                  ? `width: ${p.roadWidth || (p.featureType === "sidewalk" ? 1.5 : 6)}m`
-                  : p.featureType === "tree"
-                    ? `radius: ${p.canopyRadius || 4}m`
-                    : p.featureType === "building"
-                      ? `${p.height || 6}m · ${p.floors || 2}F`
-                      : formatAreaCompact(p.areaSqMeters)}
-                {p.smoothed ? " · curved" : ""}
+                {item.readout}
+                {item.smoothed ? " - curved" : ""}
               </div>
             </button>
             <button
               type="button"
-              onClick={() => onDelete(p.id)}
+              onClick={() => onDelete(item.id)}
               aria-label="Delete feature"
               className="invisible mr-2 shrink-0 rounded px-1.5 py-0.5 text-[12px] leading-none text-white/30 transition-colors hover:bg-white/10 hover:text-white group-hover:visible"
             >
-              ×
+              x
             </button>
           </div>
         );

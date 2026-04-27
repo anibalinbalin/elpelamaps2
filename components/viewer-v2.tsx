@@ -58,7 +58,20 @@ const ALL_LAYERS_VISIBLE: LayerVisibility = {
 };
 
 const DEG2RAD = Math.PI / 180;
-const ANIM_DURATION = 1.4;
+/* ─────────────────────────────────────────────────────────
+ * CAMERA FLIGHT STORYBOARD
+ *
+ * On parcel click, camera glides to the lot centroid.
+ *
+ *   0.0s   begin flight from current pose
+ *   0.0–0.4s   gentle ease-in
+ *   0.4–1.0s   cruise
+ *   1.0–1.5s   soft ease-out: settles into final framing
+ *
+ * Easing: cubic ease-out with a light ease-in blend.
+ * Altitude arcs ~8% above the straight line mid-flight.
+ * ───────────────────────────────────────────────────────── */
+const ANIM_DURATION = 1.5;
 
 function computeParcelTargetPose(feature: ParcelFeature): CameraPose {
   const coords = feature.geometry.coordinates as number[][][];
@@ -83,10 +96,10 @@ function computeParcelTargetPose(feature: ParcelFeature): CameraPose {
   }
   const boundingRadius = Math.sqrt(maxDistSq);
   const halfFovRad = 30 * DEG2RAD;
-  const alt = Math.max(150, (boundingRadius / Math.tan(halfFovRad)) * 1.6);
+  const alt = Math.max(550, (boundingRadius / Math.tan(halfFovRad)) * 3.2);
 
   const latOffsetDeg = (alt * 0.15) / 111320;
-  return { lat: cLat - latOffsetDeg, lon: cLon, alt, headingDeg: 0, pitchDeg: -78 };
+  return { lat: cLat - latOffsetDeg, lon: cLon, alt, headingDeg: 0, pitchDeg: -68 };
 }
 
 function lerpAngleDeg(from: number, to: number, t: number): number {
@@ -94,8 +107,13 @@ function lerpAngleDeg(from: number, to: number, t: number): number {
   return from + t * delta;
 }
 
-function easeOutQuint(t: number): number {
-  return 1 - (1 - t) ** 5;
+function easeOutCubicSmooth(t: number): number {
+  const t2 = 1 - t;
+  return 1 - t2 * t2 * t2;
+}
+
+function altitudeArc(t: number): number {
+  return Math.sin(t * Math.PI) * 0.08;
 }
 
 const REFERENCE_YEAR = 2024;
@@ -204,6 +222,24 @@ function AnimatedCamera({
     return () => clearInterval(interval);
   }, [initialPose, applyPose]);
 
+  const readCameraPose = useCallback((): CameraPose => {
+    const tiles = tilesRef.current;
+    if (!tiles?.ellipsoid) return { ...currentPose.current };
+    const RAD2DEG = 180 / Math.PI;
+    const result = tiles.ellipsoid.getCartographicFromObjectFrame(
+      camera.matrixWorld,
+      {},
+      CAMERA_FRAME,
+    );
+    return {
+      lat: result.lat * RAD2DEG,
+      lon: result.lon * RAD2DEG,
+      alt: result.height,
+      headingDeg: result.azimuth * RAD2DEG,
+      pitchDeg: result.elevation * RAD2DEG,
+    };
+  }, [camera, tilesRef]);
+
   useEffect(() => {
     if (targetPose === null) {
       prevTarget.current = null;
@@ -211,23 +247,41 @@ function AnimatedCamera({
     }
     if (prevTarget.current === targetPose) return;
     prevTarget.current = targetPose;
-    fromPose.current = { ...currentPose.current };
+    fromPose.current = readCameraPose();
     animProgress.current = 0;
     if (controls) (controls as any).enabled = false;
-  }, [targetPose, controls]);
+
+    const cancelAnim = () => {
+      if (animProgress.current < 1) {
+        animProgress.current = 1;
+        currentPose.current = readCameraPose();
+        if (controls) (controls as any).enabled = true;
+      }
+    };
+    const canvas = gl.domElement;
+    canvas.addEventListener("wheel", cancelAnim, { once: true, passive: true });
+    canvas.addEventListener("pointerdown", cancelAnim, { once: true });
+    return () => {
+      canvas.removeEventListener("wheel", cancelAnim);
+      canvas.removeEventListener("pointerdown", cancelAnim);
+    };
+  }, [targetPose, controls, readCameraPose, gl]);
 
   useFrame((_, delta) => {
     if (!tilesReady.current || animProgress.current >= 1) return;
 
     animProgress.current = Math.min(1, animProgress.current + delta / ANIM_DURATION);
-    const t = easeOutQuint(animProgress.current);
+    const t = easeOutCubicSmooth(animProgress.current);
     const from = fromPose.current;
     const to = prevTarget.current!;
+
+    const altRange = Math.abs(to.alt - from.alt);
+    const arcBoost = altitudeArc(animProgress.current) * Math.max(altRange, 200);
 
     const pose: CameraPose = {
       lat: from.lat + (to.lat - from.lat) * t,
       lon: from.lon + (to.lon - from.lon) * t,
-      alt: from.alt + (to.alt - from.alt) * t,
+      alt: from.alt + (to.alt - from.alt) * t + arcBoost,
       headingDeg: lerpAngleDeg(from.headingDeg, to.headingDeg, t),
       pitchDeg: from.pitchDeg + (to.pitchDeg - from.pitchDeg) * t,
     };
@@ -947,9 +1001,9 @@ function ParcelLayer({
 
   return (
     <>
-      {visibleLayers.parcel && renders.map(({ feature, line, fill, meshGeom, centroid }) => {
+      {renders.filter(({ feature }) => visibleLayers[feature.properties.featureType ?? "parcel"]).map(({ feature, line, fill, meshGeom, centroid }) => {
         const rawName = feature.properties.name || feature.properties.id;
-        const shortLabel = feature.properties.label ?? (rawName.replace(/^lote\s*/i, "").trim() || rawName);
+        const shortLabel = feature.properties.label ?? (rawName.replace(/^lot(?:e)?\s*/i, "").trim() || rawName);
         const status = feature.properties.status ?? "for-sale";
         return (
           <group key={feature.properties.id}>
@@ -1226,11 +1280,6 @@ function getCurrentUruguayHour(): number {
   return Math.min(19, Math.max(6.5, decimal));
 }
 
-function formatHourLabel(hourLocal: number) {
-  const h = Math.floor(hourLocal);
-  const m = Math.floor((hourLocal - h) * 60);
-  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
-}
 
 export function ViewerV2() {
   const [hourLocal, setHourLocal] = useState(getCurrentUruguayHour);
@@ -1261,7 +1310,9 @@ export function ViewerV2() {
   );
 
   const hourUTC = hourLocal - URUGUAY_UTC_OFFSET_HOURS;
-  const timeLabel = formatHourLabel(hourLocal);
+  const h = Math.floor(hourLocal);
+  const m = Math.floor((hourLocal - h) * 60);
+  const timeLabel = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
 
   return (
     <div className="relative h-dvh w-dvw touch-none overflow-hidden bg-[#0b1016]">
@@ -1295,7 +1346,7 @@ export function ViewerV2() {
       )}
 
       <div className="pointer-events-none absolute inset-x-0 top-[max(1.5rem,env(safe-area-inset-top))] z-20 flex justify-center px-4">
-        <Panel className="pointer-events-auto flex w-full max-w-sm items-center gap-2 px-2 py-1.5 text-[13px] font-medium">
+        <Panel className="pointer-events-auto flex items-center gap-2 px-2 py-1.5 text-[13px] font-medium">
           <span className="shrink-0 px-1 text-white/60 max-sm:hidden">Time</span>
           <input
             type="range"
@@ -1311,23 +1362,18 @@ export function ViewerV2() {
             {timeLabel}
           </span>
           <span className="shrink-0 font-mono text-[12px] text-white/50 px-1 max-sm:hidden">UY</span>
-          <div className="flex gap-1">
-            {(["parcel", "road", "water", "tree", "building"] as FeatureType[]).map((ft) => (
-              <button
-                key={ft}
-                type="button"
-                onClick={() => setVisibleLayers((v) => ({ ...v, [ft]: !v[ft] }))}
-                className={`shrink-0 rounded-[var(--radius-md)] px-2 py-1 text-[10px] font-medium uppercase tracking-wider transition-colors ${
-                  visibleLayers[ft]
-                    ? "bg-white/12 text-white"
-                    : "text-white/40 hover:bg-white/10 hover:text-white/70"
-                }`}
-                aria-label={`Toggle ${ft}`}
-              >
-                {ft === "parcel" ? "lots" : ft === "greenspace" ? "green" : ft}
-              </button>
-            ))}
-          </div>
+          <button
+            type="button"
+            onClick={() => setVisibleLayers((v) => ({ ...v, parcel: !v.parcel }))}
+            className={`shrink-0 rounded-[var(--radius-md)] px-2 py-1 text-[10px] font-medium uppercase tracking-wider transition-colors ${
+              visibleLayers.parcel
+                ? "bg-white/12 text-white"
+                : "text-white/40 hover:bg-white/10 hover:text-white/70"
+            }`}
+            aria-label="Toggle parcels"
+          >
+            parcels
+          </button>
         </Panel>
       </div>
 
