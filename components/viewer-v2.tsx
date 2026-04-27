@@ -417,7 +417,7 @@ function ParcelBadge({
       <div
         ref={divRef}
         aria-label={ariaLabel}
-        className="flex size-11 items-center justify-center rounded-full text-sm font-semibold text-white tabular-nums backdrop-blur-sm transition-[background-color,box-shadow] duration-200 ease-out will-change-transform"
+        className="flex size-8 items-center justify-center rounded-full text-[11px] font-semibold leading-none text-white whitespace-nowrap tabular-nums backdrop-blur-sm transition-[background-color,box-shadow] duration-200 ease-out will-change-transform sm:size-11 sm:text-sm sm:leading-normal"
         style={{
           backgroundColor: background,
           boxShadow,
@@ -1008,8 +1008,10 @@ function ParcelLayer({
     <>
       {renders.filter(({ feature }) => visibleLayers[feature.properties.featureType ?? "parcel"]).map(({ feature, line, fill, meshGeom, centroid }) => {
         const rawName = feature.properties.name || feature.properties.id;
-        const shortLabel = feature.properties.label ?? (rawName.replace(/^lot(?:e)?\s*/i, "").trim() || rawName);
-        const status = (feature.properties.label === "CH" || feature.properties.name?.includes("Club")) ? "clubhouse" : (feature.properties.status ?? "for-sale");
+        const isClub = feature.properties.label === "CH" || feature.properties.name?.includes("Club");
+        const status = isClub ? "clubhouse" : (feature.properties.status ?? "for-sale");
+        const shortLabel = feature.properties.label
+          ?? (isClub ? "CH" : rawName.replace(/^lot(?:e)?\s*/i, "").trim() || rawName);
         return (
           <group key={feature.properties.id}>
             <primitive object={line} />
