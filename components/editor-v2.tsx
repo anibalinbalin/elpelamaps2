@@ -420,6 +420,7 @@ export function EditorV2() {
   const savingRef = useRef(false);
   const syncFeaturesRef = useRef<() => void>(() => {});
   const markDirtyRef = useRef<() => void>(() => {});
+  const syncEditabilityRef = useRef<(activeId: string | null) => void>(() => {});
 
   const [access, setAccess] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -529,8 +530,24 @@ export function EditorV2() {
     saveTimerRef.current = setTimeout(() => void save(), 800);
   }, [save]);
 
+  const syncEditability = useCallback(async (activeId: string | null) => {
+    const geoman = geomanRef.current;
+    if (!geoman) return;
+    const collection = geoman.features.exportGeoJson() as FeatureCollection<Geometry>;
+    for (const item of collection.features) {
+      const id = geomanFeatureId(item as GeoJsonShapeFeature);
+      const feature = geoman.features.get(SOURCES.main, id);
+      if (feature) {
+        await feature.setShapeProperty("disableEdit", id !== activeId);
+      }
+    }
+    await geoman.disableGlobalEditMode();
+    await geoman.enableGlobalEditMode();
+  }, []);
+
   syncFeaturesRef.current = syncFeatures;
   markDirtyRef.current = markDirty;
+  syncEditabilityRef.current = syncEditability;
 
   const selectFeatureById = useCallback(async (id: string) => {
     const geoman = geomanRef.current;
@@ -538,6 +555,7 @@ export function EditorV2() {
     if (!geoman) return;
     geoman.features.setSelection([id]);
     setSelectedId(id);
+    syncEditability(id);
     const geomanFeature = exportGeomanCollection().features.find(
       (item) => geomanFeatureId(item as GeoJsonShapeFeature) === id,
     );
@@ -557,7 +575,7 @@ export function EditorV2() {
       new maplibregl.LngLatBounds(coords[0] as [number, number], coords[0] as [number, number]),
     );
     map.fitBounds(bounds as LngLatBoundsLike, { padding: 80, maxZoom: 18, duration: 400 });
-  }, [exportGeomanCollection]);
+  }, [exportGeomanCollection, syncEditability]);
 
   const updateFeatureProps = useCallback(
     async (id: string, patch: Record<string, unknown>) => {
@@ -670,6 +688,12 @@ export function EditorV2() {
         syncFeatures();
       }
 
+      const allFeatures = geoman.features.exportGeoJson() as FeatureCollection<Geometry>;
+      for (const item of allFeatures.features) {
+        const fid = geomanFeatureId(item as GeoJsonShapeFeature);
+        const fd = geoman.features.get(SOURCES.main, fid);
+        if (fd) await fd.setShapeProperty("disableEdit", true);
+      }
       await geoman.enableGlobalEditMode();
 
       map.addLayer({
@@ -710,6 +734,7 @@ export function EditorV2() {
           const id = String(featureData.id);
           syncFeaturesRef.current();
           setSelectedId(id);
+          syncEditabilityRef.current(id);
           markDirtyRef.current();
           void (async () => {
             try {
@@ -721,6 +746,7 @@ export function EditorV2() {
               geoman.features.setSelection([id]);
             } catch { /* normalization is best-effort */ }
             setSelectedId(id);
+            syncEditabilityRef.current(id);
             syncFeaturesRef.current();
             markDirtyRef.current();
           })();
@@ -752,7 +778,9 @@ export function EditorV2() {
 
         if (action === "selection_change") {
           const selection = (event as { selection?: Array<string | number> }).selection ?? [];
-          setSelectedId(selection.length ? String(selection[0]) : null);
+          const newId = selection.length ? String(selection[0]) : null;
+          setSelectedId(newId);
+          syncEditabilityRef.current(newId);
         }
       });
 
@@ -767,14 +795,19 @@ export function EditorV2() {
           .find((item) => item.source === SOURCES.main && (item.properties?.id || item.properties?.__gm_id));
         const id = rendered?.properties?.__gm_id ?? rendered?.properties?.id;
         if (id) {
-          geoman.features.setSelection([String(id)]);
-          setSelectedId(String(id));
+          const featureId = String(id);
+          geoman.features.setSelection([featureId]);
+          setSelectedId(featureId);
+          syncEditabilityRef.current(featureId);
         }
       });
 
       const handleEscape = (event: KeyboardEvent) => {
         if (event.key === "Escape") {
-          void geoman.disableAllModes().then(() => geoman.enableGlobalEditMode());
+          void geoman.disableAllModes().then(() => {
+            geoman.enableGlobalEditMode();
+            syncEditabilityRef.current(null);
+          });
         }
       };
       window.addEventListener("keydown", handleEscape);
