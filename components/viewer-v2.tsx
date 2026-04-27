@@ -346,6 +346,11 @@ const STATUS_PALETTE: Record<string, StatusPalette> = {
     fill: 0x3b82f6, fillAlpha: 0.10,
     lineSelected: 0x93c5fd, fillSelected: 0x60a5fa,
   },
+  clubhouse: {
+    line: 0xc084fc, lineAlpha: 1,
+    fill: 0xa855f7, fillAlpha: 0.16,
+    lineSelected: 0xd8b4fe, fillSelected: 0xc084fc,
+  },
 };
 
 const toHex = (n: number) => `#${n.toString(16).padStart(6, "0")}`;
@@ -921,7 +926,7 @@ function ParcelLayer({
       const mat = line.material as LineBasicMaterial;
       const isSelected = feature.properties.id === selectedId;
       const isHovered  = feature.properties.id === hoveredId;
-      const status = feature.properties.status ?? "for-sale";
+      const status = (feature.properties.label === "CH" || feature.properties.name?.includes("Club")) ? "clubhouse" : (feature.properties.status ?? "for-sale");
       const pal = STATUS_PALETTE[status] ?? STATUS_PALETTE["for-sale"];
 
       if (isSelected) {
@@ -1004,7 +1009,7 @@ function ParcelLayer({
       {renders.filter(({ feature }) => visibleLayers[feature.properties.featureType ?? "parcel"]).map(({ feature, line, fill, meshGeom, centroid }) => {
         const rawName = feature.properties.name || feature.properties.id;
         const shortLabel = feature.properties.label ?? (rawName.replace(/^lot(?:e)?\s*/i, "").trim() || rawName);
-        const status = feature.properties.status ?? "for-sale";
+        const status = (feature.properties.label === "CH" || feature.properties.name?.includes("Club")) ? "clubhouse" : (feature.properties.status ?? "for-sale");
         return (
           <group key={feature.properties.id}>
             <primitive object={line} />

@@ -129,43 +129,66 @@ const FEATURE_TYPE_LABELS: Record<FeatureType, string> = {
   sidewalk: "sidewalks",
 };
 
+const STATUS_STYLES = {
+  reserved: { fill: "#fbbf24", stroke: "#fbbf24", opacity: 0.22 },
+  sold: { fill: "#60a5fa", stroke: "#60a5fa", opacity: 0.16 },
+  clubhouse: { fill: "#c084fc", stroke: "#c084fc", opacity: 0.22 },
+};
+
+const isClubhouse = ["any",
+  ["==", ["get", "label"], "CH"],
+  ["in", "Club", ["get", "name"]],
+];
+
 const FEATURE_COLOR = [
-  "match",
-  ["get", "featureType"],
-  "parcel", FEATURE_STYLES.parcel.stroke,
-  "road", FEATURE_STYLES.road.stroke,
-  "amenity", FEATURE_STYLES.amenity.stroke,
-  "water", FEATURE_STYLES.water.stroke,
-  "greenspace", FEATURE_STYLES.greenspace.stroke,
-  "tree", FEATURE_STYLES.tree.stroke,
-  "building", FEATURE_STYLES.building.stroke,
-  "sidewalk", FEATURE_STYLES.sidewalk.stroke,
-  "#ffffff",
+  "case",
+  isClubhouse, STATUS_STYLES.clubhouse.stroke,
+  ["==", ["get", "status"], "reserved"], STATUS_STYLES.reserved.stroke,
+  ["==", ["get", "status"], "sold"], STATUS_STYLES.sold.stroke,
+  ["match", ["get", "featureType"],
+    "parcel", FEATURE_STYLES.parcel.stroke,
+    "road", FEATURE_STYLES.road.stroke,
+    "amenity", FEATURE_STYLES.amenity.stroke,
+    "water", FEATURE_STYLES.water.stroke,
+    "greenspace", FEATURE_STYLES.greenspace.stroke,
+    "tree", FEATURE_STYLES.tree.stroke,
+    "building", FEATURE_STYLES.building.stroke,
+    "sidewalk", FEATURE_STYLES.sidewalk.stroke,
+    "#ffffff",
+  ],
 ] as unknown as string;
 
 const FEATURE_FILL = [
-  "match",
-  ["get", "featureType"],
-  "parcel", FEATURE_STYLES.parcel.fill,
-  "road", FEATURE_STYLES.road.fill,
-  "amenity", FEATURE_STYLES.amenity.fill,
-  "water", FEATURE_STYLES.water.fill,
-  "greenspace", FEATURE_STYLES.greenspace.fill,
-  "tree", FEATURE_STYLES.tree.fill,
-  "building", FEATURE_STYLES.building.fill,
-  "sidewalk", FEATURE_STYLES.sidewalk.fill,
-  "#ffffff",
+  "case",
+  isClubhouse, STATUS_STYLES.clubhouse.fill,
+  ["==", ["get", "status"], "reserved"], STATUS_STYLES.reserved.fill,
+  ["==", ["get", "status"], "sold"], STATUS_STYLES.sold.fill,
+  ["match", ["get", "featureType"],
+    "parcel", FEATURE_STYLES.parcel.fill,
+    "road", FEATURE_STYLES.road.fill,
+    "amenity", FEATURE_STYLES.amenity.fill,
+    "water", FEATURE_STYLES.water.fill,
+    "greenspace", FEATURE_STYLES.greenspace.fill,
+    "tree", FEATURE_STYLES.tree.fill,
+    "building", FEATURE_STYLES.building.fill,
+    "sidewalk", FEATURE_STYLES.sidewalk.fill,
+    "#ffffff",
+  ],
 ] as unknown as string;
 
 const FEATURE_FILL_OPACITY = [
-  "match",
-  ["get", "featureType"],
-  "parcel", FEATURE_STYLES.parcel.opacity,
-  "amenity", FEATURE_STYLES.amenity.opacity,
-  "water", FEATURE_STYLES.water.opacity,
-  "greenspace", FEATURE_STYLES.greenspace.opacity,
-  "building", FEATURE_STYLES.building.opacity,
-  0.16,
+  "case",
+  isClubhouse, STATUS_STYLES.clubhouse.opacity,
+  ["==", ["get", "status"], "reserved"], STATUS_STYLES.reserved.opacity,
+  ["==", ["get", "status"], "sold"], STATUS_STYLES.sold.opacity,
+  ["match", ["get", "featureType"],
+    "parcel", FEATURE_STYLES.parcel.opacity,
+    "amenity", FEATURE_STYLES.amenity.opacity,
+    "water", FEATURE_STYLES.water.opacity,
+    "greenspace", FEATURE_STYLES.greenspace.opacity,
+    "building", FEATURE_STYLES.building.opacity,
+    0.16,
+  ],
 ] as unknown as number;
 
 const GEOMAN_LAYER_STYLES: GmOptionsPartial["layerStyles"] = {
@@ -452,8 +475,12 @@ export function EditorV2() {
         ? props.name
         : nextNameForFeatureType(featureType, existingNames);
 
+      const safeDefaults: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(defaults)) {
+        if (props[k] === undefined || props[k] === null) safeDefaults[k] = v;
+      }
       await feature.updateProperties({
-        ...defaults,
+        ...safeDefaults,
         id,
         name,
         featureType,
