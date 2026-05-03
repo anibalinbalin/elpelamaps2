@@ -304,6 +304,7 @@ export default function HomePage() {
 
       {/* ── Feature sections on cream ── */}
       <section
+        id="features"
         style={{
           backgroundColor: "var(--color-cream)",
           paddingTop: "80px",
@@ -345,9 +346,9 @@ export default function HomePage() {
           <FeatureBlock
             video="/landing/card-plot-edit.mp4"
             headline="Built for your subdivision."
-            text="Send us your lot plan. We place every parcel on real terrain with accurate sun paths — ready to share in 48 hours."
-            cta="Get in touch"
-            ctaHref="mailto:hello@parcelpin.com?subject=Parcel Pin"
+            text="Send us your lot plan. We place every parcel on real terrain with accurate sun paths, availability, and lead-ready links — ready to share in 48 hours."
+            cta="Masterplan 360"
+            ctaHref="/masterplan-360-loteos"
             align="left"
           />
         </div>
@@ -355,6 +356,7 @@ export default function HomePage() {
 
       {/* ── How it works ── */}
       <section
+        id="how-it-works"
         className="how-it-works-section"
         style={{
           backgroundColor: "var(--color-cream)",
@@ -543,10 +545,16 @@ export default function HomePage() {
 
             {/* Links row */}
             <nav style={{ display: "flex", gap: "24px", flexWrap: "wrap" as const }}>
-              {["Features", "How it works", "Explore viewer"].map((label) => (
+              {[
+                { label: "Features", href: "#features" },
+                { label: "How it works", href: "#how-it-works" },
+                { label: "Masterplan 360", href: "/masterplan-360-loteos" },
+                { label: "3D masterplan", href: "/3d-masterplan-subdivisions" },
+                { label: "Explore viewer", href: "/viewer" },
+              ].map((item) => (
                 <a
-                  key={label}
-                  href="#"
+                  key={item.label}
+                  href={item.href}
                   style={{
                     fontFamily: "var(--font-text)",
                     fontSize: "13px",
@@ -555,7 +563,7 @@ export default function HomePage() {
                     textDecoration: "none",
                   }}
                 >
-                  {label}
+                  {item.label}
                 </a>
               ))}
             </nav>
