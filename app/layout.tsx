@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { Geist_Mono } from "next/font/google";
 import Script from "next/script";
-import { DevTools } from "@/components/dev-tools";
 
 
 import { VersionBadge } from "@/components/version-badge";
@@ -56,7 +55,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {process.env.NODE_ENV === "development" && (
           <>
             <VersionBadge />
-            <DevTools />
 
             <Script src="https://ui.sh/ui-picker.js" />
           </>
